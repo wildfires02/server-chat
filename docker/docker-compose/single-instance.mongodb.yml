@@ -1,0 +1,36 @@
+# MongoDB 数据库单机模式覆盖配置文件
+# 使用方法：docker-compose -f single-instance.yml -f single-instance.mongodb.yml up -d
+
+version: '3.8'
+
+# MongoDB 环境模板
+x-mongodb-im-env-vars: &mongodb-im-env-vars
+  "STORE_USE_ADAPTER": "mongodb"
+
+services:
+  # 覆盖 db 服务为 MongoDB，启用单节点副本集 (rs0)
+  db:
+    image: mongo:4.2.3
+    container_name: mongodb
+    entrypoint: [ "/usr/bin/mongod", "--bind_ip_all", "--replSet", "rs0" ]
+    healthcheck:
+      test: ["CMD", "curl -f http://localhost:28017/ || exit 1"]
+
+  # MongoDB 副本集初始化辅助容器
+  initdb:
+    image: mongo:4.2.3
+    container_name: initdb
+    depends_on:
+      - db
+    command: >
+      bash -c "echo 'Starting replica set initialize';
+      until mongo --host mongodb --eval 'print(\"waited for connection\")'; do sleep 2; done;
+      echo 'Connection finished';
+      echo 'Creating replica set';
+      echo \"rs.initiate({'_id': 'rs0', \"members\": [ {'_id': 0, 'host': 'mongodb:27017'} ]})\" | mongo --host mongodb"
+
+  # 覆盖 im-0 的数据库配置与等待目标
+  im-0:
+    environment:
+      << : *mongodb-im-env-vars
+      "WAIT_FOR": "mongodb:27017"

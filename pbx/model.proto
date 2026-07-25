@@ -1,0 +1,654 @@
+syntax = "proto3";
+package pbx;
+option go_package = "chat/pbx";
+
+// gRPC 客户端需要实现的主节点服务
+service Node {
+	// 客户端发送 ClientMsg 流，服务端响应 ServerMsg 流
+  rpc MessageLoop(stream ClientMsg) returns (stream ServerMsg) {}
+
+	// 大文件上传接口：包含数据块流的请求
+	rpc LargeFileReceive(stream FileUpReq) returns (FileUpResp) {}
+
+	// 大文件下载接口：包含数据块流的响应
+	rpc LargeFileServe(FileDownReq) returns (stream FileDownResp) {}
+}
+
+// 扩展插件服务接口
+service Plugin {
+	// IM 服务端在收到客户端发来的每条消息时都会调用此插件方法。
+	// 方法返回 ServerResp 响应，ServerResp.status 告知 IM 服务端下一步的操作。
+	// 详见下文 RespCode 枚举中的可用值。
+	rpc FireHose(ClientReq) returns (ServerResp) {}
+
+	// 备选的用户与主题（Topic）搜索机制。
+	// 当在 'fnd' 主题上发起搜索请求时，调用此方法生成备选的搜索结果集。
+	rpc Find(SearchQuery) returns (SearchFound) {}
+
+	// 以下方法用于 IM 服务端向上报具体事件：
+
+	// 账号创建、更新或删除事件
+	rpc Account(AccountEvent) returns (Unused) {}
+
+	// 主题（Topic）创建或更新事件（删除暂未支持）
+	rpc Topic(TopicEvent) returns (Unused) {}
+
+	// 订阅关系创建、更新或删除事件
+	rpc Subscription(SubscriptionEvent) returns (Unused) {}
+
+	// 消息发布或删除事件
+	rpc Message(MessageEvent) returns (Unused) {}
+}
+
+// 占位空消息
+message Unused {
+}
+
+// 客户端与服务端通用消息定义
+
+// 身份认证级别
+enum AuthLevel {
+	NONE = 0;
+	ANON = 10;
+	AUTH = 20;
+	ROOT = 30;
+}
+
+// 客户端消息定义
+
+// 主题默认访问权限模式
+message DefaultAcsMode {
+	string auth = 1;
+	string anon = 2;
+}
+
+// 实际访问权限模式
+message AccessMode {
+	// 用户申请的访问权限模式
+	string want = 1;
+	// 管理员授予用户的访问权限模式
+	string given = 2;
+}
+
+// SetSub：在 set.sub 请求中更新当前订阅或邀请其他用户的负载数据，{sub.what} == "sub"
+message SetSub {
+	// 受此请求影响的目标用户 ID。默认为空（当前用户）
+	string user_id = 1;
+
+	// 访问模式变更，根据上下文代表 Given 或 Want
+	string mode = 2;
+}
+
+// 身份凭据（如邮箱或手机号）
+message ClientCred {
+	// 凭据类型，如 `email` 或 `tel`
+	string method = 1;
+	// 待验证的值，如 `user@example.com` 或 `+18003287448`
+	string value = 2;
+	// 验证响应结果
+	string response = 3;
+	// 请求附加参数，如偏好设置或国家代码
+	map<string, bytes> params = 4;
+}
+
+// SetDesc：在 set.what == "desc" 和 sub.init 消息中客户端发往服务端的数据
+message SetDesc {
+	DefaultAcsMode default_acs = 1;
+	bytes public = 2;
+	bytes private = 3;
+	bytes trusted = 4;
+}
+
+message SeqRange {
+	int32 low = 1;
+	int32 hi = 2;
+}
+
+message GetOpts {
+	// 时间戳（自 1970/01/01 Epoch 以来的毫秒数）
+	int64 if_modified_since = 1;
+	// 限制仅搜索此用户 ID
+	string user = 2;
+	// 限制搜索结果仅属于单个主题
+	string topic = 3;
+	// 加载 seq_id 大于或等于此值的消息
+	int32 since_id = 4;
+	// 加载 seq_id 小于此值的消息
+	int32 before_id = 5;
+	// 返回结果的最大条数
+	int32 limit = 6;
+	// 根据具体 ID 或 ID 范围段加载消息
+	repeated SeqRange ranges = 7;
+}
+
+message GetQuery {
+	string what = 1;
+
+	// "desc" 请求的参数
+	GetOpts desc = 2;
+	// "sub" 请求的参数
+	GetOpts sub = 3;
+	// "data" 请求的参数
+	GetOpts data = 4;
+}
+
+message SetQuery {
+	// 主题元数据，仅在新建主题和新建订阅时使用
+	SetDesc desc = 1;
+	// 订阅参数
+	SetSub sub = 2;
+	// 可索引的搜索标签
+	repeated string tags = 3;
+	// 待更新的身份凭据
+	ClientCred cred = 4;
+	// 辅助业务数据
+	map<string, bytes> aux = 5;
+}
+
+// 客户端握手消息
+message ClientHi {
+	string id = 1;
+	string user_agent = 2;
+	string ver = 3;
+	string device_id = 4;
+	string lang = 5;
+	string platform = 6;
+	bool background = 7;
+}
+
+// 用户创建/修改消息 {acc}
+message ClientAcc {
+	string id = 1;
+	// 正在创建或修改的目标用户 ID
+	string user_id = 2;
+	// 账号初始可用的认证方案
+	string scheme = 3;
+	// 共享密钥或密码
+	bytes secret = 4;
+	// 创建新账号后是否自动为当前会话完成登录认证
+	bool login = 5;
+	// 用于用户发现的可索引标签
+	repeated string tags = 6;
+	// 创建新用户时的初始化数据，其他情况下忽略
+	SetDesc desc = 7;
+	// 用于验证的身份凭据
+	repeated ClientCred cred = 8;
+	// 用于重置密码的认证 Token
+	bytes token = 9;
+	// 账号状态：正常 ("ok")，冻结 ("suspended")
+	string state = 10;
+	// 认证权限级别
+	AuthLevel auth_level = 11;
+	// 用于密码重置等一次性操作的临时认证参数
+	string tmp_scheme = 12;
+	bytes tmp_secret = 13;
+}
+
+// 登录认证消息 {login}
+message ClientLogin  {
+	string id = 1;
+	// 认证方案 (basic, token 等)
+	string scheme  = 2;
+	// 共享密钥
+	bytes secret = 3;
+	// 用于验证的身份凭据
+	repeated ClientCred cred = 4;
+}
+
+// 订阅请求消息 {sub}
+message ClientSub {
+	string id = 1;
+	string topic  = 2;
+
+	// 镜像 {set} 参数
+	SetQuery set_query = 3;
+
+	// 镜像 {get} 参数
+	GetQuery get_query = 4;
+}
+
+// 取消订阅/离开请求消息 {leave}
+message ClientLeave {
+	string id = 1;
+	string topic  = 2;
+	bool unsub = 3;
+}
+
+// 客户端发布消息请求 {pub}（向主题订阅者广播数据）
+message ClientPub {
+	string id = 1;
+	string topic = 2;
+	bool no_echo = 3;
+	map<string, bytes> head = 4;
+	bytes content = 5;
+}
+
+// 查询主题状态请求 {get}
+message ClientGet {
+	string id = 1;
+	string topic = 2;
+	GetQuery query = 3;
+}
+
+// 更新主题状态请求 {set}
+message ClientSet {
+	string id = 1;
+	string topic = 2;
+	SetQuery query = 3;
+}
+
+// 客户端删除消息或主题请求 {del}
+message ClientDel {
+	string id = 1;
+	string topic = 2;
+	// 删除类型："msg" 删除消息（默认），"topic" 删除主题，"sub" 删除订阅
+	enum What {
+		// 无效占位值，枚举名必须全局唯一
+		X0 = 0;
+		MSG = 1;
+		TOPIC = 2;
+		SUB = 3;
+		USER = 4;
+		CRED = 5;
+	}
+	What what = 3;
+	// 按单条 ID 或 ID 范围段删除消息
+	repeated SeqRange del_seq = 4;
+	// 待删除订阅的目标用户 ID
+	string user_id = 5;
+	// 待删除的身份凭据
+	ClientCred cred = 6;
+	// 是否请求彻底物理删除消息（对所有用户生效）
+	bool hard = 7;
+}
+
+enum InfoNote {
+	// 无效占位值，枚举名必须全局唯一
+	X1 = 0;
+	READ = 1;
+	RECV = 2;
+	KP = 3;
+	CALL = 4;
+}
+
+enum CallEvent {
+	// 无效占位值，枚举名必须全局唯一
+	X2 = 0;
+	ACCEPT = 1;
+	ANSWER = 2;
+	HANG_UP = 3;
+	ICE_CANDIDATE = 4;
+	INVITE = 5;
+	OFFER = 6;
+	RINGING = 7;
+}
+
+// 客户端生成的订阅者状态通知消息 {note}
+message ClientNote {
+	string topic = 1;
+	// 报告的状态类型："recv"-收到消息，"read"-已读消息，"kp"-正在输入通知，"call"-音视频通话
+	InfoNote what = 2;
+	// 正在报告的服务端消息 ID (seq_id)
+	int32 seq_id = 3;
+	// 客户端未读消息计数（上报给服务端用于 iOS 远程推送）
+	int32 unread = 4;
+	// 通话事件类型
+	CallEvent event = 5;
+	// 自定义 JSON 负载（常用于视频通话信令）
+	bytes payload = 6;
+}
+
+message ClientExtra {
+	repeated string attachments = 1;
+	// 超级管理员（Root）可以代其他用户发送消息
+	string on_behalf_of = 2;
+	AuthLevel auth_level = 3;
+}
+
+message ClientMsg {
+	oneof Message {
+		ClientHi hi = 1;
+		ClientAcc acc = 2;
+		ClientLogin login = 3;
+		ClientSub sub = 4;
+		ClientLeave leave = 5;
+		ClientPub pub = 6;
+		ClientGet get = 7;
+		ClientSet set = 8;
+		ClientDel del = 9;
+		ClientNote note = 10;
+	}
+	// 消息附加扩展参数
+	ClientExtra extra = 13;
+}
+
+// ************************
+// 服务端响应消息定义
+
+// 身份凭据
+message ServerCred {
+	// 凭据类型，如 `email` 或 `tel`
+	string method = 1;
+	// 待验证的值，如 `user@example.com` 或 `+18003287448`
+	string value = 2;
+	// 凭据是否已完成验证标记
+	bool done = 3;
+}
+
+// 主题描述结构，在 Meta 消息中由服务端发往客户端 (S2C)
+message TopicDesc {
+	int64 created_at = 1;
+	int64 updated_at = 2;
+	int64 touched_at = 3;
+	DefaultAcsMode defacs = 4;
+	AccessMode acs = 5;
+	int32 seq_id = 6;
+	int32 read_id = 7;
+	int32 recv_id = 8;
+	int32 del_id = 9;
+	bytes public = 10;
+	bytes private = 11;
+	string state = 12;
+	int64 state_at = 13;
+	bytes trusted = 14;
+	bool is_chan = 17; // 频道标识！
+	bool online = 18;
+
+	// 仅限点对点 (P2P) 会话：对方用户的最后在线时间戳与 User Agent
+	int64 last_seen_time = 15;
+	string last_seen_user_agent = 16;
+}
+
+// TopicSub：主题订阅详细信息，在 Meta 消息中发送
+message TopicSub {
+	int64 updated_at = 1;
+	int64 deleted_at = 2;
+
+	bool online = 3;
+
+	AccessMode acs = 4;
+	int32 read_id = 5;
+	int32 recv_id = 6;
+	bytes public  = 7;
+	bytes trusted = 16;
+	bytes private = 8;
+
+	// 对非 'me' 主题的响应：
+
+	// 已订阅用户的 ID
+	string user_id = 9;
+
+	// 仅限 'me' 个人主题：
+
+	// 该订阅对应的目标主题名称
+	string topic = 10;
+	int64 touched_at = 11;
+	// 主题中最新一条 {data} 消息的 ID (seq_id)
+	int32 seq_id = 12;
+	// 截至此 ID 的消息已被删除
+	int32 del_id = 13;
+
+	// 仅限点对点 (P2P) 主题：
+
+	// 对方用户的最后在线时间戳与 User Agent
+	int64 last_seen_time = 14;
+	string last_seen_user_agent = 15;
+}
+
+message DelValues {
+	int32 del_id = 1;
+	repeated SeqRange del_seq = 2;
+}
+
+// {ctrl} 控制响应消息
+message ServerCtrl {
+	string id = 1;
+	string topic = 2;
+	int32 code = 3;
+	string text = 4;
+	map<string, bytes> params = 5;
+}
+
+// {data} 聊天数据消息
+message ServerData {
+	string topic = 1;
+	// 发送该消息（通过 {pub}）的原始用户 ID，若为系统发送则可能为空
+	string from_user_id = 2;
+	// 消息发送的时间戳
+	int64 timestamp = 7;
+	// 消息删除的时间戳（自 1970/01/01 Epoch 以来的毫秒数），未删除时为 0
+	int64 deleted_at = 3;
+	int32 seq_id = 4;
+	map<string, bytes> head = 5;
+	bytes content = 6;
+}
+
+// {pres} 状态在线提示消息
+message ServerPres {
+	string topic = 1;
+	string src = 2;
+	enum What {
+		// 无效占位值，枚举名必须全局唯一
+		X3 = 0;
+		ON = 1;
+		OFF = 2;
+		UA = 3;
+		UPD = 4;
+		GONE = 5;
+		ACS = 6;
+		TERM = 7;
+		MSG = 8;
+		READ = 9;
+		RECV = 10;
+		DEL = 11;
+		TAGS = 12;
+		AUX = 13;
+	}
+	What what = 3;
+	string user_agent = 4;
+	int32 seq_id = 5;
+	int32 del_id = 6;
+	repeated SeqRange del_seq = 7;
+	string target_user_id = 8;
+	string actor_user_id = 9;
+	AccessMode acs = 10;
+}
+
+// {meta} 元数据响应消息
+message ServerMeta {
+	string id = 1;
+	string topic = 2;
+
+	TopicDesc desc = 3;
+	repeated TopicSub sub = 4;
+	DelValues del = 5;
+	repeated string tags = 6;
+	repeated ServerCred cred = 7;
+	map<string, bytes> aux = 8;
+}
+
+// {info} 通知消息：ServerNote 的服务端副本，补充了 From 和可选的 Src
+message ServerInfo {
+	string topic = 1;
+	string from_user_id = 2;
+	InfoNote what = 3;
+	int32 seq_id = 4;
+	string src = 5;
+	CallEvent event = 6;
+	bytes payload = 7;
+}
+
+// 服务端汇总总包消息
+message ServerMsg {
+	oneof Message {
+		ServerCtrl ctrl = 1;
+		ServerData data = 2;
+		ServerPres pres = 3;
+		ServerMeta meta = 4;
+		ServerInfo info = 5;
+	}
+	// 已废弃，即将移除
+	string topic = 6 [deprecated = true];
+}
+
+// 插件响应代码
+enum RespCode {
+	// 指示 IM 服务端按默认流程继续处理客户端请求
+	CONTINUE = 0;
+	// 静默丢弃该请求，如同客户端未曾发送
+	DROP = 1;
+	// 直接向客户端发送指定的 srvmsg 响应。ServerResp 必须包含非空的 srvmsg
+	RESPOND = 2;
+	// 将客户端的原始请求替换为提供的 clmsg 请求，然后再继续处理。ServerResp 必须包含非空的 clmsg
+	REPLACE = 3;
+}
+
+message ServerResp {
+	RespCode status = 1;
+	ServerMsg srvmsg = 2;
+	ClientMsg clmsg = 3;
+}
+
+// 会话上下文消息
+message Session {
+	string session_id = 1;
+	string user_id = 2;
+	AuthLevel auth_level = 3;
+	string remote_addr = 4;
+	string user_agent = 5;
+	string device_id = 6;
+	string language = 7;
+}
+
+message ClientReq {
+	ClientMsg msg = 1;
+	Session sess = 2;
+}
+
+// 搜索请求与结果
+
+message SearchQuery {
+	string user_id = 1;
+	string query = 2;
+}
+
+message SearchFound {
+	RespCode status = 1;
+	// 若 status == REPLACE，则表示替换后的新搜索查询语句，否则未设置
+	string query = 2;
+	// 搜索结果列表
+	repeated TopicSub result = 3;
+}
+
+// CRUD 事件类型
+
+enum Crud {
+	CREATE = 0;
+	UPDATE = 1;
+	DELETE = 2;
+}
+
+message TopicEvent {
+	Crud action = 1;
+	string name = 2;
+	TopicDesc desc = 3;
+}
+
+message AccountEvent {
+	Crud action = 1;
+	string user_id = 2;
+
+	DefaultAcsMode default_acs = 3;
+	bytes public = 4;
+
+	// 用于用户发现的可索引标签
+	repeated string tags = 8;
+}
+
+message SubscriptionEvent {
+	Crud action = 1;
+	string topic = 2;
+	string user_id = 3;
+
+	int32 del_id = 4;
+	int32 read_id = 5;
+	int32 recv_id = 6;
+
+	AccessMode mode = 7;
+
+	bytes private = 8;
+}
+
+message MessageEvent {
+	Crud action = 1;
+	ServerData msg = 2;
+}
+
+// 大文件处理消息定义
+
+message Auth {
+	string scheme = 1;
+	string secret = 2;
+}
+
+// 文件元数据描述
+message FileMeta {
+	string name = 1;
+	string mime_type = 2;
+	string etag = 3;
+	int64 size = 4;
+}
+
+// 文件上传请求
+message FileUpReq {
+	// 请求 ID
+	string id = 1;
+	// 请求认证凭据
+	Auth auth = 2;
+	// 该上传文件所属的目标主题（Topic）
+	string topic = 3;
+	// 上传的文件元数据
+	FileMeta meta = 4;
+	// 文件数据块
+	bytes content = 5;
+}
+
+// 文件上传响应
+message FileUpResp {
+	// 响应 ID
+	string id = 1;
+	// 响应状态码
+	int32 code = 2;
+	// 响应文本消息
+	string text = 3;
+	FileMeta meta = 4;
+	// 新上传重定向 URL 位置
+	string redir_url = 5;
+}
+
+// 文件下载请求
+message FileDownReq {
+	// 请求 ID
+	string id = 1;
+	// 请求认证凭据
+	Auth auth = 2;
+	// 待下载的目标文件 URI
+	string uri = 3;
+	// ETag 缓存校验
+	string if_modified = 4;
+}
+
+// 文件下载响应
+message FileDownResp {
+	// 响应 ID
+	string id = 1;
+	// 响应状态码
+	int32 code = 2;
+	// 响应文本消息
+	string text = 3;
+	FileMeta meta = 4;
+	// 重定向文件位置
+	string redir_url = 5;
+	// 文件数据块字节流
+	bytes content = 6;
+}

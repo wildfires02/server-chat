@@ -1,0 +1,31 @@
+# Executables and compiled binaries
+cli/cli
+cli/cli.exe
+cli/im-cli
+cli/im-cli.exe
+init-db/init-db
+init-db/init-db.exe
+init-db/im-db
+init-db/im-db.exe
+server/server
+server/server.exe
+server/im-server
+server/im-server.exe
+rest-auth/rest-auth
+rest-auth/rest-auth.exe
+monitoring/exporter/exporter
+monitoring/exporter/exporter.exe
+keygen/keygen
+keygen/keygen.exe
+chatbot/chatbot
+chatbot/chatbot.exe
+
+# Local cookies and runtime state
+.cli-cookie
+.tn-cli-cookie
+.chatbot-cookie
+
+# IDE and OS files
+.DS_Store
+*.tmp
+*.test

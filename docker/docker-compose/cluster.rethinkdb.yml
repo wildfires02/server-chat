@@ -1,0 +1,30 @@
+# RethinkDB 数据库集群模式覆盖配置文件
+# 使用方法：docker-compose -f cluster.yml -f cluster.rethinkdb.yml up -d
+
+version: '3.8'
+
+# RethinkDB 环境模板
+x-rethinkdb-im-env-vars: &rethinkdb-im-env-vars
+  "STORE_USE_ADAPTER": "rethinkdb"
+
+services:
+  # 覆盖 db 服务为 RethinkDB
+  db:
+    image: rethinkdb:2.4.2
+    container_name: rethinkdb
+    healthcheck:
+      test: ["CMD", "curl -f http://localhost:8080/ || exit 1"]
+
+  # 覆盖所有集群节点的数据库配置
+  im-0:
+    environment:
+      << : *rethinkdb-im-env-vars
+      "WAIT_FOR": "rethinkdb:8080"
+
+  im-1:
+    environment:
+      << : *rethinkdb-im-env-vars
+
+  im-2:
+    environment:
+      << : *rethinkdb-im-env-vars

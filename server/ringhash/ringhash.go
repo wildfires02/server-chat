@@ -1,0 +1,133 @@
+// Package ringhash 实现一致性环哈希：
+// https://en.wikipedia.org/wiki/Consistent_hashing
+package ringhash
+
+import (
+	"encoding/ascii85"
+	"hash/crc32"
+	"hash/fnv"
+	"sort"
+	"strconv"
+
+	"chat/server/logs"
+)
+
+// Hash 是本包使用的哈希函数签名。
+type Hash func(data []byte) uint32
+
+type elem struct {
+	key  string
+	hash uint32
+}
+
+type sortable []elem
+
+func (k sortable) Len() int      { return len(k) }
+func (k sortable) Swap(i, j int) { k[i], k[j] = k[j], k[i] }
+func (k sortable) Less(i, j int) bool {
+	// 弱哈希函数可能导致冲突。
+	if k[i].hash < k[j].hash {
+		return true
+	}
+	if k[i].hash == k[j].hash {
+		return k[i].key < k[j].key
+	}
+	return false
+}
+
+// Ring 是环哈希的定义。
+type Ring struct {
+	keys []elem // 排序后的键列表。
+
+	signature string
+	replicas  int
+	hashfunc  Hash
+}
+
+// New 初始化一个空的环哈希，给定副本数量和哈希函数。
+// 如果哈希函数为 nil，则使用 crc32.NewIEEE()。
+func New(replicas int, fn Hash) *Ring {
+	ring := &Ring{
+		replicas: replicas,
+		hashfunc: fn,
+	}
+	if ring.hashfunc == nil {
+		ring.hashfunc = func(data []byte) uint32 {
+			hash := crc32.NewIEEE()
+			hash.Write(data)
+			return hash.Sum32()
+		}
+	}
+	return ring
+}
+
+// Len 返回环中键的数量。
+func (ring *Ring) Len() int {
+	return len(ring.keys)
+}
+
+// Add 将键添加到环中。
+func (ring *Ring) Add(keys ...string) {
+	for _, key := range keys {
+		for i := range ring.replicas {
+			ring.keys = append(ring.keys, elem{
+				hash: ring.hashfunc([]byte(strconv.Itoa(i) + key)),
+				key:  key})
+		}
+	}
+	sort.Sort(sortable(ring.keys))
+
+	// 计算签名
+	hash := fnv.New128a()
+	b := make([]byte, 4)
+	for _, key := range ring.keys {
+		b[0] = byte(key.hash)
+		b[1] = byte(key.hash >> 8)
+		b[2] = byte(key.hash >> 16)
+		b[3] = byte(key.hash >> 24)
+		hash.Write(b)
+		hash.Write([]byte(key.key))
+	}
+
+	b = []byte{}
+	b = hash.Sum(b)
+	dst := make([]byte, ascii85.MaxEncodedLen(len(b)))
+	ascii85.Encode(dst, b)
+	ring.signature = string(dst)
+}
+
+// Get 返回环中与提供的键最近的项。
+func (ring *Ring) Get(key string) string {
+
+	if ring.Len() == 0 {
+		return ""
+	}
+
+	hash := ring.hashfunc([]byte(key))
+
+	// 二分查找合适的副本。
+	idx := sort.Search(len(ring.keys), func(i int) bool {
+		el := ring.keys[i]
+		return (el.hash > hash) || (el.hash == hash && el.key >= key)
+	})
+
+	// 表示已循环回到第一个副本。
+	if idx == len(ring.keys) {
+		idx = 0
+	}
+
+	return ring.keys[idx].key
+}
+
+// Signature 返回环的哈希签名。两个相同的环哈希
+// 将具有相同的签名。两个具有不同键数量、副本数
+// 或哈希函数的环哈希将具有不同的签名。
+func (ring *Ring) Signature() string {
+	return ring.signature
+}
+
+func (ring *Ring) dump() {
+	for _, e := range ring.keys {
+		logs.Info.Printf("key: '%s', hash=%d", e.key, e.hash)
+	}
+}

@@ -1,0 +1,14 @@
+{
+  "go.buildTags": "rethinkdb mysql postgres mongodb",
+  "go.buildFlags": [
+    "-tags=rethinkdb mysql postgres mongodb"
+  ],
+  "go.testFlags": [
+    "-tags=rethinkdb mysql postgres mongodb"
+  ],
+  "gopls": {
+    "build.buildFlags": [
+      "-tags=rethinkdb mysql postgres mongodb"
+    ]
+  }
+}

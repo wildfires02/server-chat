@@ -1,0 +1,33 @@
+# PostgreSQL 数据库集群模式覆盖配置文件
+# 使用方法：docker-compose -f cluster.yml -f cluster.postgres.yml up -d
+
+version: '3.8'
+
+# PostgreSQL 环境模板
+x-postgres-im-env-vars: &postgres-im-env-vars
+  "STORE_USE_ADAPTER": "postgres"
+  "POSTGRES_DSN": "postgresql://postgres:postgres@postgres:5432/im?sslmode=disable&connect_timeout=10"
+
+services:
+  # 覆盖 db 服务为 PostgreSQL 15.2
+  db:
+    image: postgres:15.2
+    container_name: postgres
+    environment:
+      - POSTGRES_PASSWORD=postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+
+  # 覆盖所有集群节点的数据库连接参数
+  im-0:
+    environment:
+      << : *postgres-im-env-vars
+      "WAIT_FOR": "postgres:5432"
+
+  im-1:
+    environment:
+      << : *postgres-im-env-vars
+
+  im-2:
+    environment:
+      << : *postgres-im-env-vars
