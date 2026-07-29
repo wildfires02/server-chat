@@ -168,6 +168,25 @@ func TestSignature(t *testing.T) {
 	}
 }
 
+// TestDefaultHashMatchesIEEE 验证默认的字符串零分配路径与标准 IEEE CRC32 完全一致。
+func TestDefaultHashMatchesIEEE(t *testing.T) {
+	defaultRing := ringhash.New(256, nil)
+	standardRing := ringhash.New(256, crc32.ChecksumIEEE)
+	nodes := []string{"im-0", "im-1", "im-2", "im-3", "im-4"}
+	defaultRing.Add(nodes...)
+	standardRing.Add(nodes...)
+
+	if defaultRing.Signature() != standardRing.Signature() {
+		t.Fatal("默认字符串 CRC32 与标准 IEEE CRC32 生成了不同 Ring")
+	}
+	for index := range 10_000 {
+		topic := fmt.Sprintf("grp-ieee-%d", index)
+		if defaultRing.Get(topic) != standardRing.Get(topic) {
+			t.Fatalf("Topic %q 的默认 Owner 与标准 IEEE CRC32 不一致", topic)
+		}
+	}
+}
+
 // BenchmarkGet8 衡量 Get 8 相关操作的性能。
 func BenchmarkGet8(b *testing.B) { benchmarkGet(b, 8) }
 

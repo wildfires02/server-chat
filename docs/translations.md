@@ -2,7 +2,6 @@
 
 **重要说明**：进行多语言翻译时，请基于 `devel` 开发分支进行。
 
----
 
 ## 1. Web 客户端 (Webapp)
 
@@ -33,7 +32,6 @@ const i18n = {
 }
 ```
 
----
 
 ## 3. Android 客户端
 
@@ -41,7 +39,6 @@ Android 端需翻译的文件为 `app/src/main/res/values/strings.xml`。
 
 在 `app/src/main/res` 目录下创建新的 `values-XX` 目录（例如中文为 `values-zh` 或 `values-zh-rCN`）。将英文 `strings.xml` 复制到该目录下，翻译所有未标记 `translatable="false"` 的节点文本即可。
 
----
 
 ## 4. iOS 客户端
 

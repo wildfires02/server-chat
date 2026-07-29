@@ -1,0 +1,18 @@
+syntax = "proto3";
+package pbx;
+option go_package = "chat/api/pbx";
+
+import "chat.proto";
+import "file.proto";
+
+// gRPC 客户端需要实现的主节点服务
+service Node {
+	// 客户端发送 ClientMsg 流，服务端响应 ServerMsg 流
+  rpc MessageLoop(stream ClientMsg) returns (stream ServerMsg) {}
+
+	// 大文件上传接口：包含数据块流的请求
+	rpc LargeFileReceive(stream FileUpReq) returns (FileUpResp) {}
+
+	// 大文件下载接口：包含数据块流的响应
+	rpc LargeFileServe(FileDownReq) returns (stream FileDownResp) {}
+}

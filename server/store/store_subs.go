@@ -49,7 +49,11 @@ func (subsMapper) Create(subs ...*types.Subscription) error {
 
 	for _, sub := range subs {
 		sub.InitTimes()
-		if subscriptionTopic != "" && sub.Topic != subscriptionTopic {
+		// me/fnd 等临时 Topic 没有持久化 Topic 计数，同一批中允许包含
+		// 一个用户的多个临时订阅；普通群组和频道仍必须保持单 Topic 原子更新。
+		subCounterTopic := subscriptionCounterTopic(sub.Topic)
+		if (counterTopic != "" && sub.Topic != subscriptionTopic) ||
+			(counterTopic == "" && subCounterTopic != "") {
 			return fmt.Errorf("all subscriptions must be for the same topic, got %s vs %s",
 				sub.Topic, subscriptionTopic)
 		}

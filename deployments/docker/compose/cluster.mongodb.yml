@@ -1,0 +1,48 @@
+services:
+  db:
+    image: ${MONGODB_IMAGE:-mongo:8.0.26}
+    command:
+      - mongod
+      - --bind_ip_all
+      - --replSet=rs0
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mongosh --quiet --eval 'db.adminCommand("ping").ok' localhost:27017/test
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - mongodb-data:/data/db
+
+  mongo-init:
+    image: ${MONGODB_IMAGE:-mongo:8.0.26}
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -ec
+    command:
+      - mongosh --host db:27017 --eval 'try { rs.status() } catch (error) { rs.initiate({_id:"rs0",members:[{_id:0,host:"db:27017"}]}) }'
+
+  db-init:
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    environment: &mongodb-environment
+      IM_STORE_CONFIG__USE_ADAPTER: mongodb
+      IM_STORE_CONFIG__ADAPTERS__MONGODB__ADDRESSES: db:27017
+      IM_STORE_CONFIG__ADAPTERS__MONGODB__REPLICA_SET: rs0
+      IM_DB_WAIT_FOR: db:27017
+
+  im-0:
+    environment: *mongodb-environment
+  im-1:
+    environment: *mongodb-environment
+  im-2:
+    environment: *mongodb-environment
+
+volumes:
+  mongodb-data:

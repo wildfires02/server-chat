@@ -1,0 +1,91 @@
+name: im-standalone
+
+x-im-environment: &im-environment
+  IM_CONFIG_FILE: /etc/im/im.yaml
+  IM_STORE_CONFIG__USE_ADAPTER: mysql
+  IM_STORE_CONFIG__ADAPTERS__MYSQL__DSN: root:${MYSQL_ROOT_PASSWORD:-local-im-password}@tcp(db:3306)/im?parseTime=true&collation=utf8mb4_0900_ai_ci
+  IM_DB_WAIT_FOR: db:3306
+  IM_DB_WAIT_TIMEOUT: "120"
+
+x-im-runtime: &im-runtime
+  image: ${IM_IMAGE:-im/im:dev}
+  init: true
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+
+services:
+  db:
+    image: ${MYSQL_IMAGE:-mysql:8.4.11}
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-local-im-password}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping --silent -h 127.0.0.1 -p"$${MYSQL_ROOT_PASSWORD}"
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+    volumes:
+      - db-data:/var/lib/mysql
+
+  db-init:
+    <<: *im-runtime
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      <<: *im-environment
+      IM_DB_INIT_MODE: ${IM_DB_INIT_MODE:-init}
+      IM_DB_SAMPLE_DATA: /opt/im/data.json
+      IM_ALLOW_DESTRUCTIVE_DB_RESET: ${IM_ALLOW_DESTRUCTIVE_DB_RESET:-false}
+      IM_RUN_SERVER: "false"
+
+  im-server:
+    <<: *im-runtime
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *im-environment
+      IM_DB_INIT_MODE: skip
+    ports:
+      - "6060:6060"
+      - "16060:16060"
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    volumes:
+      - uploads:/var/lib/im/.local/uploads
+    cap_drop:
+      - ALL
+    stop_grace_period: 60s
+
+  exporter:
+    image: ${EXPORTER_IMAGE:-im/exporter:dev}
+    profiles:
+      - observability
+    init: true
+    restart: unless-stopped
+    depends_on:
+      im-server:
+        condition: service_healthy
+    environment:
+      SERVE_FOR: prometheus
+      IM_ADDR: http://im-server:6060/debug/vars
+      INSTANCE: im-standalone
+      WAIT_FOR: im-server:6060
+    ports:
+      - "6222:6222"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  db-data:
+  uploads:

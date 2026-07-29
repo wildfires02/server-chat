@@ -11,10 +11,10 @@ This adapter requires you to obtain your own credentials from Google Firebase. I
 
 1. Create a project at https://firebase.google.com/ if you have not done so already.
 2. Follow instructions at https://cloud.google.com/iam/docs/creating-managing-service-account-keys to download the credentials file.
-3. Update the server config [`im.conf`](../../im.conf), section `"push"` -> `"name": "fcm"`. Do _ONE_ of the following:
-  * _Either_ enter the path to the downloaded credentials file into `"credentials_file"`.
-  * _OR_ copy the file contents to `"credentials"`.<br/><br/>
-    Remove the other entry. I.e. if you have updated `"credentials_file"`, remove `"credentials"` and vice versa.
+3. Update the `name: fcm` item in the `push` list of [`configs/im.yaml`](../../../configs/im.yaml). Do _ONE_ of the following:
+  * _Either_ enter the downloaded credentials path in `config.credentials_file`.
+  * _OR_ copy its object fields into `config.credentials`.<br/><br/>
+    Remove the unused entry so only one credentials source remains.
 4. Update webapp config (`firebase-init.js`): update `apiKey`, `messagingSenderId`, `projectId`, `appId`, `messagingVapidKey`.
 
 ### iOS and Android

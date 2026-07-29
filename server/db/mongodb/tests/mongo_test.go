@@ -23,11 +23,11 @@ import (
 	"testing"
 	"time"
 
+	"chat/internal/configutil"
 	adapter "chat/server/db"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/spf13/viper"
 	b "go.mongodb.org/mongo-driver/bson"
 	mdb "go.mongodb.org/mongo-driver/mongo"
 	mdbopts "go.mongodb.org/mongo-driver/mongo/options"
@@ -1318,24 +1318,10 @@ func mismatchErrorString(key string, got, want any) string {
 func init() {
 	logs.Init(os.Stderr, "stdFlags")
 	adp = backend.GetTestAdapter()
-	conffile := flag.String("config", "./test.conf", "config of the database connection")
+	conffile := flag.String("config", "./test.yaml", "数据库连接 YAML 配置文件")
 
-	data, err := os.ReadFile(*conffile)
-	if err != nil {
-		log.Fatal("Failed to read config file:", err)
-	}
-	clean := stripJSONComments(data)
-	v := viper.New()
-	v.SetConfigType("json")
-	if err := v.ReadConfig(bytes.NewBuffer(clean)); err != nil {
-		log.Fatal("Failed to parse config file:", err)
-	}
-	jsonBytes, err := json.Marshal(v.AllSettings())
-	if err != nil {
-		log.Fatal("Failed to marshal config:", err)
-	}
-	if err := json.Unmarshal(jsonBytes, &config); err != nil {
-		log.Fatal("Failed to unmarshal config:", err)
+	if err := configutil.DecodeFile(*conffile, &config); err != nil {
+		log.Fatal(err)
 	}
 
 	if adp == nil {
@@ -1345,7 +1331,7 @@ func init() {
 		log.Print("Connection is already opened")
 	}
 
-	err = adp.Open(config.Adapters[adp.GetName()])
+	err := adp.Open(config.Adapters[adp.GetName()])
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -1355,67 +1341,4 @@ func init() {
 	if testData == nil {
 		log.Fatal("Failed to initialize test data")
 	}
-}
-
-// stripJSONComments 完成stripJSONComments所需的内部处理。
-func stripJSONComments(data []byte) []byte {
-	var buf bytes.Buffer
-	inString := false
-	inCommentSingle := false
-	inCommentMulti := false
-	escaped := false
-
-	for i := 0; i < len(data); i++ {
-		ch := data[i]
-
-		if inCommentSingle {
-			if ch == '\n' {
-				inCommentSingle = false
-				buf.WriteByte(ch)
-			}
-			continue
-		}
-
-		if inCommentMulti {
-			if ch == '*' && i+1 < len(data) && data[i+1] == '/' {
-				inCommentMulti = false
-				i++
-			}
-			continue
-		}
-
-		if inString {
-			buf.WriteByte(ch)
-			if escaped {
-				escaped = false
-			} else if ch == '\\' {
-				escaped = true
-			} else if ch == '"' {
-				inString = false
-			}
-			continue
-		}
-
-		if ch == '"' {
-			inString = true
-			buf.WriteByte(ch)
-			continue
-		}
-
-		if ch == '/' && i+1 < len(data) {
-			if data[i+1] == '/' {
-				inCommentSingle = true
-				i++
-				continue
-			}
-			if data[i+1] == '*' {
-				inCommentMulti = true
-				i++
-				continue
-			}
-		}
-
-		buf.WriteByte(ch)
-	}
-	return buf.Bytes()
 }

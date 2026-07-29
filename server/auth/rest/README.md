@@ -2,7 +2,8 @@
 
 本认证器允许使用独立的外部进程作为“单一事实来源”（Source of Truth）来对 IM 用户进行身份验证及账号创建。例如，如果企业账号由 LDAP 统一管理，则可以通过该服务使用同一个 LDAP 服务来处理 IM 的用户认证。
 
-该认证器通过 HTTP(S) POST 方式调用指定的认证服务。在 [rest-auth](../../../rest-auth/) 目录中提供了一个参考服务端骨架实现。请求可以由单一 Endpoint 处理，也可以由针对每个请求的独立 Endpoint 处理。
+该认证器通过 HTTP(S) POST 方式调用指定的认证服务。在
+[cmd/rest-auth](../../../cmd/rest-auth/) 中提供了参考服务实现。
 
 请求和响应的载荷格式均为 JSON。部分请求或响应字段取决于上下文，可以省略。
 
@@ -28,36 +29,27 @@
 
 ## 配置说明
 
-在 [im.conf](../../im.conf) 的 `auth_config` 配置项中添加以下内容：
+在 [configs/im.yaml](../../../configs/im.yaml) 的 `auth_config` 配置项中添加以下内容：
 
-```js
-...
-"auth_config": {
-  ...
-  "rest": {
-    // ServerUrl 为要调用的认证服务器的 URL。URL 必须是绝对路径：
-    // 必须包含 scheme（如 http 或 https）以及主机名。
-    "server_url": "http://127.0.0.1:5000/",
-    // 是否允许认证服务器创建新账号。
-    "allow_new_accounts": true,
-    // 是否使用独立 Endpoint，即发送请求时在 serverUrl 路径后追加端点名称：
-    // 例如：http://127.0.0.1:5000/add
-    "use_separate_endpoints": true
-  },
-  ...
-},
+```yaml
+auth_config:
+  rest:
+    # URL 必须包含 http/https scheme 和主机名。
+    server_url: http://127.0.0.1:5000/
+    allow_new_accounts: true
+    # 为 true 时会在 server_url 后追加具体端点名称。
+    use_separate_endpoints: true
 ```
 
 如果你想使用自定义的认证器**替代**默认的 `basic`（用户名密码）认证，可以配置逻辑重命名并在原名称处禁用 `rest`：
 
-```js
-...
-"auth_config": {
-  "logical_names": ["basic:rest", "rest:"],
-  "rest": { ... },
-  ...
-},
-...
+```yaml
+auth_config:
+  logical_names:
+    - basic:rest
+    - "rest:"
+  rest:
+    server_url: http://127.0.0.1:5000/
 ```
 
 ---

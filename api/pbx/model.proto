@@ -1,0 +1,9 @@
+syntax = "proto3";
+package pbx;
+option go_package = "chat/api/pbx";
+
+import public "chat.proto";
+import public "cluster.proto";
+import public "file.proto";
+import public "node.proto";
+import public "plugin.proto";

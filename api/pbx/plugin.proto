@@ -1,0 +1,170 @@
+syntax = "proto3";
+package pbx;
+option go_package = "chat/api/pbx";
+
+import "chat.proto";
+
+// 扩展插件服务接口
+service Plugin {
+	// IM 服务端在收到客户端发来的每条消息时都会调用此插件方法。
+	// 方法返回 ServerResp 响应，ServerResp.status 告知 IM 服务端下一步的操作。
+	// 详见下文 RespCode 枚举中的可用值。
+	rpc FireHose(ClientReq) returns (ServerResp) {}
+
+	// 备选的用户与主题（Topic）搜索机制。
+	// 当在 'fnd' 主题上发起搜索请求时，调用此方法生成备选的搜索结果集。
+	rpc Find(SearchQuery) returns (SearchFound) {}
+
+	// 以下方法用于 IM 服务端向上报具体事件：
+
+	// 账号创建、更新或删除事件
+	rpc Account(AccountEvent) returns (Unused) {}
+
+	// 主题（Topic）创建或更新事件（删除暂未支持）
+	rpc Topic(TopicEvent) returns (Unused) {}
+
+	// 订阅关系创建、更新或删除事件
+	rpc Subscription(SubscriptionEvent) returns (Unused) {}
+
+	// 消息发布或删除事件
+	rpc Message(MessageEvent) returns (Unused) {}
+}
+
+// 占位空消息
+message Unused {
+}
+
+// 插件响应代码
+enum RespCode {
+	// 指示 IM 服务端按默认流程继续处理客户端请求
+	CONTINUE = 0;
+	// 静默丢弃该请求，如同客户端未曾发送
+	DROP = 1;
+	// 直接向客户端发送指定的 srvmsg 响应。ServerResp 必须包含非空的 srvmsg
+	RESPOND = 2;
+	// 将客户端的原始请求替换为提供的 clmsg 请求，然后再继续处理。ServerResp 必须包含非空的 clmsg
+	REPLACE = 3;
+}
+
+// ServerResp 定义 ServerResp 的 Protobuf 消息结构。
+message ServerResp {
+	// status 保存该消息字段对应的协议值。
+	RespCode status = 1;
+	// srvmsg 保存该消息字段对应的协议值。
+	ServerMsg srvmsg = 2;
+	// clmsg 保存该消息字段对应的协议值。
+	ClientMsg clmsg = 3;
+}
+
+// 会话上下文消息
+message Session {
+	// session_id 保存该消息字段对应的协议值。
+	string session_id = 1;
+	// user_id 保存该消息字段对应的协议值。
+	string user_id = 2;
+	// auth_level 保存该消息字段对应的协议值。
+	AuthLevel auth_level = 3;
+	// remote_addr 保存该消息字段对应的协议值。
+	string remote_addr = 4;
+	// user_agent 保存该消息字段对应的协议值。
+	string user_agent = 5;
+	// device_id 保存该消息字段对应的协议值。
+	string device_id = 6;
+	// language 保存该消息字段对应的协议值。
+	string language = 7;
+}
+
+// ClientReq 定义 ClientReq 的 Protobuf 消息结构。
+message ClientReq {
+	// msg 保存该消息字段对应的协议值。
+	ClientMsg msg = 1;
+	// sess 保存该消息字段对应的协议值。
+	Session sess = 2;
+}
+
+// 搜索请求与结果
+
+message SearchQuery {
+	// user_id 保存该消息字段对应的协议值。
+	string user_id = 1;
+	// query 保存该消息字段对应的协议值。
+	string query = 2;
+}
+
+// SearchFound 定义 SearchFound 的 Protobuf 消息结构。
+message SearchFound {
+	// status 保存该消息字段对应的协议值。
+	RespCode status = 1;
+	// 若 status == REPLACE，则表示替换后的新搜索查询语句，否则未设置
+	string query = 2;
+	// 搜索结果列表
+	repeated TopicSub result = 3;
+}
+
+// CRUD 事件类型
+
+enum Crud {
+	// CREATE 表示该枚举对应的协议状态。
+	CREATE = 0;
+	// UPDATE 表示该枚举对应的协议状态。
+	UPDATE = 1;
+	// DELETE 表示该枚举对应的协议状态。
+	DELETE = 2;
+}
+
+// TopicEvent 定义 TopicEvent 的 Protobuf 消息结构。
+message TopicEvent {
+	// action 保存该消息字段对应的协议值。
+	Crud action = 1;
+	// name 保存该消息字段对应的协议值。
+	string name = 2;
+	// desc 保存该消息字段对应的协议值。
+	TopicDesc desc = 3;
+}
+
+// AccountEvent 定义 AccountEvent 的 Protobuf 消息结构。
+message AccountEvent {
+	// action 保存该消息字段对应的协议值。
+	Crud action = 1;
+	// user_id 保存该消息字段对应的协议值。
+	string user_id = 2;
+
+	// default_acs 保存该消息字段对应的协议值。
+	DefaultAcsMode default_acs = 3;
+	// public 保存该消息字段对应的协议值。
+	bytes public = 4;
+
+	// 用于用户发现的可索引标签
+	repeated string tags = 8;
+}
+
+// SubscriptionEvent 定义 SubscriptionEvent 的 Protobuf 消息结构。
+message SubscriptionEvent {
+	// action 保存该消息字段对应的协议值。
+	Crud action = 1;
+	// topic 保存该消息字段对应的协议值。
+	string topic = 2;
+	// user_id 保存该消息字段对应的协议值。
+	string user_id = 3;
+
+	// del_id 保存该消息字段对应的协议值。
+	int32 del_id = 4;
+	// read_id 保存该消息字段对应的协议值。
+	int32 read_id = 5;
+	// recv_id 保存该消息字段对应的协议值。
+	int32 recv_id = 6;
+
+	// mode 保存该消息字段对应的协议值。
+	AccessMode mode = 7;
+
+	// private 保存该消息字段对应的协议值。
+	bytes private = 8;
+}
+
+// MessageEvent 定义 MessageEvent 的 Protobuf 消息结构。
+message MessageEvent {
+	// action 保存该消息字段对应的协议值。
+	Crud action = 1;
+	// msg 保存该消息字段对应的协议值。
+	ServerData msg = 2;
+}

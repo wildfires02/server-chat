@@ -1,0 +1,146 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: im-server-config
+  labels:
+    app.kubernetes.io/name: im-server
+data:
+  im.yaml: |
+    # 生产基础配置不包含任何 Secret；空标量由 StatefulSet 环境变量覆盖。
+    runtime:
+      environment: production
+      deployment_mode: cluster
+
+    listen: ":6060"
+    api_path: /
+    grpc_listen: ":16060"
+    grpc_keepalive_enabled: true
+    static_mount: /
+    expvar: "-"
+    server_status: "-"
+    use_x_forwarded_for: true
+    x_frame_options: DENY
+
+    health:
+      live_path: /livez
+      ready_path: /readyz
+      drain_path: /drainz
+      topology_path: /clusterz
+      drain_timeout: 30s
+
+    api_key_salt: ""
+    max_message_size: 4194304
+    max_subscriber_count: 10000
+    max_tag_count: 32
+    permanent_accounts: false
+    p2p_delete_enabled: true
+    msg_delete_age: 0
+    alias_tag: alias
+
+    auth_config:
+      logical_names: []
+      basic:
+        add_to_tags: true
+        min_login_length: 3
+        min_password_length: 10
+      token:
+        expire_in: 1209600
+        serial_num: 1
+        key: ""
+
+    store_config:
+      uid_key: ""
+      max_results: 1024
+      use_adapter: postgres
+      adapters:
+        postgres:
+          dsn: ""
+          max_open_conns: 200
+          max_idle_conns: 50
+          conn_max_lifetime: 300
+
+    # 生产媒体必须使用共享对象存储，Pod 本地磁盘不能保存唯一文件。
+    media:
+      use_handler: s3
+      max_size: 33554432
+      gc_period: 60
+      gc_block_size: 100
+      handlers:
+        s3:
+          access_key_id: ""
+          secret_access_key: ""
+          region: ""
+          bucket: ""
+          endpoint: ""
+          disable_ssl: false
+          force_path_style: false
+          presign_ttl: 3600
+          cache_control: max-age=86400
+          cors_origins: []
+
+    webrtc:
+      enabled: false
+      call_establishment_timeout: 30
+      ice_servers_file: ""
+      agora:
+        enabled: false
+        app_id: ""
+        app_certificate: ""
+        token_ttl: 3600
+        channel_prefix: im
+        max_participants: 128
+
+    cluster_config:
+      cluster_id: im-production
+      expected_replicas: 3
+      initial_members:
+        - im-0
+        - im-1
+        - im-2
+      # self 与 advertise_addr 由 Downward API 环境变量按 Pod 覆盖。
+      self: ""
+      advertise_addr: ""
+      nodes:
+        - name: im-0
+          addr: im-0.im-headless:12000
+        - name: im-1
+          addr: im-1.im-headless:12000
+        - name: im-2
+          addr: im-2.im-headless:12000
+        - name: im-3
+          addr: im-3.im-headless:12000
+        - name: im-4
+          addr: im-4.im-headless:12000
+      control_plane:
+        provider: etcd
+        endpoints:
+          - https://etcd-0.etcd-headless.infrastructure.svc.cluster.local:2379
+          - https://etcd-1.etcd-headless.infrastructure.svc.cluster.local:2379
+          - https://etcd-2.etcd-headless.infrastructure.svc.cluster.local:2379
+        namespace: /im/production
+        lease_ttl: 10s
+        dial_timeout: 5s
+        username: ""
+        password: ""
+        tls:
+          ca_file: /run/secrets/etcd/ca.pem
+          cert_file: /run/secrets/etcd/client.pem
+          key_file: /run/secrets/etcd/client-key.pem
+          server_name: etcd
+      transport:
+        listen: 0.0.0.0:12000
+        lane_count: 8
+        reliable_queue_capacity: 4096
+        ephemeral_queue_capacity: 1024
+        dial_timeout: 3s
+        request_timeout: 5s
+        max_retries: 2
+        retry_backoff: 100ms
+        dedupe_capacity: 65536
+        dedupe_ttl: 2m
+      tls:
+        ca_file: /run/secrets/cluster/ca.pem
+        cert_file: /run/secrets/cluster/cert.pem
+        key_file: /run/secrets/cluster/key.pem
+
+    plugins: []

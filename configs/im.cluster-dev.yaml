@@ -1,0 +1,134 @@
+# IM 服务端本机三节点开发集群配置。
+#
+# 本文件用于开发调试，使用单个无 TLS etcd 和本机 MySQL；不能用于 staging
+# 或 production。生产环境必须使用 im.cluster.yaml。
+runtime:
+  environment: development
+  deployment_mode: cluster
+
+listen: ":6060"
+api_path: /
+cache_control: 39600
+ws_compression_disabled: false
+static_mount: /
+grpc_listen: ":16060"
+grpc_keepalive_enabled: true
+expvar: /debug/vars
+server_status: "-"
+health:
+  live_path: /livez
+  ready_path: /readyz
+  drain_path: /drainz
+  topology_path: /clusterz
+  drain_timeout: 15s
+use_x_forwarded_for: false
+x_frame_options: SAMEORIGIN
+default_country_code: CN
+
+# 仅限开发使用的固定密钥。
+api_key_salt: T713/rYYgW7g4m3vG6zGRh7+FM1t0T8j13koXScOAj4=
+max_message_size: 4194304
+max_subscriber_count: 1000
+max_tag_count: 32
+permanent_accounts: false
+p2p_delete_enabled: true
+msg_delete_age: 0
+alias_tag: alias
+
+media:
+  use_handler: fs
+  max_size: 33554432
+  gc_period: 60
+  gc_block_size: 100
+  handlers:
+    fs:
+      upload_dir: .local/uploads
+      cache_control: max-age=86400
+      cors_origins:
+        - http://localhost:6060
+        - http://localhost:6061
+        - http://localhost:6062
+
+tls:
+  enabled: false
+
+auth_config:
+  logical_names: []
+  basic:
+    add_to_tags: true
+    min_login_length: 3
+    min_password_length: 6
+  token:
+    expire_in: 1209600
+    serial_num: 1
+    key: wfaY2RgF2S1OQI/ZlK+LSrp1KB2jwAdGAIHQ7JZn+Kc=
+
+store_config:
+  uid_key: la6YsO+bNX/+XIkOqc5Svw==
+  max_results: 1024
+  use_adapter: mysql
+  adapters:
+    mysql:
+      dsn: root:123456@tcp(127.0.0.1:3306)/im?parseTime=true&collation=utf8mb4_0900_ai_ci
+      max_open_conns: 64
+      max_idle_conns: 32
+      conn_max_lifetime: 60
+      sql_timeout: 10
+
+acc_gc_config:
+  enabled: false
+  gc_period: 3600
+  gc_block_size: 10
+  gc_min_account_age: 30
+
+push: []
+
+webrtc:
+  enabled: false
+  call_establishment_timeout: 30
+  ice_servers_file: ""
+  agora:
+    enabled: false
+    app_id: ""
+    app_certificate: ""
+    token_ttl: 3600
+    channel_prefix: im
+    max_participants: 128
+
+cluster_config:
+  cluster_id: im-local-development
+  expected_replicas: 3
+  initial_members:
+    - one
+    - two
+    - three
+  # scripts/run-cluster.sh 按进程覆盖 self、advertise_addr 和 transport.listen。
+  self: ""
+  advertise_addr: ""
+  nodes:
+    - name: one
+      addr: 127.0.0.1:12000
+    - name: two
+      addr: 127.0.0.1:12001
+    - name: three
+      addr: 127.0.0.1:12002
+  control_plane:
+    provider: etcd
+    endpoints:
+      - http://127.0.0.1:2379
+    namespace: /im/local-development
+    lease_ttl: 10s
+    dial_timeout: 3s
+  transport:
+    listen: 127.0.0.1:12000
+    lane_count: 4
+    reliable_queue_capacity: 1024
+    ephemeral_queue_capacity: 256
+    dial_timeout: 2s
+    request_timeout: 5s
+    max_retries: 2
+    retry_backoff: 100ms
+    dedupe_capacity: 16384
+    dedupe_ttl: 2m
+
+plugins: []

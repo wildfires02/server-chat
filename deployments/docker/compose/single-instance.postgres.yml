@@ -1,0 +1,31 @@
+services:
+  db:
+    image: ${POSTGRES_IMAGE:-postgres:17.10-alpine3.23}
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-im-password}
+      POSTGRES_DB: postgres
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U postgres -d postgres
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  db-init:
+    environment:
+      IM_STORE_CONFIG__USE_ADAPTER: postgres
+      IM_STORE_CONFIG__ADAPTERS__POSTGRES__DSN: postgresql://postgres:${POSTGRES_PASSWORD:-local-im-password}@db:5432/im?sslmode=disable&connect_timeout=10
+      IM_DB_WAIT_FOR: db:5432
+
+  im-server:
+    environment:
+      IM_STORE_CONFIG__USE_ADAPTER: postgres
+      IM_STORE_CONFIG__ADAPTERS__POSTGRES__DSN: postgresql://postgres:${POSTGRES_PASSWORD:-local-im-password}@db:5432/im?sslmode=disable&connect_timeout=10
+      IM_DB_WAIT_FOR: db:5432
+
+volumes:
+  postgres-data:

@@ -1,5 +1,10 @@
 # 音视频通话建立流程设计规范
 
+> 文档信息
+>
+> - 类型：协议与架构说明
+> - 完整报文：[服务端协议参考](API.md#音视频通话-video-calls)
+
 本文包含两条通话路径：
 
 - P2P Topic 使用 [WebRTC](https://webrtc.org/) 和 IM 信令交换 SDP/ICE。
@@ -14,8 +19,6 @@
 - 客户端发往服务端的事件均通过设置了通话 `topic` 与 `seq` 字段的 `{note}` 消息进行派发。
 - 服务端发往客户端的数据通过在 `me` 主题上设置了 `src`（通话主题）与 `seq` 字段的 `{info}` 消息（和/或 Data 离线推送通知）进行路由。
 - 假设 Alice 和 Bob 均可能多端同时在线（多设备登录）。
-
----
 
 ## 流程阶段划分
 
@@ -78,8 +81,6 @@ sequenceDiagram
     end
 ```
 
----
-
 ## 详细步骤说明
 
 ### 1. 通话发起 (Call Initiation)
@@ -111,8 +112,6 @@ sequenceDiagram
 ### 4. 通话挂断 (Call Termination)
 16. 任何一方点击挂断，发送 `hang-up` 事件。
 17. 服务端转发 `hang-up` 事件并广播带有 `webrtc=finished` Header 的结束消息。
-
----
 
 ## Agora 群组通话建立流程
 

@@ -1,0 +1,7 @@
+# RethinkDB 集成测试配置。
+reset_db_data: true
+adapters:
+  rethinkdb:
+    # 节点地址可以是字符串或字符串数组。
+    addresses: localhost:28015
+    database: im_test

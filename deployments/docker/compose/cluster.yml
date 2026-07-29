@@ -1,0 +1,161 @@
+name: im-cluster-dev
+
+x-im-environment: &im-environment
+  IM_CONFIG_FILE: /etc/im/im.cluster.yaml
+  IM_STORE_CONFIG__USE_ADAPTER: mysql
+  IM_STORE_CONFIG__ADAPTERS__MYSQL__DSN: root:${MYSQL_ROOT_PASSWORD:-local-im-password}@tcp(db:3306)/im?parseTime=true&collation=utf8mb4_0900_ai_ci
+  IM_DB_WAIT_FOR: db:3306
+  IM_DB_WAIT_TIMEOUT: "120"
+
+x-im-runtime: &im-runtime
+  image: ${IM_IMAGE:-im/im:dev}
+  init: true
+  restart: unless-stopped
+  volumes:
+    - ./im.cluster.yaml:/etc/im/im.cluster.yaml:ro
+  read_only: true
+  tmpfs:
+    - /tmp:size=128m,mode=1777
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  stop_grace_period: 60s
+
+services:
+  db:
+    image: ${MYSQL_IMAGE:-mysql:8.4.11}
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-local-im-password}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping --silent -h 127.0.0.1 -p"$${MYSQL_ROOT_PASSWORD}"
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+    volumes:
+      - db-data:/var/lib/mysql
+
+  etcd:
+    image: ${ETCD_IMAGE:-gcr.io/etcd-development/etcd:v3.7.1}
+    restart: unless-stopped
+    command:
+      - /usr/local/bin/etcd
+      - --name=etcd
+      - --data-dir=/etcd-data
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --advertise-client-urls=http://etcd:2379
+    healthcheck:
+      test:
+        - CMD
+        - /usr/local/bin/etcdctl
+        - --endpoints=http://127.0.0.1:2379
+        - endpoint
+        - health
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - etcd-data:/etcd-data
+
+  db-init:
+    <<: *im-runtime
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      <<: *im-environment
+      IM_DB_INIT_MODE: ${IM_DB_INIT_MODE:-init}
+      IM_DB_SAMPLE_DATA: /opt/im/data.json
+      IM_ALLOW_DESTRUCTIVE_DB_RESET: ${IM_ALLOW_DESTRUCTIVE_DB_RESET:-false}
+      IM_RUN_SERVER: "false"
+
+  im-0:
+    <<: *im-runtime
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      etcd:
+        condition: service_healthy
+    environment:
+      <<: *im-environment
+      IM_DB_INIT_MODE: skip
+      IM_CLUSTER_CONFIG__SELF: im-0
+      IM_CLUSTER_CONFIG__ADVERTISE_ADDR: im-0:12000
+    ports:
+      - "6060:6060"
+      - "16060:16060"
+    volumes:
+      - ./im.cluster.yaml:/etc/im/im.cluster.yaml:ro
+      - uploads-0:/var/lib/im/.local/uploads
+
+  im-1:
+    <<: *im-runtime
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      etcd:
+        condition: service_healthy
+    environment:
+      <<: *im-environment
+      IM_DB_INIT_MODE: skip
+      IM_CLUSTER_CONFIG__SELF: im-1
+      IM_CLUSTER_CONFIG__ADVERTISE_ADDR: im-1:12000
+    ports:
+      - "6061:6060"
+      - "16061:16060"
+    volumes:
+      - ./im.cluster.yaml:/etc/im/im.cluster.yaml:ro
+      - uploads-1:/var/lib/im/.local/uploads
+
+  im-2:
+    <<: *im-runtime
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      etcd:
+        condition: service_healthy
+    environment:
+      <<: *im-environment
+      IM_DB_INIT_MODE: skip
+      IM_CLUSTER_CONFIG__SELF: im-2
+      IM_CLUSTER_CONFIG__ADVERTISE_ADDR: im-2:12000
+    ports:
+      - "6062:6060"
+      - "16062:16060"
+    volumes:
+      - ./im.cluster.yaml:/etc/im/im.cluster.yaml:ro
+      - uploads-2:/var/lib/im/.local/uploads
+
+  exporter:
+    image: ${EXPORTER_IMAGE:-im/exporter:dev}
+    profiles:
+      - observability
+    init: true
+    restart: unless-stopped
+    depends_on:
+      im-0:
+        condition: service_healthy
+    environment:
+      SERVE_FOR: prometheus
+      IM_ADDR: http://im-0:6060/debug/vars
+      INSTANCE: im-0
+      WAIT_FOR: im-0:6060
+    ports:
+      - "6222:6222"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  db-data:
+  etcd-data:
+  uploads-0:
+  uploads-1:
+  uploads-2:

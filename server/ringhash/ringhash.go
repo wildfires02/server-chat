@@ -59,18 +59,10 @@ type Ring struct {
 // New 初始化一个空的环哈希，给定副本数量和哈希函数。
 // 如果哈希函数为 nil，则使用 crc32.NewIEEE()。
 func New(replicas int, fn Hash) *Ring {
-	ring := &Ring{
+	return &Ring{
 		replicas: replicas,
 		hashfunc: fn,
 	}
-	if ring.hashfunc == nil {
-		ring.hashfunc = func(data []byte) uint32 {
-			hash := crc32.NewIEEE()
-			hash.Write(data)
-			return hash.Sum32()
-		}
-	}
-	return ring
 }
 
 // Len 返回环中键的数量。
@@ -83,7 +75,7 @@ func (ring *Ring) Add(keys ...string) {
 	for _, key := range keys {
 		for i := range ring.replicas {
 			ring.keys = append(ring.keys, elem{
-				hash: ring.hashfunc([]byte(strconv.Itoa(i) + key)),
+				hash: ring.hashString(strconv.Itoa(i) + key),
 				key:  key})
 		}
 	}
@@ -115,7 +107,7 @@ func (ring *Ring) Get(key string) string {
 		return ""
 	}
 
-	hash := ring.hashfunc([]byte(key))
+	hash := ring.hashString(key)
 
 	// 二分查找合适的副本。
 	idx := sort.Search(len(ring.keys), func(i int) bool {
@@ -129,6 +121,25 @@ func (ring *Ring) Get(key string) string {
 	}
 
 	return ring.keys[idx].key
+}
+
+// hashString 对默认 CRC32 路径使用可内联的无状态函数，避免每次
+// Topic 路由创建 hash.Hash 或因动态函数调用产生字节切片堆分配。
+func (ring *Ring) hashString(value string) uint32 {
+	if ring.hashfunc == nil {
+		return checksumIEEEString(value)
+	}
+	return ring.hashfunc([]byte(value))
+}
+
+// checksumIEEEString 直接遍历只读字符串计算 IEEE CRC32，避免把 Topic
+// 名称转换成逃逸到堆上的 []byte。算法与 crc32.ChecksumIEEE 等价。
+func checksumIEEEString(value string) uint32 {
+	checksum := ^uint32(0)
+	for index := range len(value) {
+		checksum = crc32.IEEETable[byte(checksum)^value[index]] ^ (checksum >> 8)
+	}
+	return ^checksum
 }
 
 // Signature 返回环的哈希签名。两个相同的环哈希

@@ -36,6 +36,9 @@ type Adapter interface {
 	Version() int
 	// Stats 返回数据库连接统计对象。
 	Stats() any
+	// ClusterFenceAdvance 单调推进指定逻辑集群的数据库 fencing epoch。
+	// 实现不得把已经提交的 epoch 回退到更小值。
+	ClusterFenceAdvance(clusterID string, epoch int64) error
 
 	// 用户管理
 
@@ -158,6 +161,7 @@ type Adapter interface {
 	// MessageSave 保存消息到数据库。
 	MessageSave(msg *t.Message) error
 	// MessageSaveAtomic 原子地更新 Topic 游标并保存消息。
+	// 集群消息还必须在同一事务内校验数据库 fencing epoch 和 Topic Owner。
 	MessageSaveAtomic(msg *t.Message) error
 	// MessageGetByClientId 按发送方生成的幂等键读取已持久化消息。
 	MessageGetByClientId(topic string, from t.Uid, clientID string) (*t.Message, error)

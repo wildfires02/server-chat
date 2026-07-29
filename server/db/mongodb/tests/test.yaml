@@ -1,0 +1,9 @@
+# MongoDB 集成测试配置。
+reset_db_data: true
+adapters:
+  mongodb:
+    database: im_test
+    addresses: localhost:27017
+    # replica_set: rs0
+    # username: im_test
+    # password: im_test

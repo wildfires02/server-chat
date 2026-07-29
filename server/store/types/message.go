@@ -50,6 +50,10 @@ type Topic struct {
 
 	// 服务器发放的顺序 ID
 	SeqId int
+	// ClusterOwner 是最后一次成功持久化消息时持有 Topic 写入权的集群节点。
+	ClusterOwner string
+	// ClusterEpoch 是 ClusterOwner 对应的全局 Cluster View Revision。
+	ClusterEpoch int64
 	// 如果消息被删除，删除它们的最后一次操作的顺序 id
 	DelId int
 
@@ -159,6 +163,12 @@ type Message struct {
 	ClientId string `json:"ClientId,omitempty" bson:",omitempty"`
 	// ClientKey 是由 From 和 ClientId 哈希生成的数据库唯一索引值。
 	ClientKey string `json:"ClientKey,omitempty" bson:",omitempty"`
+	// ClusterId 标识产生本次写入令牌的逻辑集群，仅参与服务端持久化校验。
+	ClusterId string `json:"-" bson:"-"`
+	// ClusterEpoch 是 etcd 线性一致 Cluster View 的 Revision，用作全局 fencing token。
+	ClusterEpoch int64 `json:"-" bson:"-"`
+	// ClusterOwner 是当前 Cluster View 通过一致性哈希计算出的 Topic Owner 节点。
+	ClusterOwner string `json:"-" bson:"-"`
 	// Head 同时保存客户端自定义头和服务端管理的 x-* 消息元数据。
 	Head KVMap `json:"Head,omitempty" bson:",omitempty"`
 	// Content 是纯文本字符串或经过验证的 Drafty 文档。
@@ -202,6 +212,24 @@ func MessageClientKey(from Uid, clientID string) string {
 	raw, _ := from.MarshalBinary()
 	sum := sha256.Sum256(append(raw, clientID...))
 	return base64.RawURLEncoding.EncodeToString(sum[:])
+}
+
+// ClusterFenceKey 将逻辑集群 ID 转换为长度固定的数据库全局 fencing 键。
+// 使用摘要可以让任意合法 cluster_id 都落在 SQL kvmeta 的 64 字符键长度内。
+func ClusterFenceKey(clusterID string) string {
+	sum := sha256.Sum256([]byte(clusterID))
+	return "cluster.fence." + base64.RawURLEncoding.EncodeToString(sum[:])
+}
+
+// HasClusterFence 判断消息是否携带完整的集群写入令牌。
+func (msg *Message) HasClusterFence() bool {
+	return msg != nil && msg.ClusterId != "" && msg.ClusterEpoch > 0 && msg.ClusterOwner != ""
+}
+
+// HasAnyClusterFenceField 判断消息是否设置过任一集群写入令牌字段。
+// 适配器用它区分 standalone 写入和缺字段的损坏集群写入。
+func (msg *Message) HasAnyClusterFenceField() bool {
+	return msg != nil && (msg.ClusterId != "" || msg.ClusterEpoch != 0 || msg.ClusterOwner != "")
 }
 
 // InitClientKey 在消息带 cid 时初始化持久化幂等索引键。

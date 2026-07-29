@@ -1,141 +1,113 @@
-# IM 聊天服务端本地启动与部署指南
+# 本地开发启动指南
 
-本文档提供 IM 聊天服务端的本地开发环境准备、数据库初始化、编译启动及常见问题排查指南。
+本文提供从空环境到服务可访问的最短路径，只适用于本地开发、自动化测试和
+问题复现。生产环境必须使用集群配置和正式部署模板。
 
----
+## 1. 准备环境
 
-## 1. 环境准备
+需要：
 
-在本地运行服务前，请确认具备以下环境：
+- Go 1.26 或与 `go.mod` 一致的更新版本。
+- Docker，用于启动本地 MySQL；也可以使用已有 MySQL 8.0。
+- 未被占用的 `6060` 和 `16060` 端口。
 
-- **Go 开发环境**：Go 1.22 及以上版本（推荐 Go 1.26+）
-- **数据库**：MySQL 8.0+（默认配置）、PostgreSQL 12+、MongoDB 或 RethinkDB
-  > **小贴士（通过 Docker 快速启动 MySQL）**：
-  >
-  > ```bash
-  > docker run -d --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=123456 mysql:8.0
-  > ```
-
----
-
-## 2. 配置文件检查
-
-打开项目根目录下的配置文件 [`server/im.conf`](./server/im.conf)，确认 `store_config.adapters.mysql` 节中的数据库连接参数：
-
-```json
-"store_config": {
-    "use_adapter": "mysql",
-    "adapters": {
-        "mysql": {
-            "User": "root",
-            "Passwd": "你的数据库密码",
-            "Net": "tcp",
-            "Addr": "localhost",
-            "Port": "3306",
-            "DBName": "im"
-        }
-    }
-}
-```
-
----
-
-## 3. 数据库初始化 (建表与导入基础数据)
-
-首次启动服务前，**必须**使用 `init-db` 工具创建数据库结构并生成默认数据集：
+启动开发数据库：
 
 ```bash
-cd init-db
-
-# 1. 编译数据库初始化工具 im-db (选择对应数据库 tag，如 mysql)
-go build -tags mysql -o im-db .
-
-# 2. 执行数据库建表与数据导入 (--reset=true 会重置/重建数据库表及导入示例账号)
-./im-db --config=../server/im.conf --data=data.json --reset=true
+docker run -d --name im-mysql-dev \
+  -p 3306:3306 \
+  -e MYSQL_ROOT_PASSWORD=123456 \
+  mysql:8.0
 ```
 
-初始化成功后，控制台会输出：
+`configs/im.standalone.yaml` 使用相同的本地示例密码。该密码只允许用于隔离的
+开发环境。
 
-```text
-Sample data processing completed.
-All done.
-```
+## 2. 构建
 
----
-
-## 4. 编译与启动服务
-
-返回 `server` 目录，准备资源目录并启动 `im-server` 服务：
+在仓库根目录执行：
 
 ```bash
-cd ../server
-
-# 1. 创建静态资源目录 (避免静态目录缺失导致服务退出)
-mkdir -p static
-
-# 2. 编译服务端程序
-go build -tags mysql -o im-server .
-
-# 3. 启动服务
-./im-server --config=./im.conf
+mkdir -p bin
+go build -tags mysql -o bin/init-db ./cmd/init-db
+go build -tags mysql -o bin/im-server ./cmd/im-server
 ```
 
-### 成功启动标识：
+其他数据库的构建标签见[安装与构建](INSTALL.md)。
 
-控制台输出如下日志表示服务已就绪：
-
-```text
-INFO server/hdl_grpc.go:181  gRPC/1.82.0 server is registered at [:16060]
-INFO server/http.go:81      Listening for client HTTP connections on [:6060]
-```
-
----
-
-## 5. 常见问题排查 (FAQ)
-
-### Q1: `Static content directory is not found .../server/static`
-
-- **原因**：服务端默认会挂载 `server/static` 目录。若该目录不存在则会抛错。
-- **解决**：
-  在 `server` 目录下执行 `mkdir -p static`，或在启动时添加参数 `--static_data="-"` 显式禁用静态挂载。
-
-### Q2: `bind: address already in use` 端口冲突
-
-- **原因**：默认端口 `:6060` (HTTP) 或 `:16060` (gRPC) 已被本地其他进程或 Docker 容器占用。
-- **解决**：
-  - **方法 1（推荐）**：关闭占用的容器或进程。
-  - **方法 2**：命令行指定新端口启动：
-    ```bash
-    ./im-server --config=./im.conf --listen=:6070 --grpc_listen=:16070
-    ```
-
----
-
-## 6. 服务接口与连接测试
-
-服务启动后，可以通过以下接口校验运行状态：
-
-1. **查看 Runtime 统计信息**：
-
-   ```bash
-   curl http://localhost:6060/debug/vars
-   ```
-2. **使用 CLI 客户端测试连接与登录**（注：CLI 通过 gRPC 端口 `:16060` 连接）：
-
-   ```bash
-   cd ../cli
-   go run . -host=localhost:16060 -login-basic=alice:alice123
-   ```
-
----
-
-## 7. 多平台部署打包脚本
-
-项目内置了自动化多平台打包脚本 `build-all.sh`，可批量打包发布二进制产物：
+## 3. 初始化数据库
 
 ```bash
-cd ..
-./build-all.sh tag=v0.25.0
+./bin/init-db \
+  --config=./configs/im.standalone.yaml \
+  --data=./cmd/init-db/data.json \
+  --reset=true
 ```
 
-打包输出产物将自动生成于 `releases/` 目录中。
+此命令会重建 `im` 数据库，只能用于本地或隔离测试库。
+
+## 4. 校验并启动
+
+先校验配置：
+
+```bash
+./bin/im-server \
+  --config=./configs/im.standalone.yaml \
+  --validate_config
+```
+
+再启动服务：
+
+```bash
+./bin/im-server \
+  --config=./configs/im.standalone.yaml \
+  --static_data=-
+```
+
+`--static_data=-` 表示不挂载 Web 静态资源。需要调试独立 Web 客户端时，将其
+构建产物放入 `web/static`，并改为 `--static_data=./web/static`。
+
+## 5. 验证
+
+```bash
+curl --fail http://127.0.0.1:6060/livez
+curl --fail http://127.0.0.1:6060/readyz
+curl --fail http://127.0.0.1:6060/debug/vars
+```
+
+使用示例账号通过 gRPC 登录：
+
+```bash
+go run ./cmd/im-cli \
+  -host=127.0.0.1:16060 \
+  -login-basic=alice:alice123
+```
+
+默认端点：
+
+| 端点 | 地址 |
+| --- | --- |
+| HTTP、WebSocket、长轮询 | `127.0.0.1:6060` |
+| gRPC | `127.0.0.1:16060` |
+| 存活检查 | `http://127.0.0.1:6060/livez` |
+| 就绪检查 | `http://127.0.0.1:6060/readyz` |
+| 运行指标 | `http://127.0.0.1:6060/debug/vars` |
+
+## 6. 常见问题
+
+| 现象 | 处理 |
+| --- | --- |
+| MySQL 连接失败 | 等待容器完成初始化，并核对 `localhost:3306` 和密码 |
+| 数据库版本不匹配 | 备份后运行 `init-db --upgrade=true`；开发库可重置 |
+| `address already in use` | 停止占用进程，或使用 `--listen`、`--grpc_listen` 更换端口 |
+| 静态目录不存在 | 使用 `--static_data=-`，或提供实际构建目录 |
+| `/readyz` 返回失败 | 查看启动日志、数据库连接和运行模式校验结果 |
+
+更多问题见[常见问题](docs/faq.md)。
+
+## 7. 下一步
+
+- 单机模式的测试、基准和安全边界：[docs/standalone.md](docs/standalone.md)
+- 服务端配置与环境变量：[configs/README.md](configs/README.md)
+- 协议与报文：[docs/API.md](docs/API.md)
+- Docker 开发环境：[deployments/docker/compose/README.md](deployments/docker/compose/README.md)

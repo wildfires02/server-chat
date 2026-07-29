@@ -1,0 +1,66 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: im-server
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: im-server
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # 客户端 HTTP/WebSocket/Long Polling 和 gRPC 由上游网关访问。
+    - ports:
+        - protocol: TCP
+          port: 6060
+        - protocol: TCP
+          port: 16060
+    # 集群数据面只允许同一命名空间内的 IM Pod 访问。
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: im-server
+      ports:
+        - protocol: TCP
+          port: 12000
+  egress:
+    # 集群节点互联。
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: im-server
+      ports:
+        - protocol: TCP
+          port: 12000
+    # Kubernetes DNS。
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # 外部高可用 etcd。
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: infrastructure
+      ports:
+        - protocol: TCP
+          port: 2379
+    # 外部高可用 PostgreSQL。
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: database
+      ports:
+        - protocol: TCP
+          port: 5432
+    # HTTPS 对象存储、推送和外部插件；严格环境应在 overlay 中收窄 CIDR。
+    - ports:
+        - protocol: TCP
+          port: 443
+

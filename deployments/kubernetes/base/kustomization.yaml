@@ -1,0 +1,14 @@
+# 生产三节点基础清单；环境差异通过 Kustomize overlay 覆盖。
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: im-system
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - service-account.yaml
+  - service-headless.yaml
+  - service-client.yaml
+  - statefulset.yaml
+  - pdb.yaml
+  - network-policy.yaml
+

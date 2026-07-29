@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: im-server
+  labels:
+    app.kubernetes.io/name: im-server
+spec:
+  # 三节点和五节点拓扑都只允许一次驱逐一个 Pod，避免五节点时
+  # minAvailable=2 放行三个并发中断而跌破活动多数派。
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: im-server

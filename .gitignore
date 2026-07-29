@@ -1,4 +1,15 @@
 # Executables and compiled binaries
+/bin/
+/dist/
+/releases/
+/im-server
+/im-cli
+/init-db
+/keygen
+/chatbot
+/rest-auth
+/exporter
+*.beam
 cli/cli
 cli/cli.exe
 cli/im-cli
@@ -29,3 +40,6 @@ chatbot/chatbot.exe
 .DS_Store
 *.tmp
 *.test
+
+# 运行时数据
+/var/

@@ -1,59 +1,9 @@
-<!-- TOC depthfrom:1 depthto:6 withlinks:true updateonsave:true orderedlist:false -->
+# 服务端协议参考
 
-- [服务端 API 规范说明文档 (Server API)](#服务端-api-规范说明文档-server-api)
-  - [工作原理与设计理念](#工作原理与设计理念)
-  - [通用约定与数据格式](#通用约定与数据格式)
-  - [连接服务端的方式](#连接服务端的方式)
-    - [gRPC 端点](#grpc-端点)
-    - [WebSocket 端点](#websocket-端点)
-    - [Long Polling 长轮询端点](#long-polling-长轮询端点)
-    - [带外大文件上传与下载](#带外大文件上传与下载)
-    - [运行在反向代理（如 Nginx）之后](#运行在反向代理如-nginx-之后)
-  - [用户与账号系统 (Users)](#用户与账号系统-users)
-    - [身份认证机制 (Authentication)](#身份认证机制-authentication)
-      - [创建账号 ({acc})](#创建账号-acc)
-      - [登录认证 ({login})](#登录认证-login)
-      - [更新认证参数](#更新认证参数)
-      - [重置密码 (&#34;忘记密码&#34; 流程)](#重置密码-忘记密码-流程)
-    - [冻结/挂起用户](#冻结挂起用户)
-    - [凭据验证 (Credential Validation)](#凭据验证-credential-validation)
-    - [访问权限控制 ACL (Access Control)](#访问权限控制-acl-access-control)
-  - [主题与会话 (Topics)](#主题与会话-topics)
-    - [me 个人主题](#me-个人主题)
-    - [fnd 与 Tag 标签：用户与主题搜索](#fnd-与-tag-标签用户与主题搜索)
-    - [点对点 P2P 主题](#点对点-p2p-主题)
-    - [群组主题 (Group Topics)](#群组主题-group-topics)
-    - [sys 系统主题](#sys-系统主题)
-  - [使用服务端序列号 (Sequence ID)](#使用服务端序列号-sequence-id)
-  - [User Agent 与在线状态 Notification](#user-agent-与在线状态-notification)
-  - [Trusted, Public, Private, Auxiliary 扩展字段](#trusted-public-private-auxiliary-扩展字段)
-  - [消息内容格式 (Content Format)](#消息内容格式-content-format)
-  - [带外大文件处理规约](#带外大文件处理规约)
-  - [推送通知 (Push Notifications)](#推送通知-push-notifications)
-  - [音视频通话 (Video Calls)](#音视频通话-video-calls)
-  - [链接预览 (Link Previews)](#链接预览-link-previews)
-  - [消息报文详细规范 (Messages Spec)](#消息报文详细规范-messages-spec)
-    - [客户端发往服务端报文 (C2S)](#客户端发往服务端报文-c2s)
-      - [{hi} 握手报文](#hi-握手报文)
-      - [{acc} 建号/修改账号报文](#acc-建号修改账号报文)
-      - [{login} 登录报文](#login-登录报文)
-      - [{sub} 订阅主题报文](#sub-订阅主题报文)
-      - [{leave} 退订/离开报文](#leave-退订离开报文)
-      - [{pub} 发布消息报文](#pub-发布消息报文)
-      - [{get} 查询元数据报文](#get-查询元数据报文)
-      - [{set} 修改元数据报文](#set-修改元数据报文)
-      - [{del} 删除报文](#del-删除报文)
-      - [{note} 状态通知报文](#note-状态通知报文)
-    - [服务端发往客户端报文 (S2C)](#服务端发往客户端报文-s2c)
-      - [{data} 聊天数据报文](#data-聊天数据报文)
-      - [{ctrl} 控制响应报文](#ctrl-控制响应报文)
-      - [{meta} 元数据响应报文](#meta-元数据响应报文)
-      - [{pres} 在线状态通知报文](#pres-在线状态通知报文)
-      - [{info} 客户端通知副本报文](#info-客户端通知副本报文)
-
-<!-- /TOC -->
-
-# 服务端 API 规范说明文档 (Server API)
+> 文档信息
+>
+> - 类型：协议参考
+> - 常用请求示例：[接口调用示例](api-examples.md)
 
 ## 工作原理与设计理念
 
@@ -81,16 +31,12 @@ IM 是一个轻量级、高并发的即时通讯 (IM) 消息路由与存储服�
 
 Session 通过发送 `{sub}` 报文加入主题。加入成功后，用户通过发送 `{pub}` 报文发布消息，消息将被服务端广播分发为 `{data}` 报文并送达其他在线 Session。
 
----
-
 ## 通用约定与数据格式
 
 1. **时间戳**：一律表示为 [RFC 3339](http://tools.ietf.org/html/rfc3339) 格式的 UTC 字符串，精确到毫秒，如 `"2026-07-23T18:07:29.841Z"`。
 2. **Base64 编码**：本文档涉及的 Base64 均为剥离了尾部填充符 `=` 的 URL 安全编码格式（详见 [RFC 4648](http://tools.ietf.org/html/rfc4648)）。
 3. **Sequence ID**：`{data}` 数据报文拥有服务端自增的 32 位整数 ID (`seq_id`)，自 `1` 开始在单个 Topic 内连续单调递增，保证单 Topic 内部严格唯一且有序。
 4. **客户端 Packet ID (`id`)**：为了将请求与响应相互关联，客户端可以在发往服务端的每个报文中附带一个自定义字符串 `id`。服务端处理完毕后会在对应的响应报文中原样返回该 `id`。
-
----
 
 ## 连接服务端的方式
 
@@ -110,15 +56,13 @@ HTTP(S) 服务对外暴露以下接口端点：
 3. Form 表单字段 `apikey`
 4. Cookie 字段 `apikey`
 
-生成生产环境专用的 API Key 请使用 [keygen](../keygen) 工具。
+生成生产环境专用的 API Key 请使用 [keygen](../cmd/keygen/) 工具。
 
 建立连接后，客户端必须首先发送 `{hi}` 握手报文，服务端将回复包含服务协议版本号的 `{ctrl}` 响应。
 
----
-
 ### gRPC 端点
 
-Protocol Buffer 协议定义文件参见 [model.proto](../pbx/model.proto)。gRPC 接口提供双向流 `MessageLoop(stream ClientMsg) returns (stream ServerMsg)`，并额外允许超级管理员 (`ROOT`) 权限代发消息和管理用户。
+Protocol Buffer 协议定义文件参见 [model.proto](../api/pbx/model.proto)。gRPC 接口提供双向流 `MessageLoop(stream ClientMsg) returns (stream ServerMsg)`，并额外允许超级管理员 (`ROOT`) 权限代发消息和管理用户。
 
 ### WebSocket 端点
 
@@ -132,9 +76,7 @@ Protocol Buffer 协议定义文件参见 [model.proto](../pbx/model.proto)。gRP
 
 IM 支持挂载在反向代理之后，并支持开启 `unix:/run/im.sock` Unix Domain Socket 通信，开启 `use_x_forwarded_for: true` 解析真实客户端 IP。
 
----
-
-## 用户与账号系统 (Users)
+## 用户与账号系统
 
 用户具有 3 种认证权限级别：
 
@@ -150,7 +92,7 @@ IM 支持挂载在反向代理之后，并支持开启 `unix:/run/im.sock` Unix 
 - `public` / `private` / `trusted`：公开资料、个人私有数据与管理员受信任字段。
 - `tags`：用于用户发现的搜索标签及凭据。
 
-### 身份认证机制 (Authentication)
+### 身份认证机制
 
 IM 内置多种认证适配器：
 
@@ -159,11 +101,11 @@ IM 内置多种认证适配器：
 * `anonymous`：基于匿名账号机制。
 * `rest`：通过 [REST 外部认证服务](../server/auth/rest/) 对接企业现有的 OAuth / 用户中心。
 
-#### 创建账号 ()
+#### 创建账号 `{acc}`
 
 发送 `{acc}` 报文创建新用户。当设置 `login: true` 时，服务端将在建号成功后自动为当前 Session 完成登录认证并返回 Token。
 
-#### 登录认证 ()
+#### 登录认证 `{login}`
 
 发送 `{login}` 报文登录。登录成功后返回 200 响应及 Token 令牌。
 
@@ -187,9 +129,7 @@ IM 使用基于位图的 ACL 权限控制体系。用户的实际权限由 **用
 * `D`：删除消息权限 (Delete)。
 * `O`：主题所有者权限 (Owner)。
 
----
-
-## 主题与会话 (Topics)
+## 主题与会话
 
 ### me 个人主题
 
@@ -320,8 +260,6 @@ get --search=release --scope=peers --limit=20 fnd
 
 广播频道读者在发布、编辑、定时发送和输入状态路径上都由服务端强制只读，即使旧订阅数据错误地含有 `W` 位也不能发言。普通群的 `member` 角色保留双向读写能力。
 
----
-
 ## 音视频通话 (Video Calls)
 
 协议 `0.29` 同时保留两种媒体通话路径：
@@ -415,28 +353,22 @@ get --search=release --scope=peers --limit=20 fnd
 
 服务端配置位于 `webrtc.agora`。生产环境建议不在配置文件保存证书，而是设置 `AGORA_APP_ID` 和 `AGORA_APP_CERTIFICATE`。`token_ttl` 范围为 60–86400 秒，默认 3600 秒：
 
-```json
-{
-  "webrtc": {
-    "enabled": true,
-    "call_establishment_timeout": 30,
-    "agora": {
-      "enabled": true,
-      "app_id": "",
-      "app_certificate": "",
-      "token_ttl": 3600,
-      "channel_prefix": "im",
-      "max_participants": 128
-    }
-  }
-}
+```yaml
+webrtc:
+  enabled: true
+  call_establishment_timeout: 30
+  agora:
+    enabled: true
+    app_id: ""
+    app_certificate: ""
+    token_ttl: 3600
+    channel_prefix: im
+    max_participants: 128
 ```
 
 `app_certificate` 是服务端密钥，不得写入客户端、下发协议或业务日志。群组通话不使用业务服务端 ICE 配置；`ice_servers` 只服务于兼容的 P2P WebRTC 通话。
 
----
-
-## 消息报文详细规范 (Messages Spec)
+## 消息报文详细规范
 
 ### 客户端发往服务端报文 (C2S)
 

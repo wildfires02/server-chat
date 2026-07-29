@@ -1,10 +1,11 @@
-* [ ] 
-
 # Drafty：IM 富文本消息格式规范
 
-Drafty 是 IM 用于定义和排版富文本消息的数据格式。Drafty 的设计初衷是在提供丰富排版能力的同时，避免引入过多的安全风险（如 XSS 攻击）。可以将其理解为由 JSON 封装的 [Markdown](https://en.wikipedia.org/wiki/Markdown)。Drafty 受到 Facebook [draft.js](https://draftjs.org/) 规范的启发。[Go 语言实现](../server/drafty/drafty.go) 可以将 Drafty 转换为纯文本和富文本预览。
+> 文档信息
+>
+> - 类型：数据格式参考
+> - 服务端协议：[API.md](API.md)
 
----
+Drafty 是 IM 用于定义和排版富文本消息的数据格式。Drafty 的设计初衷是在提供丰富排版能力的同时，避免引入过多的安全风险（如 XSS 攻击）。可以将其理解为由 JSON 封装的 [Markdown](https://en.wikipedia.org/wiki/Markdown)。Drafty 受到 Facebook [draft.js](https://draftjs.org/) 规范的启发。[Go 语言实现](../server/drafty/drafty.go) 可以将 Drafty 转换为纯文本和富文本预览。
 
 ## 示例展示
 
@@ -36,8 +37,6 @@ Drafty 是 IM 用于定义和排版富文本消息的数据格式。Drafty 的�
    ]
 }
 ```
-
----
 
 ## 核心数据结构
 
@@ -77,8 +76,6 @@ Drafty 对象由三个字段组成：纯文本 `txt`、行内排版样式 `fmt` 
 * `VD`：行内视频。
 
 **注意**：`at` 和 `len` 的计算单位为 **Unicode Code Point（代码点）**，而非字节数。
-
----
 
 ### 3. 实体扩展对象 `ent`
 

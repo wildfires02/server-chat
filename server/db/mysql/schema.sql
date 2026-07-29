@@ -23,7 +23,7 @@ CREATE TABLE kvmeta(
 	INDEX kvmeta_createdat_key(createdat, `key`)
 ) COMMENT='数据库版本及全局键值元数据';
 
-INSERT INTO kvmeta(`key`, `value`) VALUES("version", "119");
+INSERT INTO kvmeta(`key`, `value`) VALUES("version", "120");
 
 CREATE TABLE users(
 	id 			BIGINT NOT NULL COMMENT '用户唯一ID',
@@ -99,6 +99,8 @@ CREATE TABLE topics(
 	owner		BIGINT NOT NULL DEFAULT 0 COMMENT 'Topic所有者用户ID',
 	access		JSON COMMENT '匿名和认证用户的默认访问权限',
 	seqid		INT NOT NULL DEFAULT 0 COMMENT '最新服务端消息序列号',
+	clusterowner VARCHAR(64) NOT NULL DEFAULT '' COMMENT '最后持有Topic写入权的集群节点名称',
+	clusterepoch BIGINT NOT NULL DEFAULT 0 COMMENT '最后一次Topic写入使用的Cluster View Revision',
 	delid		INT DEFAULT 0 COMMENT '最新删除操作序列号',
 	subcnt  INT DEFAULT 0 COMMENT '当前有效订阅者数量',
 	public	JSON COMMENT '订阅者可见的公共资料',

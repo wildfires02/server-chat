@@ -1,0 +1,162 @@
+# IM 服务端三节点生产集群配置模板。
+#
+# 本文件只保存非敏感拓扑和安全默认值。密码、签名密钥和对象存储凭据
+# 必须通过 Secret 管理系统注入对应的 IM_ 环境变量。
+runtime:
+  environment: production
+  deployment_mode: cluster
+
+# 客户端入口通常位于四层负载均衡或支持 WebSocket/gRPC 的网关后方。
+listen: ":6060"
+api_path: /
+cache_control: 39600
+ws_compression_disabled: false
+static_mount: /
+grpc_listen: ":16060"
+grpc_keepalive_enabled: true
+expvar: "-"
+server_status: "-"
+health:
+  live_path: /livez
+  ready_path: /readyz
+  drain_path: /drainz
+  topology_path: /clusterz
+  drain_timeout: 30s
+use_x_forwarded_for: true
+x_frame_options: DENY
+default_country_code: CN
+
+# 下列空标量必须在进程环境中由生产 Secret 覆盖。
+api_key_salt: ""
+max_message_size: 4194304
+max_subscriber_count: 10000
+max_tag_count: 32
+permanent_accounts: false
+p2p_delete_enabled: true
+msg_delete_age: 0
+alias_tag: alias
+
+# 生产集群使用共享对象存储，不能把唯一媒体文件留在节点本地。
+media:
+  use_handler: s3
+  max_size: 33554432
+  gc_period: 60
+  gc_block_size: 100
+  handlers:
+    s3:
+      access_key_id: ""
+      secret_access_key: ""
+      region: ""
+      bucket: ""
+      endpoint: ""
+      disable_ssl: false
+      force_path_style: false
+      presign_ttl: 3600
+      cache_control: max-age=86400
+      cors_origins: []
+
+# 客户端 TLS 建议在生产网关终止；集群内部 TLS 在 cluster_config.tls 配置。
+tls:
+  enabled: false
+
+auth_config:
+  logical_names: []
+  basic:
+    add_to_tags: true
+    min_login_length: 3
+    min_password_length: 10
+  token:
+    expire_in: 1209600
+    serial_num: 1
+    key: ""
+
+# 首批生产认证数据库使用 PostgreSQL；Schema 升级必须由独立作业执行。
+store_config:
+  uid_key: ""
+  max_results: 1024
+  use_adapter: postgres
+  adapters:
+    postgres:
+      dsn: ""
+      ssl_mode: verify-full
+      max_open_conns: 200
+      max_idle_conns: 50
+      conn_max_lifetime: 300
+      sql_timeout: 10
+
+acc_gc_config:
+  enabled: true
+  gc_period: 3600
+  gc_block_size: 100
+  gc_min_account_age: 30
+
+# 推送服务按实际生产 Provider 增补，默认不启用示例实现。
+push: []
+
+webrtc:
+  enabled: false
+  call_establishment_timeout: 30
+  ice_servers_file: ""
+  agora:
+    enabled: false
+    app_id: ""
+    app_certificate: ""
+    token_ttl: 3600
+    channel_prefix: im
+    max_participants: 128
+
+cluster_config:
+  cluster_id: im-production
+  expected_replicas: 3
+  initial_members:
+    - im-0
+    - im-1
+    - im-2
+  # systemd 模板或 Kubernetes Downward API 按当前节点覆盖这两个空值。
+  self: ""
+  advertise_addr: ""
+  nodes:
+    - name: im-0
+      addr: im-0.im.internal:12000
+    - name: im-1
+      addr: im-1.im.internal:12000
+    - name: im-2
+      addr: im-2.im.internal:12000
+    - name: im-3
+      addr: im-3.im.internal:12000
+    - name: im-4
+      addr: im-4.im.internal:12000
+  control_plane:
+    provider: etcd
+    endpoints:
+      - https://etcd-0.etcd.internal:2379
+      - https://etcd-1.etcd.internal:2379
+      - https://etcd-2.etcd.internal:2379
+    namespace: /im/production
+    lease_ttl: 10s
+    dial_timeout: 5s
+    username: ""
+    password: ""
+    tls:
+      ca_file: /etc/im/tls/etcd/ca.pem
+      cert_file: /etc/im/tls/etcd/client.pem
+      key_file: /etc/im/tls/etcd/client-key.pem
+      server_name: etcd
+  transport:
+    listen: 0.0.0.0:12000
+    lane_count: 8
+    reliable_queue_capacity: 4096
+    ephemeral_queue_capacity: 1024
+    dial_timeout: 3s
+    request_timeout: 5s
+    max_retries: 2
+    retry_backoff: 100ms
+    dedupe_capacity: 65536
+    dedupe_ttl: 2m
+  tls:
+    ca_file: /etc/im/tls/cluster/ca.pem
+    # systemd 单元按实例名覆盖节点证书和私钥文件。
+    cert_file: ""
+    key_file: ""
+
+plugins: []

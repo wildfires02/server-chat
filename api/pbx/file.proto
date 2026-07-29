@@ -1,0 +1,80 @@
+syntax = "proto3";
+package pbx;
+option go_package = "chat/api/pbx";
+
+// 大文件处理消息定义
+
+message Auth {
+	// scheme 保存该消息字段对应的协议值。
+	string scheme = 1;
+	// secret 保存该消息字段对应的协议值。
+	string secret = 2;
+}
+
+// 文件元数据描述
+message FileMeta {
+	// name 保存该消息字段对应的协议值。
+	string name = 1;
+	// mime_type 保存该消息字段对应的协议值。
+	string mime_type = 2;
+	// etag 保存该消息字段对应的协议值。
+	string etag = 3;
+	// size 保存该消息字段对应的协议值。
+	int64 size = 4;
+}
+
+// 文件上传请求
+message FileUpReq {
+	// 请求 ID
+	string id = 1;
+	// 请求认证凭据
+	Auth auth = 2;
+	// 该上传文件所属的目标主题（Topic）
+	string topic = 3;
+	// 上传的文件元数据
+	FileMeta meta = 4;
+	// 文件数据块
+	bytes content = 5;
+}
+
+// 文件上传响应
+message FileUpResp {
+	// 响应 ID
+	string id = 1;
+	// 响应状态码
+	int32 code = 2;
+	// 响应文本消息
+	string text = 3;
+	// meta 保存该消息字段对应的协议值。
+	FileMeta meta = 4;
+	// 新上传重定向 URL 位置
+	string redir_url = 5;
+}
+
+// 文件下载请求
+message FileDownReq {
+	// 请求 ID
+	string id = 1;
+	// 请求认证凭据
+	Auth auth = 2;
+	// 待下载的目标文件 URI
+	string uri = 3;
+	// ETag 缓存校验
+	string if_modified = 4;
+}
+
+// 文件下载响应
+message FileDownResp {
+	// 响应 ID
+	string id = 1;
+	// 响应状态码
+	int32 code = 2;
+	// 响应文本消息
+	string text = 3;
+	// meta 保存该消息字段对应的协议值。
+	FileMeta meta = 4;
+	// 重定向文件位置
+	string redir_url = 5;
+	// 文件数据块字节流
+	bytes content = 6;
+}

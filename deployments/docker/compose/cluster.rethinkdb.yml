@@ -1,0 +1,28 @@
+services:
+  db:
+    image: ${RETHINKDB_IMAGE:-rethinkdb:2.4.4-bookworm-slim}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - bash -ec 'exec 3<>/dev/tcp/127.0.0.1/28015'
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - rethinkdb-data:/data
+
+  db-init:
+    environment: &rethinkdb-environment
+      IM_STORE_CONFIG__USE_ADAPTER: rethinkdb
+      IM_STORE_CONFIG__ADAPTERS__RETHINKDB__ADDRESSES: db:28015
+      IM_DB_WAIT_FOR: db:28015
+
+  im-0:
+    environment: *rethinkdb-environment
+  im-1:
+    environment: *rethinkdb-environment
+  im-2:
+    environment: *rethinkdb-environment
+
+volumes:
+  rethinkdb-data:

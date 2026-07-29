@@ -38,4 +38,6 @@ const (
 	ErrInvalidResponse = StoreError("invalid response")
 	// ErrRedirected 表示订阅请求已被重定向到另一个 Topic。
 	ErrRedirected = StoreError("redirected")
+	// ErrClusterFenced 表示数据库已拒绝携带过期集群任期的旧 Owner 写入。
+	ErrClusterFenced = StoreError("cluster owner fenced")
 )

@@ -1,0 +1,9 @@
+# PostgreSQL 集成测试配置。
+reset_db_data: true
+adapters:
+  postgres:
+    user: postgres
+    passwd: postgres
+    host: localhost
+    port: "5432"
+    dbname: im_test

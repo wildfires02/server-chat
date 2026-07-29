@@ -1,0 +1,58 @@
+syntax = "proto3";
+package pbx;
+option go_package = "chat/api/pbx";
+
+// ClusterTransport 是 IM 节点之间专用的有序数据面服务。
+// 每个逻辑 Lane 使用一条长期双向流；同一 Topic 始终映射到同一 Lane。
+service ClusterTransport {
+	// Lane 在节点间传输请求与响应帧，并依靠 HTTP/2 流保证帧内顺序。
+	rpc Lane(stream ClusterFrame) returns (stream ClusterFrame) {}
+}
+
+// ClusterFrameKind 标识集群帧中封装的内部操作。
+enum ClusterFrameKind {
+	// CLUSTER_FRAME_UNSPECIFIED 禁止用于有效请求。
+	CLUSTER_FRAME_UNSPECIFIED = 0;
+	// CLUSTER_FRAME_PING 交换节点实例指纹。
+	CLUSTER_FRAME_PING = 1;
+	// CLUSTER_FRAME_TOPIC_MASTER 把 Topic Proxy 请求交给 Owner。
+	CLUSTER_FRAME_TOPIC_MASTER = 2;
+	// CLUSTER_FRAME_TOPIC_PROXY 把 Owner 响应交回 Topic Proxy。
+	CLUSTER_FRAME_TOPIC_PROXY = 3;
+	// CLUSTER_FRAME_ROUTE 路由节点级服务端消息。
+	CLUSTER_FRAME_ROUTE = 4;
+	// CLUSTER_FRAME_USER_CACHE 路由用户缓存和推送更新。
+	CLUSTER_FRAME_USER_CACHE = 5;
+}
+
+// ClusterFrame 是节点间 gRPC Lane 的版本化传输信封。
+message ClusterFrame {
+	// cluster_id 隔离不同环境或租户的逻辑集群。
+	string cluster_id = 1;
+	// source_node 是发送节点的静态成员名称。
+	string source_node = 2;
+	// source_instance 是进程每次启动生成的新实例指纹。
+	int64 source_instance = 3;
+	// protocol_version 是节点间数据面协议版本。
+	int32 protocol_version = 4;
+	// lane 是当前帧所属的有序 Lane 编号。
+	uint32 lane = 5;
+	// sequence 是单条流内从 1 开始严格递增的序号。
+	uint64 sequence = 6;
+	// request_id 在重试和响应关联期间保持稳定。
+	string request_id = 7;
+	// kind 标识内部调用类型。
+	ClusterFrameKind kind = 8;
+	// payload 保存当前版本的内部请求或响应编码。
+	bytes payload = 9;
+	// response 为 true 时该帧是 request_id 对应的响应。
+	bool response = 10;
+	// error 非空表示远端没有成功处理请求。
+	string error = 11;
+	// cluster_epoch 是发送节点已经提交的成员视图任期。
+	int64 cluster_epoch = 12;
+	// ring_signature 用于拒绝尚未收敛的 Topic 路由。
+	string ring_signature = 13;
+	// min_protocol_version 是发送节点仍能兼容的最早数据面协议版本。
+	int32 min_protocol_version = 14;
+}

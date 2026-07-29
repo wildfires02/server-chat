@@ -1,0 +1,105 @@
+# IM 服务端开发单机配置。
+#
+# 本文件只用于本地开发、测试和演示，不具备高可用能力，禁止承载生产流量。
+runtime:
+  environment: development
+  deployment_mode: standalone
+
+# WebSocket/Long Polling 使用 6060，客户端 gRPC 使用 16060。
+listen: ":6060"
+api_path: /
+cache_control: 39600
+ws_compression_disabled: false
+static_mount: /
+grpc_listen: ":16060"
+grpc_keepalive_enabled: true
+expvar: /debug/vars
+server_status: "-"
+health:
+  live_path: /livez
+  ready_path: /readyz
+  drain_path: /drainz
+  topology_path: /clusterz
+  drain_timeout: 10s
+use_x_forwarded_for: false
+x_frame_options: SAMEORIGIN
+default_country_code: CN
+
+# 以下密钥仅为本地开发示例，不能复制到生产环境。
+api_key_salt: T713/rYYgW7g4m3vG6zGRh7+FM1t0T8j13koXScOAj4=
+max_message_size: 4194304
+max_subscriber_count: 1000
+max_tag_count: 32
+permanent_accounts: false
+p2p_delete_enabled: true
+msg_delete_age: 0
+alias_tag: alias
+
+# 单机开发默认把媒体写到本地目录。
+media:
+  use_handler: fs
+  max_size: 33554432
+  gc_period: 60
+  gc_block_size: 100
+  handlers:
+    fs:
+      upload_dir: .local/uploads
+      cache_control: max-age=86400
+      cors_origins:
+        - http://localhost:6060
+
+tls:
+  enabled: false
+
+auth_config:
+  logical_names: []
+  basic:
+    add_to_tags: true
+    min_login_length: 3
+    min_password_length: 6
+  token:
+    expire_in: 1209600
+    serial_num: 1
+    key: wfaY2RgF2S1OQI/ZlK+LSrp1KB2jwAdGAIHQ7JZn+Kc=
+
+# 默认连接本机 MySQL；也可以通过 IM_ 环境变量覆盖已有标量。
+store_config:
+  uid_key: la6YsO+bNX/+XIkOqc5Svw==
+  max_results: 1024
+  use_adapter: mysql
+  adapters:
+    mysql:
+      user: root
+      passwd: "123456"
+      net: tcp
+      addr: localhost:3306
+      dbname: im
+      collation: utf8mb4_0900_ai_ci
+      parseTime: true
+      max_open_conns: 32
+      max_idle_conns: 16
+      conn_max_lifetime: 60
+      sql_timeout: 10
+
+acc_gc_config:
+  enabled: false
+  gc_period: 3600
+  gc_block_size: 10
+  gc_min_account_age: 30
+
+push: []
+
+webrtc:
+  enabled: false
+  call_establishment_timeout: 30
+  ice_servers_file: ""
+  agora:
+    enabled: false
+    app_id: ""
+    app_certificate: ""
+    token_ttl: 3600
+    channel_prefix: im
+    max_participants: 128
+
+# 单机模板故意不提供 cluster_config；部署模式会显式跳过全部集群初始化。
+plugins: []

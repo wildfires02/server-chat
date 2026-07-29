@@ -1,0 +1,154 @@
+# 真实进程级集群认证模板。
+# 仅由 scripts/test-cluster-process.sh 在 mktemp 目录渲染，所有 Secret 均为一次性测试材料。
+runtime:
+  environment: staging
+  deployment_mode: cluster
+
+listen: "127.0.0.1:${IM0_HTTP_PORT}"
+api_path: /
+cache_control: 60
+ws_compression_disabled: false
+static_mount: /
+grpc_listen: "127.0.0.1:${IM0_CLIENT_GRPC_PORT}"
+grpc_keepalive_enabled: true
+expvar: /debug/vars
+server_status: "-"
+health:
+  live_path: /livez
+  ready_path: /readyz
+  drain_path: /drainz
+  topology_path: /clusterz
+  drain_timeout: 15s
+use_x_forwarded_for: false
+x_frame_options: DENY
+default_country_code: CN
+
+# 这些密钥只服务于隔离测试数据库和示例账号。
+api_key_salt: T713/rYYgW7g4m3vG6zGRh7+FM1t0T8j13koXScOAj4=
+max_message_size: 4194304
+max_subscriber_count: 10000
+max_tag_count: 32
+permanent_accounts: false
+p2p_delete_enabled: true
+msg_delete_age: 0
+alias_tag: alias
+
+media:
+  use_handler: fs
+  max_size: 33554432
+  gc_period: 60
+  gc_block_size: 100
+  handlers:
+    fs:
+      upload_dir: "${TEST_WORK_DIR}/uploads"
+      cache_control: max-age=60
+      cors_origins:
+        - http://127.0.0.1:${IM0_HTTP_PORT}
+
+tls:
+  enabled: false
+
+auth_config:
+  logical_names: []
+  basic:
+    add_to_tags: true
+    min_login_length: 3
+    min_password_length: 6
+  token:
+    expire_in: 1209600
+    serial_num: 1
+    key: wfaY2RgF2S1OQI/ZlK+LSrp1KB2jwAdGAIHQ7JZn+Kc=
+
+store_config:
+  uid_key: la6YsO+bNX/+XIkOqc5Svw==
+  max_results: 1024
+  use_adapter: mysql
+  adapters:
+    mysql:
+      user: root
+      passwd: "${MYSQL_PASSWORD}"
+      net: tcp
+      addr: "127.0.0.1:${MYSQL_PORT}"
+      dbname: im_cluster_e2e
+      collation: utf8mb4_0900_ai_ci
+      parseTime: true
+      max_open_conns: 64
+      max_idle_conns: 32
+      conn_max_lifetime: 60
+      sql_timeout: 10
+
+acc_gc_config:
+  enabled: false
+  gc_period: 3600
+  gc_block_size: 10
+  gc_min_account_age: 30
+
+push: []
+
+webrtc:
+  enabled: false
+  call_establishment_timeout: 30
+  ice_servers_file: ""
+  agora:
+    enabled: false
+    app_id: ""
+    app_certificate: ""
+    token_ttl: 3600
+    channel_prefix: im
+    max_participants: 128
+
+cluster_config:
+  cluster_id: im-process-certification
+  expected_replicas: 3
+  initial_members:
+    - im-0
+    - im-1
+    - im-2
+  self: im-0
+  advertise_addr: "127.0.0.1:${IM0_CLUSTER_PORT}"
+  # 五个候选 Peer 在三节点启动时预建，im-3/im-4 注册后仍保持 Joining。
+  nodes:
+    - name: im-0
+      addr: "127.0.0.1:${IM0_CLUSTER_PORT}"
+    - name: im-1
+      addr: "127.0.0.1:${IM1_CLUSTER_PORT}"
+    - name: im-2
+      addr: "127.0.0.1:${IM2_CLUSTER_PORT}"
+    - name: im-3
+      addr: "127.0.0.1:${IM3_CLUSTER_PORT}"
+    - name: im-4
+      addr: "127.0.0.1:${IM4_CLUSTER_PORT}"
+  control_plane:
+    provider: etcd
+    endpoints:
+      - "https://127.0.0.1:${ETCD0_PORT}"
+      - "https://127.0.0.1:${ETCD1_PORT}"
+      - "https://127.0.0.1:${ETCD2_PORT}"
+    namespace: /im/process-certification
+    lease_ttl: 5s
+    dial_timeout: 5s
+    username: ""
+    password: ""
+    tls:
+      ca_file: "${TEST_WORK_DIR}/pki/etcd-ca.pem"
+      cert_file: "${TEST_WORK_DIR}/pki/etcd-client.pem"
+      key_file: "${TEST_WORK_DIR}/pki/etcd-client-key.pem"
+      server_name: etcd
+  transport:
+    listen: "127.0.0.1:${IM0_CLUSTER_PORT}"
+    lane_count: 8
+    reliable_queue_capacity: 4096
+    ephemeral_queue_capacity: 1024
+    dial_timeout: 1s
+    request_timeout: 5s
+    max_retries: 3
+    retry_backoff: 100ms
+    dedupe_capacity: 65536
+    dedupe_ttl: 2m
+  tls:
+    ca_file: "${TEST_WORK_DIR}/pki/cluster-ca.pem"
+    cert_file: "${TEST_WORK_DIR}/pki/im-0.pem"
+    key_file: "${TEST_WORK_DIR}/pki/im-0-key.pem"
+    reload_interval: 1s
+
+plugins: []

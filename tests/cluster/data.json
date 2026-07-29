@@ -1,0 +1,23 @@
+{
+  "users": [
+    {
+      "createdAt": "-1h",
+      "email": "alice@example.com",
+      "passhash": "alice123",
+      "public": {
+        "fn": "Cluster Alice"
+      },
+      "state": "ok",
+      "username": "alice",
+      "tags": [
+        "Alice"
+      ],
+      "addressBook": []
+    }
+  ],
+  "grouptopics": [],
+  "groupsubs": [],
+  "p2psubs": [],
+  "messages": [],
+  "forms": []
+}

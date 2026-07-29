@@ -1,53 +1,99 @@
-# IM 即时通讯服务器 (IM Instant Messaging Server)
+# IM 即时通信服务端
 
-IM 是一套全栈即时通讯 (IM) 开源解决方案。后端采用原生 [Go](http://golang.org) 语言编写（开源协议 [GPL 3.0](http://www.gnu.org/licenses/gpl-3.0.en.html)），客户端涵盖 Web (ReactJS)、Android (Java)、iOS (Swift) 以及基于 [gRPC](https://grpc.io/) 的多语言 SDK（支持 C++、C#、Go、Java、Node、Python、Ruby 等）。
+本仓库提供即时通信服务端、数据库适配器、命令行工具、部署模板和测试工具。
+服务端支持 WebSocket、HTTP 长轮询和 gRPC 接入，核心业务采用 Topic 顺序处理
+模型，并提供单聊、群聊、频道、文件、搜索、推送和音视频信令能力。
 
-底层网络传输支持 Websocket 上的 JSON 数据交互（亦支持 HTTP 长轮询），或基于 gRPC 的 [protobuf](https://developers.google.com/protocol-buffers/) 高效二进制传输。
+> 当前交付状态
+>
+> - `standalone` 仅用于开发、测试和演示，不得承载生产流量。
+> - `cluster` 已具备控制面、可靠传输、健康检查和部署模板，但目标基础设施上的
+>   生产认证仍需按操作手册完成。
+> - Web、Android 和 iOS 客户端不在本仓库内；`web/static` 只用于放置可选的
+>   Web 构建产物。
 
----
+## 快速开始
 
-## 快速部署指南
-
-- **部署安装**：请参阅 [本地源码与二进制安装指南](./INSTALL.md) 或 [Docker 容器化部署指南](./docker/README.md)。
-- **Docker Compose**：请参阅 [Docker Compose 单机与集群部署指南](./docker/docker-compose/README.md)。
-- **开发与架构文档**：
-  - [REST API 接口规范](docs/API.md)
-  - [常见问题解答 (FAQ)](docs/faq.md)
-  - [服务器监控配置指南](docs/monitoring.md)
-  - [配置文件使用说明](server/im.conf)
-
----
-
-## 项目特性
-
-### 1. 核心功能支持
-- **多端全平台覆盖**：支持 Web 网页端、Android 端、iOS 端及 Python 命令行脚本。
-- **丰富的消息交互**：
-  - 单聊与群组聊天。
-  - WebRTC 点对点音视频通话、Agora 群组语音/视频通话服务端及语音消息。
-  - 支持无限制订阅者数量的广播频道。
-  - 多设备协同与消息实时同步。
-  - Markdown 风格富文本消息、内联图片、视频及文件附件传输。
-  - 支持已发送消息的编辑、撤回、引用、转发及置顶。
-- **安全与权限控制**：
-  - 基于 ACL 位图的细粒度权限控制管理。
-  - 支持第三方自定义认证适配器（REST 认证等）。
-  - 支持设置全网域名黑白名单防垃圾注册。
-
-### 2. 高并发与架构设计
-- **分片集群与故障转移**：支持多节点分布式分片集群部署与节点容灾。
-- **多数据库后端支持**：通过存储适配器完美兼容 MySQL、PostgreSQL、MongoDB 及 RethinkDB。
-- **对象存储适配**：支持本地文件系统 (FS) 及 Amazon S3 等云存储扩展。
-
----
-
-## 配置文件说明
-
-IM 服务端的配置文件位于 [`server/im.conf`](./server/im.conf)。在启动 IM 服务端时，可通过 `-config` 命令行参数指定配置路径，例如：
+本地开发默认使用 MySQL：
 
 ```bash
-# 启动单机 IM 服务端
-./im -config=./server/im.conf
+docker run -d --name im-mysql-dev \
+  -p 3306:3306 \
+  -e MYSQL_ROOT_PASSWORD=123456 \
+  mysql:8.0
+
+mkdir -p bin
+go build -tags mysql -o bin/init-db ./cmd/init-db
+go build -tags mysql -o bin/im-server ./cmd/im-server
+
+./bin/init-db \
+  --config=./configs/im.standalone.yaml \
+  --data=./cmd/init-db/data.json \
+  --reset=true
+
+./bin/im-server \
+  --config=./configs/im.standalone.yaml \
+  --static_data=-
 ```
 
-详细配置说明请直接查阅 [`server/im.conf`](./server/im.conf) 文件内部注释。
+启动后检查：
+
+```bash
+curl --fail http://127.0.0.1:6060/livez
+curl --fail http://127.0.0.1:6060/readyz
+```
+
+完整步骤和故障排查见[本地启动指南](STARTUP.md)。
+
+## 核心能力
+
+- WebSocket、HTTP 长轮询和 gRPC 双向流。
+- 单聊、群组、广播频道、多设备同步和细粒度访问控制。
+- 消息编辑、撤回、回复、转发、反应、置顶和定时消息。
+- 本地文件系统与 S3 兼容对象存储。
+- WebRTC 点对点信令和 Agora 群组通话服务端令牌。
+- MySQL、PostgreSQL、MongoDB 和 RethinkDB 存储适配器。
+- 开发单机模式，以及基于 etcd、数据库隔离栅栏和 gRPC 有序通道的集群模式。
+
+## 部署入口
+
+| 场景 | 入口 | 说明 |
+| --- | --- | --- |
+| 本地开发 | [STARTUP.md](STARTUP.md) | 最短可运行路径 |
+| 源码或二进制安装 | [INSTALL.md](INSTALL.md) | 环境、构建标签和初始化 |
+| Docker | [deployments/docker/README.md](deployments/docker/README.md) | 本地镜像和容器运行 |
+| Docker Compose | [deployments/docker/compose/README.md](deployments/docker/compose/README.md) | 开发单机和开发集群 |
+| Kubernetes | [deployments/kubernetes/README.md](deployments/kubernetes/README.md) | 三至五节点生产模板 |
+| systemd | [deployments/systemd/README.md](deployments/systemd/README.md) | 非 Kubernetes 多主机部署 |
+
+生产集群的发布、滚动升级、证书轮换、扩缩容和回滚以
+[生产集群操作手册](docs/cluster-operations.md)为准。
+
+## 文档
+
+统一文档入口见 [docs/README.md](docs/README.md)。常用文档：
+
+- [配置说明](configs/README.md)
+- [代码架构](docs/code-architecture.md)
+- [服务端协议参考](docs/API.md)
+- [接口调用示例](docs/api-examples.md)
+- [监控与健康检查](docs/monitoring.md)
+- [常见问题](docs/faq.md)
+
+规划、差距分析和历史验收记录位于 `docs/planning/`，不应代替当前操作文档。
+
+## 开发验证
+
+```bash
+go test ./...
+go test -race ./internal/server ./server/agora ./internal/configutil
+go vet ./...
+```
+
+修改 Protobuf 定义后运行：
+
+```bash
+./api/pbx/go-generate.sh
+```
+
+禁止直接编辑 `api/pbx/*.pb.go` 和自动生成的 Mock 文件。

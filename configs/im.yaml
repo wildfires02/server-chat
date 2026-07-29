@@ -1,0 +1,292 @@
+# IM 服务端开发环境配置。
+#
+# 生产环境不要直接使用示例密钥、密码和调试验证码。
+# 任意标量都可用环境变量覆盖：前缀为 IM_，双下划线表示 YAML 层级。
+# 示例：
+#   IM_LISTEN=:8080
+#   IM_STORE_CONFIG__USE_ADAPTER=postgres
+#   IM_STORE_CONFIG__ADAPTERS__MYSQL__PASSWD=strong-password
+#   IM_AUTH_CONFIG__TOKEN__KEY=base64-secret
+
+# 运行环境与部署模式必须显式声明；此文件用于开发单机模式。
+runtime:
+  environment: development
+  deployment_mode: standalone
+
+# 网络与协议。
+listen: ":6060"
+api_path: /
+cache_control: 39600
+ws_compression_disabled: false
+static_mount: /
+grpc_listen: ":16060"
+grpc_keepalive_enabled: true
+expvar: /debug/vars
+# 健康探针与本机优雅摘流接口。
+health:
+  live_path: /livez
+  ready_path: /readyz
+  drain_path: /drainz
+  topology_path: /clusterz
+  drain_timeout: 15s
+use_x_forwarded_for: true
+x_frame_options: SAMEORIGIN
+default_country_code: ""
+
+# API Key 签名盐值；生产环境请通过 IM_API_KEY_SALT 覆盖。
+api_key_salt: T713/rYYgW7g4m3vG6zGRh7+FM1t0T8j13koXScOAj4=
+
+# 消息、群组和账号限制。
+max_message_size: 131072
+max_subscriber_count: 128
+max_tag_count: 16
+permanent_accounts: false
+p2p_delete_enabled: true
+# 0 表示撤回消息不限制时间。
+msg_delete_age: 0
+alias_tag: alias
+
+# 文件与对象存储。
+media:
+  use_handler: fs
+  max_size: 8388608
+  gc_period: 60
+  gc_block_size: 100
+  handlers:
+    fs:
+      upload_dir: uploads
+      cache_control: max-age=86400
+      # cors_origins: ["*"]
+    s3:
+      access_key_id: your_s3_access_key_id
+      secret_access_key: your_s3_secret_access_key
+      region: s3 region, like us-east-2
+      bucket: your_s3_bucket_name
+      disable_ssl: false
+      force_path_style: false
+      endpoint: ""
+      presign_ttl: 3600
+      cache_control: max-age=86400
+      cors_origins:
+        - "*"
+
+# HTTP 与 gRPC 共用的 TLS 配置。
+tls:
+  enabled: false
+  http_redirect: ":80"
+  strict_max_age: 604800
+  autocert:
+    cache: /etc/letsencrypt/live/your.domain.here
+    email: noreply@example.com
+    domains:
+      - whatever.example.com
+  cert_file: /etc/httpd/conf/your.domain.crt
+  key_file: /etc/httpd/conf/your.domain.key
+
+# 登录与令牌认证。
+auth_config:
+  logical_names: []
+  basic:
+    add_to_tags: true
+    min_login_length: 4
+    min_password_length: 6
+  token:
+    expire_in: 1209600
+    serial_num: 1
+    # 生产环境必须通过 IM_AUTH_CONFIG__TOKEN__KEY 覆盖。
+    key: wfaY2RgF2S1OQI/ZlK+LSrp1KB2jwAdGAIHQ7JZn+Kc=
+  code:
+    expire_in: 900
+    max_retries: 3
+    code_length: 6
+
+# 数据库存储。use_adapter 必须与构建标签和 adapters 中的名称一致。
+store_config:
+  # 生产环境必须使用独立随机值，并通过 IM_STORE_CONFIG__UID_KEY 覆盖。
+  uid_key: la6YsO+bNX/+XIkOqc5Svw==
+  max_results: 1024
+  use_adapter: mysql
+  adapters:
+    postgres:
+      user: postgres
+      passwd: postgres
+      host: localhost
+      port: "5432"
+      dbname: im
+      ssl_mode: disable
+      # 也可以仅提供 dsn。
+      # dsn: postgresql://postgres:postgres@localhost:5432/im?sslmode=disable
+      max_open_conns: 50
+      max_idle_conns: 50
+      conn_max_lifetime: 60
+      sql_timeout: 10
+    mysql:
+      user: root
+      passwd: "123456"
+      net: tcp
+      addr: localhost
+      dbname: im
+      collation: utf8mb4_0900_ai_ci
+      parseTime: true
+      # 也可以仅提供 dsn。
+      # dsn: root@tcp(localhost)/im?parseTime=true&collation=utf8mb4_0900_ai_ci
+      max_open_conns: 64
+      max_idle_conns: 64
+      conn_max_lifetime: 60
+      sql_timeout: 10
+    rethinkdb:
+      addresses: localhost:28015
+      database: im
+    mongodb:
+      uri: ""
+      api_version: ""
+      addresses: localhost:27017
+      database: im
+      replica_set: rs0
+      # auth_mechanism: SCRAM-SHA-256
+      # auth_source: admin
+      # username: im
+      # password: im
+      # tls: true
+      # tls_cert_file: /path/to/cert-file
+      # tls_private_key: /path/to/private-key
+      # tls_skip_verify: false
+
+# 邮箱和手机号验证。
+acc_validation:
+  email:
+    add_to_tags: true
+    required:
+      - auth
+    config:
+      host_url: http://localhost:6060/
+      smtp_server: smtp.example.com
+      smtp_port: "25"
+      sender: '"im" <noreply@example.com>'
+      login: john.doe@example.com
+      sender_password: your-password-here
+      auth_mechanism: login
+      smtp_helo_host: example.com
+      insecure_skip_verify: false
+      languages:
+        - en
+        - es
+        - fr
+        - pt
+        - ru
+        - uk
+        - vi
+        - zh
+        - zh-TW
+      max_retries: 3
+      domains: []
+      # 仅限开发环境；生产环境必须删除。
+      debug_response: "123456"
+  tel:
+    add_to_tags: true
+    config:
+      host_url: http://localhost:6060/
+      languages:
+        - en
+        - es
+        - fr
+        - pt
+        - ru
+        - uk
+        - vi
+        - zh
+        - zh-TW
+      sender: im
+      max_retries: 3
+      # 仅限开发环境；生产环境必须删除。
+      debug_response: "123456"
+
+# 未激活账号垃圾回收。
+acc_gc_config:
+  enabled: true
+  gc_period: 3600
+  gc_block_size: 10
+  gc_min_account_age: 30
+
+# 推送通知。
+push:
+  - name: stdout
+    config:
+      enabled: false
+  - name: fcm
+    config:
+      enabled: false
+      project_id: your-project-id
+      # Firebase 服务账号也可通过 credentials_file 指向官方 JSON 凭据。
+      credentials:
+        type: service_account
+        project_id: your-project-id
+        private_key_id: some-random-looking-hex-number
+        private_key: |
+          -----BEGIN PRIVATE KEY-----
+          base64-encoded bits of your private key
+          -----END PRIVATE KEY-----
+        client_email: firebase-adminsdk-abc123@your-project-id.iam.gserviceaccount.com
+        client_id: "1234567890123456789"
+        auth_uri: https://accounts.google.com/o/oauth2/auth
+        token_uri: https://oauth2.googleapis.com/token
+        auth_provider_x509_cert_url: https://www.googleapis.com/oauth2/v1/certs
+        client_x509_cert_url: https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-abc123%40your-project-id.iam.gserviceaccount.com
+      credentials_file: /path/to/service-account-file-with-credentials.json
+      time_to_live: 3600
+      android:
+        enabled: false
+        icon: ic_logo_push
+        color: "#3949AB"
+        click_action: .MessageActivity
+        msg:
+          title: ""
+          body: ""
+          title_loc_key: new_message
+          body_loc_key: ""
+        sub:
+          title_loc_key: new_chat
+          body_loc_key: ""
+  - name: tnpg
+    config:
+      enabled: false
+      org: test
+      token: jwt-security-token-obtained-from-console.im.co
+
+# 点对点 WebRTC 与 Agora 群组通话。
+webrtc:
+  enabled: false
+  call_establishment_timeout: 30
+  ice_servers:
+    - urls:
+        - stun:stun.example.com
+    - username: user-name-to-use-for-authentication-with-the-server
+      credential: your-password
+      urls:
+        - turn:turn.example.com:80?transport=udp
+        - turn:turn.example.com:3478?transport=udp
+        - turn:turn.example.com:80?transport=tcp
+        - turn:turn.example.com:3478?transport=tcp
+        - turns:turn.example.com:443?transport=tcp
+        - turns:turn.example.com:5349?transport=tcp
+  # 内嵌 ice_servers 为空时，可引用以 ice_servers 为根键的独立 YAML 文件。
+  ice_servers_file: ""
+  agora:
+    enabled: false
+    # 推荐通过 AGORA_APP_ID 和 AGORA_APP_CERTIFICATE 注入。
+    app_id: ""
+    app_certificate: ""
+    token_ttl: 3600
+    channel_prefix: im
+    max_participants: 128
+
+# gRPC 插件。
+plugins:
+  - enabled: false
+    name: python_chat_bot
+    timeout: 20000
+    filters:
+      account: C
+    failure_code: 0
+    failure_text: null
+    service_addr: tcp://localhost:40051

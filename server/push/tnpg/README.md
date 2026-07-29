@@ -26,15 +26,16 @@ TNPG 旨在简化私有化独立部署环境下的移动端离线推送配置。
 
 ### 2.2 配置 IM 服务端
 
-更新服务端主配置文件 [`im.conf`](../../im.conf)，在 `"push"` 节点下的 `"tnpg"` 配置项中开启并设置参数：
+更新服务端主配置文件 [`configs/im.yaml`](../../../configs/im.yaml)，在 `push` 列表中启用 TNPG：
 
-```json
-{
-  "enabled": true,
-  "server_addr": "https://your-pushgw.domain.com/",
-  "org": "myorg",
-  "token": "SoMe_LonG.RaNDoM-StRiNg.12345"
-}
+```yaml
+push:
+  - name: tnpg
+    config:
+      enabled: true
+      server_addr: https://your-pushgw.domain.com/
+      org: myorg
+      token: SoMe_LonG.RaNDoM-StRiNg.12345
 ```
 
-*说明：使用 TNPG 模式时，请确保 `fcm` 节点已禁用（`"enabled": false`）或直接移除。*
+*说明：使用 TNPG 模式时，请确保 FCM 的 `config.enabled` 为 `false`，或直接移除 FCM 列表项。*

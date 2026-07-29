@@ -22,8 +22,9 @@ var availableAdapters = make(map[string]adapter.Adapter)
 // mediaHandler 保存媒体处理器的共享实例或运行状态。
 var mediaHandler media.Handler
 
-// 唯一 ID (UID) 生成器实例（基于 Snowflake + XTEA 加密）
-var uGen types.UidGenerator
+// 唯一 ID (UID) 生成器实例（基于 Snowflake + XTEA 加密）。
+// 使用指针避免复制内部互斥锁，并允许数据库集成测试注入独立实例。
+var uGen = &types.UidGenerator{}
 
 // configType 保存配置Type的数据和运行状态。
 type configType struct {
@@ -58,7 +59,7 @@ func openAdapter(workerId int, jsonconf json.RawMessage) error {
 				adp = v
 			}
 		} else {
-			return errors.New("store: 未指定数据库适配器，请在 `im.conf` 中设置 `store_config.use_adapter`")
+			return errors.New("store: 未指定数据库适配器，请在 `im.yaml` 中设置 `store_config.use_adapter`")
 		}
 	}
 
@@ -439,8 +440,11 @@ func (storeObj) UseMediaHandler(name, config string) error {
 	return mediaHandler.Init(config)
 }
 
-// SetTestUidGenerator 更新 Test Uid Generator。
-func SetTestUidGenerator(g types.UidGenerator) {
+// SetTestUidGenerator 注入只供数据库集成测试使用的 UID 生成器。
+func SetTestUidGenerator(g *types.UidGenerator) {
+	if g == nil {
+		panic("SetTestUidGenerator: UID 生成器不能为空")
+	}
 	uGen = g
 }
 
