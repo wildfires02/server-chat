@@ -1,0 +1,27 @@
+# 版本控制、编辑器和本地运行状态不应进入 Docker 构建上下文。
+.git
+.github
+.idea
+.vscode
+.DS_Store
+.local
+.env
+**/.env
+
+# 编译产物、测试结果和运行时数据由对应阶段重新生成或单独挂载。
+bin
+dist
+releases
+test-results
+coverage
+var
+uploads
+*.log
+*.test
+
+# 镜像构建不需要交付文档、部署清单或测试夹具。
+docs
+deployments/kubernetes
+deployments/systemd
+tests
+

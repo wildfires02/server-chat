@@ -12,6 +12,7 @@ DNS 名 `im-0.im.internal`～`im-2.im.internal`；在线扩容主机预留为
 sudo useradd --system --home-dir /var/lib/im --shell /usr/sbin/nologin im
 sudo install -o root -g root -m 0755 im-server /usr/local/bin/im-server
 sudo install -d -o root -g im -m 0750 /etc/im
+sudo install -d -o root -g im -m 0750 /etc/im/nodes
 sudo install -o root -g im -m 0640 configs/im.cluster.yaml /etc/im/im.cluster.yaml
 sudo install -o root -g root -m 0644 deployments/systemd/im-server@.service /etc/systemd/system/im-server@.service
 ```
@@ -20,7 +21,9 @@ sudo install -o root -g root -m 0644 deployments/systemd/im-server@.service /etc
 
 ## Secret 和证书
 
-- 将 `im-node.env.example` 的实际 Secret 写入当前节点的 `/etc/im/im-im-N.env`，属主 `im:im`、权限 `0400`。
+- 将 `im-node.env.example` 的实际 Secret 写入当前节点的
+  `/etc/im/nodes/im-N.env`，属主 `root:im`、权限 `0640`。服务账号只能读取，
+  不能覆盖由 Secret Agent 落盘的内容。
 - etcd 客户端凭据放到 `/etc/im/tls/etcd/{ca.pem,client.pem,client-key.pem}`。
 - 集群专用 CA 放到 `/etc/im/tls/cluster/ca.pem`。
 - 每个节点的证书放到 `/etc/im/tls/cluster/im-N/{cert.pem,key.pem}`。

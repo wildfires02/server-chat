@@ -42,6 +42,7 @@ FROM ${RUNTIME_IMAGE} AS runtime
 ARG VERSION=dev
 ARG REVISION=unknown
 ARG CREATED=unknown
+ARG SOURCE=unknown
 ARG TARGET_DB=mysql
 
 LABEL org.opencontainers.image.title="IM Chat Server" \
@@ -49,7 +50,7 @@ LABEL org.opencontainers.image.title="IM Chat Server" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.created="${CREATED}" \
-      org.opencontainers.image.source="https://github.com/example/im"
+      org.opencontainers.image.source="${SOURCE}"
 
 RUN apk add --no-cache ca-certificates tzdata && \
     addgroup -S -g 10001 im && \

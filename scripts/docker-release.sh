@@ -1,96 +1,81 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# ==============================================================================
-# IM 聊天服务 Docker 镜像发布推送到 Docker Hub 脚本。
-# 支持发布：IM 服务器 (im/im, im/im-$dbtag)、聊天机器人 (im/chatbot) 和 监控导出器 (im/exporter)
-# ==============================================================================
+# 推送已经在可信 CI 中构建完成的镜像；登录必须由 CI 的凭据助手预先完成。
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-cd "$REPO_ROOT"
+# shellcheck source=scripts/lib/common.sh
+source "${SCRIPT_DIR}/lib/common.sh"
 
-# 计算容器镜像名称函数
-function containerName() {
-  if [ "$1" == "alldbs" ]; then
-    # 全适配器版本的容器名称为 im
-    local name="im"
-  else
-    # 否则为 im-$dbtag
-    local name="im-${dbtag}"
-  fi
-  echo $name
+version_input=""
+database=""
+namespace="${IM_IMAGE_NAMESPACE:-im}"
+include_aliases=0
+
+usage() {
+  echo "用法：$0 --tag v0.29.0 [--db mysql] [--include-aliases]"
 }
 
-# 解析命令行参数 (例如 tag=v0.25.0 db=mysql)
-for line in $@; do
-  eval "$line"
+while (($# > 0)); do
+  case "$1" in
+    --tag)
+      (($# >= 2)) || im_die "--tag 缺少值"
+      version_input=$2
+      shift 2
+      ;;
+    --db)
+      (($# >= 2)) || im_die "--db 缺少值"
+      database=$2
+      shift 2
+      ;;
+    --include-aliases)
+      include_aliases=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      im_die "未知参数：$1"
+      ;;
+  esac
 done
 
-# 提取 tag 版本号
-tag=${tag#?}
-
-if [ -z "$tag" ]; then
-    echo "必须提供版本号 tag 参数，例如 'tag=v0.25.0'"
-    exit 1
-fi
-
-# 将版本号按 '.' 拆分为数组
-ver=( ${tag//./ } )
-
-# 如果版本号不包含连字符 '-'，判定为正式发布版本
-if [[ ${ver[2]} != *"-"* ]]; then
-  FULLRELEASE=1
-fi
-
-# 如果指定了 db 命令行参数，则仅处理该数据库镜像；否则处理所有数据库适配器
-if [ "$db" ]; then
-  dbtags=( "$db" )
+[[ -n "${version_input}" ]] || im_die "必须提供 --tag"
+version="$(im_normalize_version "${version_input}")"
+if [[ -n "${database}" ]]; then
+  im_validate_database "${database}"
+  databases=("${database}")
 else
-  dbtags=( mysql postgres mongodb rethinkdb alldbs )
+  databases=(mysql postgres mongodb rethinkdb alldbs)
 fi
 
-# 读取 Docker Hub 账号密码凭据文件 .dockerhub
-if [ -f .dockerhub ]; then
-  source .dockerhub
-else
-  echo "未找到 .dockerhub 凭据配置文件"
-fi
+im_require_command docker
+minor_version="${version%.*}"
 
-# 登录 Docker Hub
-if [ ! -z "$user" ] && [ ! -z "$pass" ]; then
-  docker login -u $user -p $pass
-fi
-
-# 推送不同数据库版本的 IM 服务器镜像
-for dbtag in "${dbtags[@]}"
-do
-  name="$(containerName $dbtag)"
-  # 如果是正式发布版本，推送 latest 与次版本号 Tag
-  if [ -n "$FULLRELEASE" ]; then
-    docker push im/${name}:latest
-    docker push im/${name}:"${ver[0]}.${ver[1]}"
+# push_image 先确认本地精确版本存在，再按需推送稳定别名。
+push_image() {
+  local image_name=$1
+  docker image inspect "${image_name}:${version}" >/dev/null
+  docker push "${image_name}:${version}"
+  if ((include_aliases == 1)) && im_is_stable_version "${version}"; then
+    docker push "${image_name}:${minor_version}"
+    docker push "${image_name}:latest"
   fi
-  docker push im/${name}:"${ver[0]}.${ver[1]}.${ver[2]}"
+}
+
+for database_name in "${databases[@]}"; do
+  if [[ "${database_name}" = "alldbs" ]]; then
+    push_image "${namespace}/im"
+  else
+    push_image "${namespace}/im-${database_name}"
+  fi
 done
 
-# 如果指定了 db 选项，推送完服务器镜像后直接退出
-if [ "$db" ]; then
-  exit 0
+if [[ -z "${database}" ]]; then
+  push_image "${namespace}/chatbot"
+  push_image "${namespace}/exporter"
 fi
 
-# 推送聊天机器人 im/chatbot 镜像
-if [ -n "$FULLRELEASE" ]; then
-  docker push im/chatbot:latest
-  docker push im/chatbot:"${ver[0]}.${ver[1]}"
-fi
-docker push im/chatbot:"${ver[0]}.${ver[1]}.${ver[2]}"
-
-# 推送监控导出器 im/exporter 镜像
-if [ -n "$FULLRELEASE" ]; then
-  docker push im/exporter:latest
-  docker push im/exporter:"${ver[0]}.${ver[1]}"
-fi
-docker push im/exporter:"${ver[0]}.${ver[1]}.${ver[2]}"
-
-# 登出 Docker Hub
-docker logout
+echo "Docker 镜像推送完成：版本 ${version}"

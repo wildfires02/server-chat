@@ -1,90 +1,66 @@
-# Docker Compose 部署指南
+# Docker Compose 开发环境
 
-本目录包含使用 Docker Compose 在单机或集群环境下部署 IM 服务器的参考配置文件。
+这里提供两个入口：
 
-> 当前 `cluster.yml` 只用于三节点开发验证，不是生产集群交付物。生产环境必须完成
-> [生产集群版实施计划](../../../docs/planning/cluster.md)中的控制面、fencing、mTLS、Readiness
-> 和故障演练门禁。
+- `single-instance.yml`：单机开发服务。
+- `cluster.yml`：三 IM 节点 + etcd 的开发集群，使用正式的 Lease、fencing、
+  gRPC Lane 和 Readiness 代码路径，但不启用生产 mTLS。
 
----
+Compose 不是生产交付物。生产要求见
+[`../../../docs/planning/cluster.md`](../../../docs/planning/cluster.md)。
 
-## 1. 配置文件说明
+## 启动
 
-- **[single-instance.yml](single-instance.yml)**：单机版配置（默认包含 MySQL 数据库、IM 服务和 Exporter 监控导出器）。
-- **[cluster.yml](cluster.yml)**：三节点集群版配置（包含 3 个 IM 实例、MySQL 和对应的 Exporter 监控）。
-- **覆盖配置文件（用于切换数据库后端）**：
-  - PostgreSQL: `single-instance.postgres.yml`, `cluster.postgres.yml`
-  - MongoDB: `single-instance.mongodb.yml`, `cluster.mongodb.yml`
-  - RethinkDB: `single-instance.rethinkdb.yml`, `cluster.rethinkdb.yml`
-
----
-
-## 2. 常用启动命令
-
-在当前目录（`deployments/docker/compose/`）下运行以下命令：
-
-### MySQL 后端
-
-- **单机模式**：
-  ```bash
-  docker-compose -f single-instance.yml up -d
-  ```
-- **集群模式**：
-  ```bash
-  docker-compose -f cluster.yml up -d
-  ```
-
-### PostgreSQL 后端
-
-- **单机模式**：
-  ```bash
-  docker-compose -f single-instance.yml -f single-instance.postgres.yml up -d
-  ```
-- **集群模式**：
-  ```bash
-  docker-compose -f cluster.yml -f cluster.postgres.yml up -d
-  ```
-
-### MongoDB 后端
-
-- **单机模式**：
-  ```bash
-  docker-compose -f single-instance.yml -f single-instance.mongodb.yml up -d
-  ```
-- **集群模式**：
-  ```bash
-  docker-compose -f cluster.yml -f cluster.mongodb.yml up -d
-  ```
-
----
-
-## 3. 数据库重置与升级
-
-通过在命令前传入环境变量 `RESET_DB=true` 或 `UPGRADE_DB=true` 来重置或升级数据库。
-
-例如，在 MongoDB 集群中升级数据库：
 ```bash
-UPGRADE_DB=true docker-compose -f cluster.yml -f cluster.mongodb.yml up -d im-0
+cp .env.example .env
+
+# MySQL 单机。
+docker compose -f single-instance.yml up -d
+
+# MySQL 三节点开发集群。
+docker compose -f cluster.yml up -d
+
+# PostgreSQL。
+docker compose \
+  -f single-instance.yml \
+  -f single-instance.postgres.yml \
+  up -d
+
+# MongoDB Replica Set。
+docker compose \
+  -f cluster.yml \
+  -f cluster.mongodb.yml \
+  up -d
 ```
 
-在 MySQL 单机模式下重置数据库：
+RethinkDB 使用同名 `.rethinkdb.yml` 覆盖。Exporter 位于 `observability` profile：
+
 ```bash
-RESET_DB=true docker-compose -f single-instance.yml up -d im-0
+docker compose -f cluster.yml --profile observability up -d
 ```
 
----
+## 数据库变更
 
-## 4. 故障排查与日志
+数据库工作由 `db-init` 一次性服务完成，三个业务节点不会并发迁移。
 
-1. 检查最终组合生效的配置：
-   ```bash
-   docker-compose -f single-instance.yml config
-   ```
-2. 查看容器运行日志：
-   ```bash
-   docker logs im-0
-   ```
-3. 从容器导出日志文件到本地：
-   ```bash
-   docker cp im-0:/var/log/im.log .
-   ```
+```bash
+# 升级 Schema。
+IM_DB_INIT_MODE=upgrade docker compose -f single-instance.yml run --rm db-init
+
+# 开发环境重置；两个开关必须同时明确。
+IM_DB_INIT_MODE=reset \
+IM_ALLOW_DESTRUCTIVE_DB_RESET=true \
+docker compose -f single-instance.yml run --rm db-init
+```
+
+## 校验和日志
+
+```bash
+./scripts/validate-delivery.sh
+docker compose -f cluster.yml config --quiet
+docker compose -f cluster.yml ps
+docker compose -f cluster.yml logs -f im-0
+curl --fail http://127.0.0.1:6060/readyz
+```
+
+容器日志直接进入 Docker 日志驱动，不再写 `/var/log/im.log`。

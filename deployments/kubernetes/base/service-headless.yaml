@@ -6,6 +6,7 @@ metadata:
     app.kubernetes.io/name: im-server
 spec:
   clusterIP: None
+  ipFamilyPolicy: SingleStack
   # 冷启动期间也必须解析其他 Pod DNS，Readiness 只控制客户端接流。
   publishNotReadyAddresses: true
   selector:
@@ -14,4 +15,3 @@ spec:
     - name: cluster-grpc
       port: 12000
       targetPort: cluster-grpc
-

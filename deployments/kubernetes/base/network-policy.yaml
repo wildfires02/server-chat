@@ -10,8 +10,12 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # 客户端 HTTP/WebSocket/Long Polling 和 gRPC 由上游网关访问。
-    - ports:
+    # 只有显式标记的网关命名空间可以访问客户端入口。
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              im.example.com/client-access: "true"
+      ports:
         - protocol: TCP
           port: 6060
         - protocol: TCP
@@ -63,4 +67,3 @@ spec:
     - ports:
         - protocol: TCP
           port: 443
-

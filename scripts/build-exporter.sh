@@ -1,70 +1,62 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# 编译并归档 exporter 二进制文件及附属资源。
+# 为受支持平台构建独立 Exporter 二进制，不修改既有发布目录中的其他文件。
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=scripts/lib/common.sh
+source "${SCRIPT_DIR}/lib/common.sh"
+REPO_ROOT="$(im_repo_root "${SCRIPT_DIR}")"
 
-# 支持的操作系统：Mac (darwin)、Windows、Linux。
-goplat=( darwin darwin windows linux )
-
-# CPU 架构：amd64 和 arm64，顺序与操作系统列表对应。
-goarc=( amd64 arm64 amd64 amd64 )
-
-# 平台与架构组合数量。
-buildCount=${#goplat[@]}
-
-for line in $@; do
-  eval "$line"
+version_input=""
+while (($# > 0)); do
+  case "$1" in
+    --tag)
+      (($# >= 2)) || im_die "--tag 缺少值"
+      version_input=$2
+      shift 2
+      ;;
+    -h|--help)
+      echo "用法：$0 [--tag v0.29.0]"
+      exit 0
+      ;;
+    *)
+      im_die "未知参数：$1"
+      ;;
+  esac
 done
 
-# 去除版本号前缀 'v'，例如 v0.16.4 -> 0.16.4。
-version=${tag#?}
-
-if [ -z "$version" ]; then
-  # 从 git 标签获取发布版本号，标签格式类似 'v.1.2.3'，去除前缀 'v'。
-  version=`git describe --tags`
-  version=${version#?}
-fi
-
-echo "Releasing exporter $version"
-
-pushd "$REPO_ROOT" > /dev/null
-
-# 确保删除之前的构建产物。
-mkdir -p ./releases/${version} ./releases/tmp
-rm -f ./releases/${version}/exporter*
-
-for (( i=0; i<${buildCount}; i++ ));
-do
-  plat="${goplat[$i]}"
-  arc="${goarc[$i]}"
-
-  echo "Building ${plat}/${arc}..."
-
-  # 删除可能存在的旧版构建二进制文件。
-  rm -f ./releases/tmp/exporter*
-
-  # 设置交叉编译环境变量。
-  env GOOS="${plat}" GOARCH="${arc}" go build \
-    -ldflags "-s -w -X main.buildstamp=`git describe --tags`" \
-    -o ./releases/tmp/exporter ./cmd/exporter > /dev/null
-
-  # 归档打包：Windows 使用 zip 格式，其余平台使用 tar 格式。
-  if [ "$plat" = "windows" ]; then
-    # 仅复制二进制文件并添加 .exe 后缀。
-    cp ./releases/tmp/exporter ./releases/${version}/exporter."${plat}-${arc}".exe
-  else
-    plat2=$plat
-    # 将 'darwin' 重命名为 'mac'
-    if [ "$plat" = "darwin" ]; then
-      plat2=mac
-    fi
-
-    # 仅复制二进制文件。
-    cp ./releases/tmp/exporter ./releases/${version}/exporter."${plat2}-${arc}"
+if [[ -z "${version_input}" ]]; then
+  version_input="$(git -C "${REPO_ROOT}" describe --tags --always)"
+  if [[ ! "${version_input}" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+    version_input="v0.0.0+${version_input//[^0-9A-Za-z.-]/-}"
   fi
+fi
+version="$(im_normalize_version "${version_input}")"
+output_dir="${REPO_ROOT}/releases/${version}"
+mkdir -p "${output_dir}"
 
+platforms=(
+  "darwin/amd64"
+  "darwin/arm64"
+  "windows/amd64"
+  "linux/amd64"
+  "linux/arm64"
+)
+
+for target in "${platforms[@]}"; do
+  os_name=${target%/*}
+  architecture=${target#*/}
+  extension=""
+  [[ "${os_name}" = "windows" ]] && extension=".exe"
+  output_file="${output_dir}/im-exporter-${os_name}-${architecture}${extension}"
+  echo "构建 Exporter ${os_name}/${architecture}"
+  CGO_ENABLED=0 GOOS="${os_name}" GOARCH="${architecture}" \
+    go build \
+      -trimpath \
+      -ldflags="-s -w -X main.buildstamp=${version}" \
+      -o "${output_file}" \
+      "${REPO_ROOT}/cmd/exporter"
 done
 
-popd > /dev/null
+echo "Exporter 构建完成：${output_dir}"

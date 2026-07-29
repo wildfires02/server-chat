@@ -8,6 +8,8 @@ spec:
   serviceName: im-headless
   replicas: 3
   podManagementPolicy: Parallel
+  minReadySeconds: 10
+  revisionHistoryLimit: 3
   updateStrategy:
     type: RollingUpdate
   selector:
@@ -20,7 +22,9 @@ spec:
         app.kubernetes.io/part-of: im
     spec:
       serviceAccountName: im-server
-      terminationGracePeriodSeconds: 60
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 90
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -47,7 +51,7 @@ spec:
           image: ghcr.io/example/im-server@sha256:0000000000000000000000000000000000000000000000000000000000000000
           imagePullPolicy: IfNotPresent
           command:
-            - /opt/im/im
+            - /usr/local/bin/im-server
           args:
             - --config=/etc/im/im.yaml
             - --static_data=-
@@ -167,6 +171,7 @@ spec:
             capabilities:
               drop:
                 - ALL
+          terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - name: config
               mountPath: /etc/im

@@ -28,8 +28,11 @@ TLS 握手后再次把证书 SAN 与帧中的节点名比对。
 ## 发布前修改
 
 - 在 overlay 中把 StatefulSet 镜像替换为真实不可变 digest。
-- 修改 ConfigMap 中的 etcd 地址、逻辑 `cluster_id`、对象存储参数和容量限制。
+- 在 overlay 中修改由 `base/im.cluster.yaml` 生成的 ConfigMap；配置内容哈希会
+  自动改变 ConfigMap 名称并触发 StatefulSet 滚动。
 - 根据实际命名空间标签收窄 NetworkPolicy 的数据库、etcd 和 HTTPS 出站范围。
+- 给允许访问客户端端口的网关命名空间添加标签
+  `im.example.com/client-access=true`；未标记命名空间默认不能访问。
 - 确保数据库 Schema 已由独立迁移 Job 升级；不要让三个业务 Pod 并发执行迁移。
 - 为外部网关配置 WebSocket、Long Polling 和 gRPC 的超时与连接保持。
 
@@ -51,7 +54,9 @@ kubectl -n im-system get --raw /api/v1/namespaces/im-system/services/http:im-cli
 kubectl -n im-system exec im-0 -- wget -qO- --post-data='' http://127.0.0.1:6060/drainz
 ```
 
-Drain 会先把 etcd 成员标记为 `draining`，推动新的 Cluster View 和数据库 fence，迁移 Topic Owner，再等待可靠 Lane 排空。StatefulSet 的 60 秒终止宽限必须大于 `health.drain_timeout`。
+Drain 会先把 etcd 成员标记为 `draining`，推动新的 Cluster View 和数据库
+fence，迁移 Topic Owner，再等待可靠 Lane 排空。StatefulSet 的 90 秒终止
+宽限大于 `health.drain_timeout`，并给 Kubernetes 留出退出余量。
 
 ## 在线扩容到五节点
 

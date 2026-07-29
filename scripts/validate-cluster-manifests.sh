@@ -28,12 +28,20 @@ for resource in \
   "kind: NetworkPolicy" \
   "readinessProbe:" \
   "livenessProbe:" \
-  "preStop:"; do
+  "preStop:" \
+  "automountServiceAccountToken: false" \
+  "readOnlyRootFilesystem: true" \
+  "runAsNonRoot: true"; do
   if ! grep -q "${resource}" "${OUTPUT_FILE}"; then
     echo "错误：渲染结果缺少 ${resource}" >&2
     exit 1
   fi
 done
+
+if grep -Eq 'image:[[:space:]]+[^[:space:]]+:latest' "${OUTPUT_FILE}"; then
+  echo "错误：生产清单禁止使用 latest 镜像。" >&2
+  exit 1
+fi
 
 # 安装 kubeconform 的 CI 环境会继续执行 Kubernetes OpenAPI Schema 校验。
 if command -v kubeconform >/dev/null 2>&1; then

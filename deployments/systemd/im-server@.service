@@ -3,6 +3,8 @@ Description=IM 生产集群节点 %i
 Documentation=file:///usr/share/doc/im-server/systemd-cluster.md
 Wants=network-online.target
 After=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -17,15 +19,17 @@ Environment="IM_CLUSTER_CONFIG__TLS__CERT_FILE=/etc/im/tls/cluster/%i/cert.pem"
 Environment="IM_CLUSTER_CONFIG__TLS__KEY_FILE=/etc/im/tls/cluster/%i/key.pem"
 # 每台机器的环境文件由 Secret 管理系统落盘，必须设置为 im:im 0400。
 # 缺少该文件时拒绝启动，避免使用空密钥进入运行期。
-EnvironmentFile=/etc/im/im-%i.env
+EnvironmentFile=/etc/im/nodes/%i.env
 
 # 启动前只做离线结构和生产门禁检查；数据库迁移必须由独立作业执行。
-ExecStartPre=/usr/local/bin/im-server --config=/etc/im/im.cluster.yaml --cluster_self=%i --validate_config
-ExecStart=/usr/local/bin/im-server --config=/etc/im/im.cluster.yaml --cluster_self=%i --static_data=-
+ExecStartPre=/usr/local/bin/im-server --config=/etc/im/im.cluster.yaml --validate_config
+ExecStart=/usr/local/bin/im-server --config=/etc/im/im.cluster.yaml --static_data=-
 # 先同步 Drain 并等待可靠队列排空，然后 systemd 再发送 SIGTERM。
 ExecStop=/usr/bin/curl --fail --silent --show-error --max-time 40 --request POST http://127.0.0.1:6060/drainz
 KillSignal=SIGTERM
-TimeoutStopSec=60s
+KillMode=mixed
+TimeoutStartSec=60s
+TimeoutStopSec=90s
 Restart=on-failure
 RestartSec=5s
 
@@ -45,14 +49,21 @@ ProtectKernelModules=true
 ProtectControlGroups=true
 ProtectClock=true
 ProtectHostname=true
+ProtectKernelLogs=true
+ProtectProc=invisible
+ProcSubset=pid
 LockPersonality=true
 RestrictRealtime=true
 RestrictSUIDSGID=true
+RestrictNamespaces=true
+SystemCallArchitectures=native
 RemoveIPC=true
+MemoryDenyWriteExecute=true
 CapabilityBoundingSet=
 AmbientCapabilities=
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 StateDirectory=im
+RuntimeDirectory=im
 
 [Install]
 WantedBy=multi-user.target

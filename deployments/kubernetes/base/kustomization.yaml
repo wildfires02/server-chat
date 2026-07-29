@@ -4,7 +4,6 @@ kind: Kustomization
 namespace: im-system
 resources:
   - namespace.yaml
-  - configmap.yaml
   - service-account.yaml
   - service-headless.yaml
   - service-client.yaml
@@ -12,3 +11,12 @@ resources:
   - pdb.yaml
   - network-policy.yaml
 
+configMapGenerator:
+  - name: im-server-config
+    files:
+      - im.yaml=im.cluster.yaml
+
+generatorOptions:
+  labels:
+    app.kubernetes.io/name: im-server
+    app.kubernetes.io/part-of: im
