@@ -28,9 +28,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	b "go.mongodb.org/mongo-driver/bson"
-	mdb "go.mongodb.org/mongo-driver/mongo"
-	mdbopts "go.mongodb.org/mongo-driver/mongo/options"
+	b "go.mongodb.org/mongo-driver/v2/bson"
+	mdb "go.mongodb.org/mongo-driver/v2/mongo"
+	mdbopts "go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"chat/server/db/common"
 	"chat/server/db/common/test_data"

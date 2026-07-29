@@ -11,7 +11,7 @@ import (
 
 	auth "chat/server/auth"
 	types "chat/server/store/types"
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockAuthHandler 是 AuthHandler 接口的 Mock 实现。

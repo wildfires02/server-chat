@@ -1,6 +1,15 @@
+# Compose 2.24.4+ 的 !override 可避免数据库覆盖后残留 MySQL 配置。
+x-rethinkdb-environment: &rethinkdb-environment
+  IM_CONFIG_FILE: /etc/im/im.cluster.yaml
+  IM_STORE_CONFIG__USE_ADAPTER: rethinkdb
+  IM_STORE_CONFIG__ADAPTERS__RETHINKDB__ADDRESSES: db:28015
+  IM_DB_WAIT_FOR: db:28015
+  IM_DB_WAIT_TIMEOUT: "120"
+
 services:
   db:
     image: ${RETHINKDB_IMAGE:-rethinkdb:2.4.4-bookworm-slim}
+    environment: !override {}
     healthcheck:
       test:
         - CMD-SHELL
@@ -8,21 +17,35 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-    volumes:
+    volumes: !override
       - rethinkdb-data:/data
 
   db-init:
-    environment: &rethinkdb-environment
-      IM_STORE_CONFIG__USE_ADAPTER: rethinkdb
-      IM_STORE_CONFIG__ADAPTERS__RETHINKDB__ADDRESSES: db:28015
-      IM_DB_WAIT_FOR: db:28015
+    environment: !override
+      <<: *rethinkdb-environment
+      IM_DB_INIT_MODE: ${IM_DB_INIT_MODE:-init}
+      IM_DB_SAMPLE_DATA: /opt/im/data.json
+      IM_ALLOW_DESTRUCTIVE_DB_RESET: ${IM_ALLOW_DESTRUCTIVE_DB_RESET:-false}
+      IM_RUN_SERVER: "false"
 
   im-0:
-    environment: *rethinkdb-environment
+    environment: !override
+      <<: *rethinkdb-environment
+      IM_DB_INIT_MODE: skip
+      IM_CLUSTER_CONFIG__SELF: im-0
+      IM_CLUSTER_CONFIG__ADVERTISE_ADDR: im-0:12000
   im-1:
-    environment: *rethinkdb-environment
+    environment: !override
+      <<: *rethinkdb-environment
+      IM_DB_INIT_MODE: skip
+      IM_CLUSTER_CONFIG__SELF: im-1
+      IM_CLUSTER_CONFIG__ADVERTISE_ADDR: im-1:12000
   im-2:
-    environment: *rethinkdb-environment
+    environment: !override
+      <<: *rethinkdb-environment
+      IM_DB_INIT_MODE: skip
+      IM_CLUSTER_CONFIG__SELF: im-2
+      IM_CLUSTER_CONFIG__ADVERTISE_ADDR: im-2:12000
 
 volumes:
   rethinkdb-data:

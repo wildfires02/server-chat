@@ -7,9 +7,9 @@ import (
 
 	t "chat/server/store/types"
 
-	b "go.mongodb.org/mongo-driver/bson"
-	mdb "go.mongodb.org/mongo-driver/mongo"
-	mdbopts "go.mongodb.org/mongo-driver/mongo/options"
+	b "go.mongodb.org/mongo-driver/v2/bson"
+	mdb "go.mongodb.org/mongo-driver/v2/mongo"
+	mdbopts "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // DeviceUpsert 创建或更新设备记录。
@@ -22,8 +22,9 @@ func (a *adapter) DeviceUpsert(uid t.Uid, dev *t.DeviceDef) error {
 
 	if err == nil && user.Id != "" { // current 用户 owns this device
 		// 使用 ArrayFilter 避免添加重复设备对象，而是更新该设备数据
-		updOpts := mdbopts.Update().SetArrayFilters(mdbopts.ArrayFilters{
-			Filters: []any{b.M{"dev.deviceid": dev.DeviceId}}})
+		updOpts := mdbopts.UpdateOne().SetArrayFilters(
+			[]any{b.M{"dev.deviceid": dev.DeviceId}},
+		)
 		_, err = a.db.Collection("users").UpdateOne(a.ctx,
 			b.M{"_id": userId},
 			b.M{"$set": b.M{

@@ -59,7 +59,8 @@ services:
     tmpfs:
       - /tmp:size=128m,mode=1777
     volumes:
-      - uploads:/var/lib/im/.local/uploads
+      # configs/im.yaml 的相对 upload_dir=uploads 解析到容器工作目录下。
+      - uploads:/var/lib/im/uploads
     cap_drop:
       - ALL
     stop_grace_period: 60s

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"chat/server/store/types"
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 )
 
 // TestSetAnotherUserRoleInvitesOfflineChannelSubscriber 验证管理员可直接邀请离线频道读者。

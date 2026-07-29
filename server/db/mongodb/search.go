@@ -9,9 +9,8 @@ import (
 	"chat/server/db/common"
 	t "chat/server/store/types"
 
-	b "go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	mdbopts "go.mongodb.org/mongo-driver/mongo/options"
+	b "go.mongodb.org/mongo-driver/v2/bson"
+	mdbopts "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // Find 根据标签列表搜索联系人和 Topic。
@@ -224,11 +223,11 @@ func (a *adapter) FindByName(caller string, search *t.PeerSearchQuery) ([]t.Subs
 	if search.AliasPrefix != "" {
 		aliasRegex = "^" + regexp.QuoteMeta(search.AliasPrefix) + ":.*" + quotedQuery
 	}
-	aliasPattern := primitive.Regex{
+	aliasPattern := b.Regex{
 		Pattern: aliasRegex,
 		Options: "i",
 	}
-	namePattern := primitive.Regex{Pattern: quotedQuery, Options: "i"}
+	namePattern := b.Regex{Pattern: quotedQuery, Options: "i"}
 
 	userFilter := b.M{"tags": aliasPattern}
 	if search.ActiveOnly {

@@ -12,7 +12,7 @@ import (
 	"chat/server/store"
 	"chat/server/store/mock_store"
 	"chat/server/store/types"
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 )
 
 // test_makeSession 完成testmake会话所需的内部处理。

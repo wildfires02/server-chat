@@ -5,7 +5,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-CONFIG_FILE="${REPO_ROOT}/configs/im.standalone.yaml"
+CONFIG_FILE="${REPO_ROOT}/configs/im.yaml"
 DB_TAG="${IM_STANDALONE_DB_TAG:-mysql}"
 
 cd "${REPO_ROOT}"

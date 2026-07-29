@@ -8,17 +8,16 @@ import (
 
 	t "chat/server/store/types"
 
-	b "go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	mdb "go.mongodb.org/mongo-driver/mongo"
-	mdbopts "go.mongodb.org/mongo-driver/mongo/options"
+	b "go.mongodb.org/mongo-driver/v2/bson"
+	mdb "go.mongodb.org/mongo-driver/v2/mongo"
+	mdbopts "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // PCacheGet 完成P缓存Get所需的内部处理。
 func (a *adapter) PCacheGet(key string) (string, error) {
 	var value map[string]string
-	findOpts := mdbopts.FindOneOptions{Projection: b.M{"value": 1, "_id": 0}}
-	if err := a.db.Collection("kvmeta").FindOne(a.ctx, b.M{"_id": key}, &findOpts).Decode(&value); err != nil {
+	findOpts := mdbopts.FindOne().SetProjection(b.M{"value": 1, "_id": 0})
+	if err := a.db.Collection("kvmeta").FindOne(a.ctx, b.M{"_id": key}, findOpts).Decode(&value); err != nil {
 		if err == mdb.ErrNoDocuments {
 			err = t.ErrNotFound
 		}
@@ -67,6 +66,6 @@ func (a *adapter) PCacheExpire(keyPrefix string, olderThan time.Time) error {
 	}
 
 	_, err := a.db.Collection("kvmeta").DeleteMany(a.ctx, b.M{"createdat": b.M{"$lt": olderThan},
-		"_id": primitive.Regex{Pattern: "^" + keyPrefix}})
+		"_id": b.Regex{Pattern: "^" + keyPrefix}})
 	return err
 }

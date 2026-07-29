@@ -1,6 +1,16 @@
+# Compose 2.24.4+ 的 !override 可避免数据库覆盖后残留 MySQL 配置。
+x-mongodb-environment: &mongodb-environment
+  IM_CONFIG_FILE: /etc/im/im.yaml
+  IM_STORE_CONFIG__USE_ADAPTER: mongodb
+  IM_STORE_CONFIG__ADAPTERS__MONGODB__ADDRESSES: db:27017
+  IM_STORE_CONFIG__ADAPTERS__MONGODB__REPLICA_SET: rs0
+  IM_DB_WAIT_FOR: db:27017
+  IM_DB_WAIT_TIMEOUT: "120"
+
 services:
   db:
     image: ${MONGODB_IMAGE:-mongo:8.0.26}
+    environment: !override {}
     command:
       - mongod
       - --bind_ip_all
@@ -12,7 +22,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 30
-    volumes:
+    volumes: !override
       - mongodb-data:/data/db
 
   mongo-init:
@@ -31,18 +41,17 @@ services:
     depends_on:
       mongo-init:
         condition: service_completed_successfully
-    environment:
-      IM_STORE_CONFIG__USE_ADAPTER: mongodb
-      IM_STORE_CONFIG__ADAPTERS__MONGODB__ADDRESSES: db:27017
-      IM_STORE_CONFIG__ADAPTERS__MONGODB__REPLICA_SET: rs0
-      IM_DB_WAIT_FOR: db:27017
+    environment: !override
+      <<: *mongodb-environment
+      IM_DB_INIT_MODE: ${IM_DB_INIT_MODE:-init}
+      IM_DB_SAMPLE_DATA: /opt/im/data.json
+      IM_ALLOW_DESTRUCTIVE_DB_RESET: ${IM_ALLOW_DESTRUCTIVE_DB_RESET:-false}
+      IM_RUN_SERVER: "false"
 
   im-server:
-    environment:
-      IM_STORE_CONFIG__USE_ADAPTER: mongodb
-      IM_STORE_CONFIG__ADAPTERS__MONGODB__ADDRESSES: db:27017
-      IM_STORE_CONFIG__ADAPTERS__MONGODB__REPLICA_SET: rs0
-      IM_DB_WAIT_FOR: db:27017
+    environment: !override
+      <<: *mongodb-environment
+      IM_DB_INIT_MODE: skip
 
 volumes:
   mongodb-data:

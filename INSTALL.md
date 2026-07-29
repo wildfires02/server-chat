@@ -55,7 +55,7 @@ go build \
 
 ## 3. 配置数据库
 
-开发单机配置位于 [`configs/im.standalone.yaml`](configs/im.standalone.yaml)。
+开发单机配置位于 [`configs/im.yaml`](configs/im.yaml)。
 生产模板位于 [`configs/im.cluster.yaml`](configs/im.cluster.yaml)。
 
 确认以下字段与实际数据库一致：
@@ -80,7 +80,7 @@ store_config:
 
 ```bash
 ./bin/init-db \
-  --config=./configs/im.standalone.yaml \
+  --config=./configs/im.yaml \
   --data=./cmd/init-db/data.json
 ```
 
@@ -88,7 +88,7 @@ store_config:
 
 ```bash
 ./bin/init-db \
-  --config=./configs/im.standalone.yaml \
+  --config=./configs/im.yaml \
   --data=./cmd/init-db/data.json \
   --reset=true
 ```
@@ -103,7 +103,7 @@ store_config:
 
 ```bash
 ./bin/im-server \
-  --config=./configs/im.standalone.yaml \
+  --config=./configs/im.yaml \
   --validate_config
 ```
 

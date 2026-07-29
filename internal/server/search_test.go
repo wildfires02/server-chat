@@ -7,7 +7,7 @@ import (
 
 	"chat/server/auth"
 	"chat/server/store/types"
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 )
 
 // TestSearchCursorIsBoundToQuery 验证游标不能跨关键词或搜索范围复用。

@@ -25,27 +25,8 @@ func TestExampleYAMLConfig(t *testing.T) {
 	if err := validateDeploymentConfig(&config, "", ""); err != nil {
 		t.Fatalf("开发单机配置未通过部署门禁：%v", err)
 	}
-	assertRawConfigObject(t, "store_config", config.Store)
-	assertRawConfigObject(t, "auth_config.token", config.Auth["token"])
-	assertRawConfigObject(t, "webrtc", config.WebRTC)
-}
-
-// TestStandaloneYAMLConfig 验证独立单机模板不包含集群资源且能通过启动门禁。
-func TestStandaloneYAMLConfig(t *testing.T) {
-	configPath := filepath.Join("..", "..", "configs", "im.standalone.yaml")
-	var config configType
-	if err := configutil.DecodeFile(configPath, &config); err != nil {
-		t.Fatal(err)
-	}
-	if err := validateDeploymentConfig(&config, "", ""); err != nil {
-		t.Fatalf("开发单机模板未通过部署门禁：%v", err)
-	}
-	if config.Runtime.Environment != environmentDevelopment ||
-		config.Runtime.DeploymentMode != deploymentModeStandalone {
-		t.Fatalf("单机模板运行模式不正确：%+v", config.Runtime)
-	}
 	if len(config.Cluster) != 0 {
-		t.Fatalf("单机模板意外加载了 cluster_config：%s", config.Cluster)
+		t.Fatalf("开发单机配置意外加载了 cluster_config：%s", config.Cluster)
 	}
 	assertRawConfigObject(t, "store_config", config.Store)
 	assertRawConfigObject(t, "auth_config.token", config.Auth["token"])

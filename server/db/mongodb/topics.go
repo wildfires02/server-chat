@@ -8,10 +8,9 @@ import (
 	"chat/server/db/common"
 	t "chat/server/store/types"
 
-	b "go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	mdb "go.mongodb.org/mongo-driver/mongo"
-	mdbopts "go.mongodb.org/mongo-driver/mongo/options"
+	b "go.mongodb.org/mongo-driver/v2/bson"
+	mdb "go.mongodb.org/mongo-driver/v2/mongo"
+	mdbopts "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // TopicCreate 创建 Topic
@@ -134,7 +133,7 @@ func (a *adapter) TopicsForUser(uid t.Uid, keepDeleted bool, opts *t.QueryOpt) (
 		limit = a.maxResults
 	}
 
-	var findOpts *mdbopts.FindOptions
+	findOpts := mdbopts.Find()
 	if limit > 0 {
 		findOpts = mdbopts.Find().SetLimit(int64(limit))
 	}
@@ -205,7 +204,7 @@ func (a *adapter) TopicsForUser(uid t.Uid, keepDeleted bool, opts *t.QueryOpt) (
 			// 如果提供了缓存时间戳：仅获取较新的条目。
 			filter["touchedat"] = b.M{"$gt": ims}
 
-			findOpts = nil
+			findOpts = mdbopts.Find()
 			if limit > 0 && limit < len(topq) {
 				// 没有意义获取超过请求限制的数量。
 				findOpts = mdbopts.Find().SetSort(b.D{{Key: "touchedat", Value: 1}}).SetLimit(int64(limit))
@@ -443,7 +442,7 @@ func (a *adapter) p2pTopicsForUser(uid t.Uid) ([]string, error) {
 		b.M{
 			"user":      uid.String(),
 			"deletedat": b.M{"$exists": false},
-			"topic":     b.M{"$regex": primitive.Regex{Pattern: "^p2p"}}},
+			"topic":     b.M{"$regex": b.Regex{Pattern: "^p2p"}}},
 		"topic", false)
 }
 
@@ -460,7 +459,7 @@ func (a *adapter) ChannelsForUser(uid t.Uid) ([]string, error) {
 		b.M{
 			"user":      uid.String(),
 			"deletedat": b.M{"$exists": false},
-			"topic":     b.M{"$regex": primitive.Regex{Pattern: "^chn"}},
+			"topic":     b.M{"$regex": b.Regex{Pattern: "^chn"}},
 			"modewant":  b.M{"$bitsAllSet": b.A{t.ModePres}},
 			"modegiven": b.M{"$bitsAllSet": b.A{t.ModePres}}},
 		"topic", false)

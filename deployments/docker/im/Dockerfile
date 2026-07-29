@@ -66,13 +66,12 @@ COPY --from=builder /out/im-server /usr/local/bin/im-server
 COPY --from=builder /out/init-db /usr/local/bin/init-db
 COPY --chmod=0555 deployments/docker/im/entrypoint.sh /usr/local/bin/im-entrypoint
 COPY --chown=im:im configs/im.yaml /etc/im/im.yaml
-COPY --chown=im:im configs/im.standalone.yaml /etc/im/im.standalone.yaml
 COPY --chown=im:im configs/im.cluster.yaml /etc/im/im.cluster.yaml
 COPY --chown=im:im cmd/init-db/data.json /opt/im/data.json
 COPY --chown=im:im web/static/ /opt/im/static/
 
 ENV TARGET_DB="${TARGET_DB}" \
-    IM_CONFIG_FILE=/etc/im/im.standalone.yaml \
+    IM_CONFIG_FILE=/etc/im/im.yaml \
     IM_STATIC_DIR=/opt/im/static \
     IM_DB_INIT_MODE=skip \
     IM_DB_SAMPLE_DATA= \

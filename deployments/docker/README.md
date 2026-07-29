@@ -31,7 +31,7 @@ Compose 当作生产高可用方案。
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `IM_CONFIG_FILE` | `/etc/im/im.standalone.yaml` | 规范 YAML 路径 |
+| `IM_CONFIG_FILE` | `/etc/im/im.yaml` | 规范 YAML 路径 |
 | `IM_STATIC_DIR` | `/opt/im/static` | 静态资源目录 |
 | `IM_DB_INIT_MODE` | `skip` | `skip/check/init/upgrade/reset` |
 | `IM_DB_WAIT_FOR` | 空 | 初始化任务等待的 `host:port` |

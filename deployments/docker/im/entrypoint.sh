@@ -4,7 +4,7 @@
 # 数据库变更必须通过 IM_DB_INIT_MODE 显式选择，默认 skip。
 set -eu
 
-config_file="${IM_CONFIG_FILE:-/etc/im/im.standalone.yaml}"
+config_file="${IM_CONFIG_FILE:-/etc/im/im.yaml}"
 static_dir="${IM_STATIC_DIR:-/opt/im/static}"
 init_mode="${IM_DB_INIT_MODE:-skip}"
 wait_target="${IM_DB_WAIT_FOR:-}"

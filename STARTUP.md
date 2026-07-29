@@ -20,7 +20,7 @@ docker run -d --name im-mysql-dev \
   mysql:8.0
 ```
 
-`configs/im.standalone.yaml` 使用相同的本地示例密码。该密码只允许用于隔离的
+`configs/im.yaml` 使用相同的本地示例密码。该密码只允许用于隔离的
 开发环境。
 
 ## 2. 构建
@@ -39,7 +39,7 @@ go build -tags mysql -o bin/im-server ./cmd/im-server
 
 ```bash
 ./bin/init-db \
-  --config=./configs/im.standalone.yaml \
+  --config=./configs/im.yaml \
   --data=./cmd/init-db/data.json \
   --reset=true
 ```
@@ -52,7 +52,7 @@ go build -tags mysql -o bin/im-server ./cmd/im-server
 
 ```bash
 ./bin/im-server \
-  --config=./configs/im.standalone.yaml \
+  --config=./configs/im.yaml \
   --validate_config
 ```
 
@@ -60,7 +60,7 @@ go build -tags mysql -o bin/im-server ./cmd/im-server
 
 ```bash
 ./bin/im-server \
-  --config=./configs/im.standalone.yaml \
+  --config=./configs/im.yaml \
   --static_data=-
 ```
 

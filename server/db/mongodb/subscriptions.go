@@ -7,9 +7,9 @@ import (
 
 	t "chat/server/store/types"
 
-	b "go.mongodb.org/mongo-driver/bson"
-	mdb "go.mongodb.org/mongo-driver/mongo"
-	mdbopts "go.mongodb.org/mongo-driver/mongo/options"
+	b "go.mongodb.org/mongo-driver/v2/bson"
+	mdb "go.mongodb.org/mongo-driver/v2/mongo"
+	mdbopts "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // SubscriptionGet 读取用户对 Topic 的订阅。
@@ -74,7 +74,7 @@ func (a *adapter) SubsForTopic(topic string, keepDeleted bool, opts *t.QueryOpt)
 			limit = opts.Limit
 		}
 	}
-	findOpts := new(mdbopts.FindOptions).SetLimit(int64(limit))
+	findOpts := mdbopts.Find().SetLimit(int64(limit))
 
 	cur, err := a.db.Collection("subscriptions").Find(a.ctx, filter, findOpts)
 	if err != nil {
@@ -114,7 +114,7 @@ func (a *adapter) SubsUpdate(topic string, user t.Uid, update map[string]any) er
 
 // SubsDelete marks at most one 订阅 as deleted (soft-deleting).
 func (a *adapter) SubsDelete(topic string, user t.Uid) error {
-	var sess mdb.Session
+	var sess *mdb.Session
 	var err error
 
 	if sess, err = a.conn.StartSession(); err != nil {
@@ -128,7 +128,7 @@ func (a *adapter) SubsDelete(topic string, user t.Uid) error {
 
 	forUser := user.String()
 
-	return mdb.WithSession(a.ctx, sess, func(sc mdb.SessionContext) error {
+	return mdb.WithSession(a.ctx, sess, func(sc context.Context) error {
 		if err := a.subsDelete(sc, b.M{"_id": topic + ":" + forUser}, false); err != nil {
 			return err
 		}
@@ -155,10 +155,13 @@ func (a *adapter) SubsDelete(topic string, user t.Uid) error {
 }
 
 // clearUserDellog 删除指定用户的所有 dellog 条目和 deletedfor 标记。
-func (a *adapter) clearUserDellog(sc mdb.SessionContext, forUser string) error {
-	topics, err := a.db.Collection("subscriptions").Distinct(sc, "topic",
-		b.M{"user": forUser, "deletedat": b.M{"$exists": false}})
-	if err != nil {
+func (a *adapter) clearUserDellog(sc context.Context, forUser string) error {
+	var topics []string
+	if err := a.db.Collection("subscriptions").Distinct(
+		sc,
+		"topic",
+		b.M{"user": forUser, "deletedat": b.M{"$exists": false}},
+	).Decode(&topics); err != nil {
 		return err
 	}
 
@@ -167,14 +170,14 @@ func (a *adapter) clearUserDellog(sc mdb.SessionContext, forUser string) error {
 
 	if len(topics) > 0 {
 		// 删除用户的 dellog 条目。
-		if _, err = a.db.Collection("dellog").DeleteMany(sc,
+		if _, err := a.db.Collection("dellog").DeleteMany(sc,
 			b.M{"topic": b.M{"$in": topics}, "deletedfor": forUser}); err != nil {
 			return err
 		}
 
 		// Delete 用户's markings of soft-deleted 消息
 		filter := b.M{"topic": b.M{"$in": topics}, "deletedfor.user": forUser}
-		if _, err = a.db.Collection("messages").
+		if _, err := a.db.Collection("messages").
 			UpdateMany(sc, filter, b.M{"$pull": b.M{"deletedfor": b.M{"user": forUser}}}); err != nil {
 			return err
 		}

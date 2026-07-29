@@ -20,7 +20,7 @@ docker run -d --name im-mysql \
   mysql:8.0
 ```
 
-也可以修改 `configs/im.standalone.yaml`，或使用 `IM_` 环境变量覆盖已有数据库标量。
+也可以修改 `configs/im.yaml`，或使用 `IM_` 环境变量覆盖已有数据库标量。
 
 ## 2. 构建和初始化
 
@@ -30,7 +30,7 @@ go build -tags mysql -o bin/init-db ./cmd/init-db
 go build -tags mysql -o bin/im-server ./cmd/im-server
 
 ./bin/init-db \
-  --config=./configs/im.standalone.yaml \
+  --config=./configs/im.yaml \
   --data=./cmd/init-db/data.json \
   --reset=true
 ```
@@ -41,11 +41,11 @@ go build -tags mysql -o bin/im-server ./cmd/im-server
 
 ```bash
 ./bin/im-server \
-  --config=./configs/im.standalone.yaml \
+  --config=./configs/im.yaml \
   --validate_config
 
 ./bin/im-server \
-  --config=./configs/im.standalone.yaml \
+  --config=./configs/im.yaml \
   --static_data=./web/static
 ```
 
@@ -58,7 +58,7 @@ Deployment environment 'development', mode 'standalone'
 Cluster: running as a standalone server.
 ```
 
-`configs/im.standalone.yaml` 故意不包含 `cluster_config`。服务端根据显式部署模式跳过集群初始化，不再通过 `self` 是否为空猜测单机模式。
+`configs/im.yaml` 不包含 `cluster_config`。服务端根据显式部署模式跳过集群初始化，不再通过 `self` 是否为空猜测单机模式。
 
 ## 4. 验证
 

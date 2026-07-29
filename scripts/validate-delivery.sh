@@ -17,13 +17,13 @@ trap cleanup EXIT
 cd "${REPO_ROOT}"
 im_require_command go
 
-# 构建一次全适配器二进制，用真实配置加载器验证所有服务端 YAML。
+# 一次编译全部适配器，既复用真实配置加载器，也提前发现任一 Docker 构建目标
+# 与依赖版本不兼容；这里只执行配置门禁，不连接外部数据库。
 GOCACHE="${GOCACHE:-${TEMP_DIR}/go-cache}" \
   go build -tags "mysql postgres mongodb rethinkdb" \
   -o "${TEMP_DIR}/im-server" ./cmd/im-server
 
 "${TEMP_DIR}/im-server" --config=configs/im.yaml --validate_config
-"${TEMP_DIR}/im-server" --config=configs/im.standalone.yaml --validate_config
 
 IM_CLUSTER_CONFIG__SELF=one \
 IM_CLUSTER_CONFIG__ADVERTISE_ADDR=127.0.0.1:12000 \
@@ -34,6 +34,8 @@ IM_CLUSTER_CONFIG__TRANSPORT__LISTEN=127.0.0.1:12000 \
 
 IM_CLUSTER_CONFIG__SELF=im-0 \
 IM_CLUSTER_CONFIG__ADVERTISE_ADDR=im-0.im.internal:12000 \
+IM_CLUSTER_CONFIG__TLS__CERT_FILE=/validation/cluster-cert.pem \
+IM_CLUSTER_CONFIG__TLS__KEY_FILE=/validation/cluster-key.pem \
 IM_API_KEY_SALT=T713/rYYgW7g4m3vG6zGRh7+FM1t0T8j13koXScOAj4= \
 IM_AUTH_CONFIG__TOKEN__KEY=wfaY2RgF2S1OQI/ZlK+LSrp1KB2jwAdGAIHQ7JZn+Kc= \
 IM_STORE_CONFIG__UID_KEY=la6YsO+bNX/+XIkOqc5Svw== \
@@ -48,6 +50,8 @@ IM_MEDIA__HANDLERS__S3__BUCKET=validation-only \
 
 IM_CLUSTER_CONFIG__SELF=im-0 \
 IM_CLUSTER_CONFIG__ADVERTISE_ADDR=im-0.im-headless:12000 \
+IM_CLUSTER_CONFIG__TLS__CERT_FILE=/validation/cluster-cert.pem \
+IM_CLUSTER_CONFIG__TLS__KEY_FILE=/validation/cluster-key.pem \
 IM_API_KEY_SALT=T713/rYYgW7g4m3vG6zGRh7+FM1t0T8j13koXScOAj4= \
 IM_AUTH_CONFIG__TOKEN__KEY=wfaY2RgF2S1OQI/ZlK+LSrp1KB2jwAdGAIHQ7JZn+Kc= \
 IM_STORE_CONFIG__UID_KEY=la6YsO+bNX/+XIkOqc5Svw== \

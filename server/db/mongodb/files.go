@@ -8,9 +8,9 @@ import (
 
 	t "chat/server/store/types"
 
-	b "go.mongodb.org/mongo-driver/bson"
-	mdb "go.mongodb.org/mongo-driver/mongo"
-	mdbopts "go.mongodb.org/mongo-driver/mongo/options"
+	b "go.mongodb.org/mongo-driver/v2/bson"
+	mdb "go.mongodb.org/mongo-driver/v2/mongo"
+	mdbopts "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // FileStartUpload 初始化文件上传

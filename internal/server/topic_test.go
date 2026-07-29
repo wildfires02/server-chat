@@ -16,7 +16,7 @@ import (
 	"chat/server/store"
 	"chat/server/store/mock_store"
 	"chat/server/store/types"
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 )
 
 // responses 保存responses的数据和运行状态。

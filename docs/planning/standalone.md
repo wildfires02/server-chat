@@ -39,7 +39,7 @@
 
 ## 2. 目标配置
 
-当前使用独立配置文件 `configs/im.standalone.yaml`，并明确声明运行档位：
+当前使用唯一的开发单机配置 `configs/im.yaml`，并明确声明运行档位：
 
 ```yaml
 runtime:
@@ -88,7 +88,7 @@ flowchart LR
 
 | ID | 代码交付 | 验证 |
 | --- | --- | --- |
-| STANDALONE-003 | `configs/im.standalone.yaml` 不包含集群节点，提供 MySQL、本地媒体、认证、健康接口和安全边界；`docs/standalone.md` 提供初始化、启动和验证步骤 | `im-server --validate_config` 实际执行通过；配置解析测试通过 |
+| STANDALONE-003 | `configs/im.yaml` 不包含集群节点，提供数据库、本地媒体、认证、健康接口和安全边界；`docs/standalone.md` 提供初始化、启动和验证步骤 | `im-server --validate_config` 实际执行通过；配置解析测试通过 |
 | STANDALONE-004 | `clusterInit` 接收显式 `deployment_mode`；standalone 在解析 `cluster_config` 前返回；运行指标增加 `RuntimeEnvironment` 和 `DeploymentMode` | 测试传入无效集群配置和非空节点身份，仍不创建 `Cluster`；本地 Resolver 始终返回本地 |
 | STANDALONE-005 | `tests/standalone` 覆盖真实三协议、七类消息生命周期、热点 Topic、长连接、数据库韧性和崩溃恢复；`scripts/test-standalone-process.sh` 自动管理隔离 MySQL 与两轮服务进程 | 三协议语义一致；七类消息发布/历史/删除通过；64 路重连、256 条长连接、1600 次热点投递、分级数据库延迟、连接池耗尽、ACK 后 SIGKILL 恢复、数据库失联恢复及 SIGTERM 关闭全部通过 |
 
@@ -167,7 +167,7 @@ flowchart LR
 
 ## 7. 交付物
 
-- ✅ `configs/im.standalone.yaml` 单机配置模板。
+- ✅ `configs/im.yaml` 唯一单机配置模板。
 - ✅ `docs/standalone.md` 单机启动、初始化和调试说明。
 - ✅ 单机功能回归测试：共享业务、race、三协议、七类消息、热点网络投递、长连接、数据库韧性和崩溃恢复已完成。
 - ✅ `scripts/test-standalone-process.sh`：隔离数据库和真实服务进程的一键完整回归。

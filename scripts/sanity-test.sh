@@ -6,6 +6,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 run_process_tests=0
+TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/im-sanity.XXXXXX")"
+
+# 使用本次任务独立的构建缓存，避免 CI 用户、Docker 或提权命令留下不同属主的缓存。
+cleanup() {
+  rm -rf "${TEMP_DIR}"
+}
+trap cleanup EXIT
+export GOCACHE="${IM_TEST_GOCACHE:-${TEMP_DIR}/go-cache}"
 
 while (($# > 0)); do
   case "$1" in

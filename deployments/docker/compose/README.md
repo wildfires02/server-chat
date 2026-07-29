@@ -9,6 +9,10 @@
 Compose 不是生产交付物。生产要求见
 [`../../../docs/planning/cluster.md`](../../../docs/planning/cluster.md)。
 
+需要 Docker Compose `2.24.4` 或更高版本。数据库覆盖文件使用官方
+`!override` 合并标签，确保切换 PostgreSQL、MongoDB 或 RethinkDB 后不会残留
+MySQL 的环境变量和数据卷。
+
 ## 启动
 
 ```bash

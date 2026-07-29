@@ -21,7 +21,7 @@ go build -tags rethinkdb -o bin/init-db ./cmd/init-db
 
 ```bash
 ./bin/init-db \
-  --config=./configs/im.standalone.yaml \
+  --config=./configs/im.yaml \
   --data=./cmd/init-db/data.json
 ```
 
@@ -29,7 +29,7 @@ go build -tags rethinkdb -o bin/init-db ./cmd/init-db
 
 ```bash
 ./bin/init-db \
-  --config=./configs/im.standalone.yaml \
+  --config=./configs/im.yaml \
   --upgrade=true
 ```
 
@@ -37,7 +37,7 @@ go build -tags rethinkdb -o bin/init-db ./cmd/init-db
 
 ```bash
 ./bin/init-db \
-  --config=./configs/im.standalone.yaml \
+  --config=./configs/im.yaml \
   --data=./cmd/init-db/data.json \
   --reset=true
 ```
@@ -62,7 +62,7 @@ go build -tags rethinkdb -o bin/init-db ./cmd/init-db
 ## 4. 配置
 
 工具读取 `store_config` 和 `p2p_delete_enabled`。本地 MySQL 可直接使用
-[`configs/im.standalone.yaml`](../../configs/im.standalone.yaml)。
+[`configs/im.yaml`](../../configs/im.yaml)。
 [`configs/init-db.yaml`](../../configs/init-db.yaml) 是跨数据库最小模板，使用前
 必须设置 `store_config.use_adapter` 和对应连接参数。密码和地址应通过 `IM_`
 环境变量注入，覆盖规则见[配置说明](../../configs/README.md)。

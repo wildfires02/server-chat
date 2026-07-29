@@ -117,7 +117,6 @@ for target in "${platforms[@]}"; do
         "${REPO_ROOT}/cmd/keygen"
 
     cp "${REPO_ROOT}/configs/im.yaml" "${package_dir}/configs/"
-    cp "${REPO_ROOT}/configs/im.standalone.yaml" "${package_dir}/configs/"
     cp "${REPO_ROOT}/configs/im.cluster.yaml" "${package_dir}/configs/"
     cp "${REPO_ROOT}/configs/init-db.yaml" "${package_dir}/configs/"
     cp "${REPO_ROOT}/cmd/init-db/data.json" "${package_dir}/"

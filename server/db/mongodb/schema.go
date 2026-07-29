@@ -8,9 +8,9 @@ import (
 
 	t "chat/server/store/types"
 
-	b "go.mongodb.org/mongo-driver/bson"
-	mdb "go.mongodb.org/mongo-driver/mongo"
-	mdbopts "go.mongodb.org/mongo-driver/mongo/options"
+	b "go.mongodb.org/mongo-driver/v2/bson"
+	mdb "go.mongodb.org/mongo-driver/v2/mongo"
+	mdbopts "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // CreateDb 创建数据库，可选先删除已有数据库。
@@ -228,7 +228,7 @@ func (a *adapter) UpgradeDb() error {
 		}
 
 		// 删除二级索引 DeletedAt。
-		if _, err := a.db.Collection("users").Indexes().DropOne(a.ctx, "deletedat_1"); err != nil {
+		if err := a.db.Collection("users").Indexes().DropOne(a.ctx, "deletedat_1"); err != nil {
 			return err
 		}
 

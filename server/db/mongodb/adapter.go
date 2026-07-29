@@ -13,10 +13,9 @@ import (
 
 	"chat/server/store"
 
-	b "go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	mdb "go.mongodb.org/mongo-driver/mongo"
-	mdbopts "go.mongodb.org/mongo-driver/mongo/options"
+	b "go.mongodb.org/mongo-driver/v2/bson"
+	mdb "go.mongodb.org/mongo-driver/v2/mongo"
+	mdbopts "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // adapter 保存 MongoDB 连接数据。
@@ -61,7 +60,7 @@ const (
 	defaultAuthSource = "admin"
 )
 
-// 参见 https://godoc.org/go.mongodb.org/mongo-driver/mongo/options#ClientOptions 了解说明。
+// 客户端选项说明参见 MongoDB Go 驱动文档。
 type configType struct {
 	// 连接字符串 URI https://www.mongodb.com/docs/manual/reference/connection-string/
 	Uri string `json:"uri,omitempty"`
@@ -98,7 +97,7 @@ type configType struct {
 }
 
 // maybeStartTransaction 完成maybeStartTransaction所需的内部处理。
-func (a *adapter) maybeStartTransaction(sess mdb.Session) error {
+func (a *adapter) maybeStartTransaction(sess *mdb.Session) error {
 	if a.useTransactions {
 		return sess.StartTransaction()
 	}
@@ -106,7 +105,7 @@ func (a *adapter) maybeStartTransaction(sess mdb.Session) error {
 }
 
 // maybeCommitTransaction 完成maybeCommitTransaction所需的内部处理。
-func (a *adapter) maybeCommitTransaction(ctx context.Context, sess mdb.Session) error {
+func (a *adapter) maybeCommitTransaction(ctx context.Context, sess *mdb.Session) error {
 	if a.useTransactions {
 		return sess.CommitTransaction(ctx)
 	}
@@ -224,7 +223,7 @@ func (a *adapter) Open(jsonconfig json.RawMessage) error {
 	}
 
 	a.ctx = context.Background()
-	a.conn, err = mdb.Connect(a.ctx, &opts)
+	a.conn, err = mdb.Connect(&opts)
 	a.db = a.conn.Database(a.dbName)
 	if err != nil {
 		return err
@@ -315,7 +314,7 @@ func (a *adapter) Stats() any {
 	}
 
 	var result b.M
-	if err := a.db.RunCommand(a.ctx, b.D{{Key: "serverStatus", Value: 1}}, nil).Decode(&result); err != nil {
+	if err := a.db.RunCommand(a.ctx, b.D{{Key: "serverStatus", Value: 1}}).Decode(&result); err != nil {
 		return nil
 	}
 
@@ -347,8 +346,8 @@ func (a *adapter) GetTestDB() any {
 func (a *adapter) isDbInitialized() bool {
 	var result map[string]int
 
-	findOpts := mdbopts.FindOneOptions{Projection: b.M{"value": 1, "_id": 0}}
-	if err := a.db.Collection("kvmeta").FindOne(a.ctx, b.M{"_id": "version"}, &findOpts).Decode(&result); err != nil {
+	findOpts := mdbopts.FindOne().SetProjection(b.M{"value": 1, "_id": 0})
+	if err := a.db.Collection("kvmeta").FindOne(a.ctx, b.M{"_id": "version"}, findOpts).Decode(&result); err != nil {
 		return false
 	}
 	return true
@@ -411,12 +410,12 @@ func normalizeUpdateMap(update map[string]any) map[string]any {
 func unmarshalBsonD(bsonObj any) any {
 	if obj, ok := bsonObj.(b.D); ok && len(obj) != 0 {
 		result := make(map[string]any)
-		for key, val := range obj.Map() {
-			result[key] = unmarshalBsonD(val)
+		for _, element := range obj {
+			result[element.Key] = unmarshalBsonD(element.Value)
 		}
 		return result
-	} else if obj, ok := bsonObj.(primitive.Binary); ok {
-		// primitive.Binary 是包含 Subtype 和 Data 字段的结构体类型。我们只需要 Data（[]byte）
+	} else if obj, ok := bsonObj.(b.Binary); ok {
+		// 二进制值包含子类型和数据字段，这里只需要数据内容。
 		return obj.Data
 	} else if obj, ok := bsonObj.(b.A); ok {
 		// 针对 bson.D 对象数组的情况

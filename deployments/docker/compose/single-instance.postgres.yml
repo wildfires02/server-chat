@@ -1,7 +1,15 @@
+# Compose 2.24.4+ 的 !override 可避免数据库覆盖后残留 MySQL 环境变量和数据卷。
+x-postgres-environment: &postgres-environment
+  IM_CONFIG_FILE: /etc/im/im.yaml
+  IM_STORE_CONFIG__USE_ADAPTER: postgres
+  IM_STORE_CONFIG__ADAPTERS__POSTGRES__DSN: postgresql://postgres:${POSTGRES_PASSWORD:-local-im-password}@db:5432/im?sslmode=disable&connect_timeout=10
+  IM_DB_WAIT_FOR: db:5432
+  IM_DB_WAIT_TIMEOUT: "120"
+
 services:
   db:
     image: ${POSTGRES_IMAGE:-postgres:17.10-alpine3.23}
-    environment:
+    environment: !override
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-im-password}
       POSTGRES_DB: postgres
@@ -12,20 +20,21 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
-    volumes:
+    volumes: !override
       - postgres-data:/var/lib/postgresql/data
 
   db-init:
-    environment:
-      IM_STORE_CONFIG__USE_ADAPTER: postgres
-      IM_STORE_CONFIG__ADAPTERS__POSTGRES__DSN: postgresql://postgres:${POSTGRES_PASSWORD:-local-im-password}@db:5432/im?sslmode=disable&connect_timeout=10
-      IM_DB_WAIT_FOR: db:5432
+    environment: !override
+      <<: *postgres-environment
+      IM_DB_INIT_MODE: ${IM_DB_INIT_MODE:-init}
+      IM_DB_SAMPLE_DATA: /opt/im/data.json
+      IM_ALLOW_DESTRUCTIVE_DB_RESET: ${IM_ALLOW_DESTRUCTIVE_DB_RESET:-false}
+      IM_RUN_SERVER: "false"
 
   im-server:
-    environment:
-      IM_STORE_CONFIG__USE_ADAPTER: postgres
-      IM_STORE_CONFIG__ADAPTERS__POSTGRES__DSN: postgresql://postgres:${POSTGRES_PASSWORD:-local-im-password}@db:5432/im?sslmode=disable&connect_timeout=10
-      IM_DB_WAIT_FOR: db:5432
+    environment: !override
+      <<: *postgres-environment
+      IM_DB_INIT_MODE: skip
 
 volumes:
   postgres-data:

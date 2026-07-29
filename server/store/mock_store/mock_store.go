@@ -15,7 +15,7 @@ import (
 	types "chat/server/store/types"
 	validate "chat/server/validate"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockPersistentStorageInterface 是 PersistentStorageInterface 接口的 Mock 实现。

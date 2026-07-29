@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"chat/server/store/types"
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 )
 
 // TestServerDataFromStoredUsesTrustedMetadata 验证 Server Data From Stored Uses Trusted Metadata 相关行为。

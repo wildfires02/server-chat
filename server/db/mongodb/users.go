@@ -3,15 +3,15 @@
 package mongodb
 
 import (
+	"context"
 	"errors"
 	"time"
 
 	t "chat/server/store/types"
 
-	b "go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	mdb "go.mongodb.org/mongo-driver/mongo"
-	mdbopts "go.mongodb.org/mongo-driver/mongo/options"
+	b "go.mongodb.org/mongo-driver/v2/bson"
+	mdb "go.mongodb.org/mongo-driver/v2/mongo"
+	mdbopts "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // UserCreate 创建用户记录
@@ -86,7 +86,7 @@ func (a *adapter) UserDelete(uid t.Uid, hard bool) error {
 	}
 	ownTopicsFilter := b.M{"topic": b.M{"$in": ownTopics}}
 
-	var sess mdb.Session
+	var sess *mdb.Session
 	if sess, err = a.conn.StartSession(); err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func (a *adapter) UserDelete(uid t.Uid, hard bool) error {
 		return err
 	}
 
-	if err = mdb.WithSession(a.ctx, sess, func(sc mdb.SessionContext) error {
+	if err = mdb.WithSession(a.ctx, sess, func(sc context.Context) error {
 		scheduledFilter := b.M{"from": forUser}
 		if len(ownTopics) > 0 {
 			scheduledFilter = b.M{"$or": b.A{
@@ -486,7 +486,7 @@ func (a *adapter) UserGetUnvalidated(lastUpdatedBefore time.Time, limit int) ([]
 	pipeline := b.A{
 		b.M{"$match": b.M{
 			"$and": b.A{
-				b.M{"lastseen": primitive.Null{}},
+				b.M{"lastseen": b.Null{}},
 				b.M{"updatedat": b.M{"$lt": lastUpdatedBefore}},
 			},
 		}},

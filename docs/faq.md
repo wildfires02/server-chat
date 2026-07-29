@@ -43,7 +43,7 @@ docker cp <容器名称>:/var/log/im.log ./im.log
 
 ```bash
 ./bin/init-db \
-  --config=./configs/im.standalone.yaml \
+  --config=./configs/im.yaml \
   --add_root=admin
 ```
 
@@ -51,7 +51,7 @@ docker cp <容器名称>:/var/log/im.log ./im.log
 
 ```bash
 ./bin/init-db \
-  --config=./configs/im.standalone.yaml \
+  --config=./configs/im.yaml \
   --make_root=usrAbcDef123
 ```
 

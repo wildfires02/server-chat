@@ -10,9 +10,9 @@ import (
 	"chat/server/db/common"
 	t "chat/server/store/types"
 
-	b "go.mongodb.org/mongo-driver/bson"
-	mdb "go.mongodb.org/mongo-driver/mongo"
-	mdbopts "go.mongodb.org/mongo-driver/mongo/options"
+	b "go.mongodb.org/mongo-driver/v2/bson"
+	mdb "go.mongodb.org/mongo-driver/v2/mongo"
+	mdbopts "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // CredUpsert 添加或更新验证记录。返回 true 表示插入，false 表示更新。

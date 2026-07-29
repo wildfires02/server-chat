@@ -27,12 +27,12 @@ go build -tags mysql -o bin/init-db ./cmd/init-db
 go build -tags mysql -o bin/im-server ./cmd/im-server
 
 ./bin/init-db \
-  --config=./configs/im.standalone.yaml \
+  --config=./configs/im.yaml \
   --data=./cmd/init-db/data.json \
   --reset=true
 
 ./bin/im-server \
-  --config=./configs/im.standalone.yaml \
+  --config=./configs/im.yaml \
   --static_data=-
 ```
 

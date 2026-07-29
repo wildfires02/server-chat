@@ -5,7 +5,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-CONFIG_FILE="${REPO_ROOT}/configs/im.standalone.yaml"
+CONFIG_FILE="${REPO_ROOT}/configs/im.yaml"
 DATA_FILE="${REPO_ROOT}/cmd/init-db/data.json"
 MYSQL_IMAGE="${IM_STANDALONE_E2E_MYSQL_IMAGE:-mysql:8.0}"
 HTTP_PORT="${IM_STANDALONE_E2E_HTTP_PORT:-26060}"

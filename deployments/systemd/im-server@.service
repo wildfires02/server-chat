@@ -17,7 +17,7 @@ Environment="IM_CLUSTER_CONFIG__SELF=%i"
 Environment="IM_CLUSTER_CONFIG__ADVERTISE_ADDR=%i.im.internal:12000"
 Environment="IM_CLUSTER_CONFIG__TLS__CERT_FILE=/etc/im/tls/cluster/%i/cert.pem"
 Environment="IM_CLUSTER_CONFIG__TLS__KEY_FILE=/etc/im/tls/cluster/%i/key.pem"
-# 每台机器的环境文件由 Secret 管理系统落盘，必须设置为 im:im 0400。
+# 每台机器的环境文件由 Secret 管理系统落盘，必须设置为 root:im 0640。
 # 缺少该文件时拒绝启动，避免使用空密钥进入运行期。
 EnvironmentFile=/etc/im/nodes/%i.env
 

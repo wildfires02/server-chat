@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	// defaultStandaloneAPIKey 是 configs/im.standalone.yaml 示例盐对应的开发 API Key。
+	// defaultStandaloneAPIKey 是 configs/im.yaml 示例盐对应的开发 API Key。
 	defaultStandaloneAPIKey = "AQEAAAABAAD_rAp4DJh05a1HAwFT3A6K"
 	// protocolVersion 是当前服务端测试使用的客户端协议版本。
 	protocolVersion = "0.29"

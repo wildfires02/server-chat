@@ -3,6 +3,7 @@
 package mongodb
 
 import (
+	"context"
 	"errors"
 	"regexp"
 	"sort"
@@ -10,10 +11,9 @@ import (
 
 	t "chat/server/store/types"
 
-	b "go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	mdb "go.mongodb.org/mongo-driver/mongo"
-	mdbopts "go.mongodb.org/mongo-driver/mongo/options"
+	b "go.mongodb.org/mongo-driver/v2/bson"
+	mdb "go.mongodb.org/mongo-driver/v2/mongo"
+	mdbopts "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // MessageSave saves 消息 to 数据库
@@ -41,7 +41,7 @@ func (a *adapter) MessageSaveAtomic(msg *t.Message) error {
 	if err = a.maybeStartTransaction(sess); err != nil {
 		return err
 	}
-	return mdb.WithSession(a.ctx, sess, func(sc mdb.SessionContext) error {
+	return mdb.WithSession(a.ctx, sess, func(sc context.Context) error {
 		if msg.HasClusterFence() {
 			// 对 fence 文档执行一次条件写，使并发 epoch 推进与本事务发生写冲突。
 			fenceResult, fenceErr := a.db.Collection("kvmeta").UpdateOne(sc,
@@ -292,7 +292,7 @@ func (a *adapter) MessageSearch(topic string, forUser t.Uid, search *t.MessageSe
 		"topic":           topic,
 		"delid":           b.M{"$exists": false},
 		"deletedfor.user": b.M{"$ne": forUser.String()},
-		"searchtext": primitive.Regex{
+		"searchtext": b.Regex{
 			Pattern: regexp.QuoteMeta(search.Query),
 			Options: "i",
 		},

@@ -91,7 +91,8 @@ services:
       - "16060:16060"
     volumes:
       - ./im.cluster.yaml:/etc/im/im.cluster.yaml:ro
-      - uploads-0:/var/lib/im/.local/uploads
+      # 开发集群共用媒体卷，避免请求被负载到其他节点后找不到文件。
+      - uploads:/var/lib/im/.local/uploads
 
   im-1:
     <<: *im-runtime
@@ -110,7 +111,7 @@ services:
       - "16061:16060"
     volumes:
       - ./im.cluster.yaml:/etc/im/im.cluster.yaml:ro
-      - uploads-1:/var/lib/im/.local/uploads
+      - uploads:/var/lib/im/.local/uploads
 
   im-2:
     <<: *im-runtime
@@ -129,7 +130,7 @@ services:
       - "16062:16060"
     volumes:
       - ./im.cluster.yaml:/etc/im/im.cluster.yaml:ro
-      - uploads-2:/var/lib/im/.local/uploads
+      - uploads:/var/lib/im/.local/uploads
 
   exporter:
     image: ${EXPORTER_IMAGE:-im/exporter:dev}
@@ -156,6 +157,4 @@ services:
 volumes:
   db-data:
   etcd-data:
-  uploads-0:
-  uploads-1:
-  uploads-2:
+  uploads:

@@ -53,7 +53,7 @@ JSON 基准覆盖 WebSocket 和 Long Polling 共用的 `ServerComMessage` 序列
 
 `scripts/test-standalone.sh` 默认执行不依赖 Docker 的配置、功能和 race 回归：
 
-- `configs/im.standalone.yaml` 离线启动门禁。
+- `configs/im.yaml` 离线启动门禁。
 - 独立单机配置解析。
 - 显式单机模式跳过无效 cluster_config 的测试。
 - 本地 Topic Resolver 和慢 Session 背压测试。
