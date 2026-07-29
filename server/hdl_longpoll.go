@@ -7,6 +7,7 @@
  *
  *****************************************************************************/
 
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -19,6 +20,7 @@ import (
 	"chat/server/logs"
 )
 
+// sendMessageLp 处理消息Lp消息或事件。
 func (sess *Session) sendMessageLp(wrt http.ResponseWriter, msg any) bool {
 	if len(sess.send) > sendQueueLimit {
 		logs.Err.Println("longPoll: outbound queue limit exceeded", sess.sid)
@@ -34,6 +36,7 @@ func (sess *Session) sendMessageLp(wrt http.ResponseWriter, msg any) bool {
 	return true
 }
 
+// writeOnce 保存Once。
 func (sess *Session) writeOnce(wrt http.ResponseWriter, req *http.Request) {
 	// 使用 NewTimer 而不是 time.After 以避免 for-select 循环中的定时器泄漏。
 	pingTimer := time.NewTimer(pingPeriod)
@@ -92,12 +95,14 @@ func (sess *Session) writeOnce(wrt http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// lpWrite 完成lpWrite所需的内部处理。
 func lpWrite(wrt http.ResponseWriter, msg any) error {
 	// 如果 msg 不是 []byte 将会 panic。这是有意为之的。
 	wrt.Write(msg.([]byte))
 	return nil
 }
 
+// readOnce 查询并返回Once。
 func (sess *Session) readOnce(wrt http.ResponseWriter, req *http.Request) (int, error) {
 	if req.ContentLength > globals.maxMessageSize {
 		return http.StatusExpectationFailed, errors.New("request too large")

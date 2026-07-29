@@ -1,36 +1,44 @@
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"chat/server/auth"
 	"chat/server/logs"
 	"chat/server/store"
 	"chat/server/store/mock_store"
 	"chat/server/store/types"
+	"github.com/golang/mock/gomock"
 )
 
+// responses 保存responses的数据和运行状态。
 type responses struct {
+	// messages 保存messages列表。
 	messages []any
 }
 
 // Test fixture.
 type TopicTestHelper struct {
+	// numUsers 保存numUsers。
 	numUsers int
-	uids     []types.Uid
+	// uids 保存uids列表。
+	uids []types.Uid
 
 	// Gomock controller.
 	ctrl *gomock.Controller
 
 	// Session.
 	sessions []*Session
-	sessWg   *sync.WaitGroup
+	// sessWg 保存sessWg。
+	sessWg *sync.WaitGroup
 	// Per-Session responses (i.e. what gets dumped into Session' write loops).
 	results []*responses
 
@@ -46,11 +54,15 @@ type TopicTestHelper struct {
 
 	// Mock objects.
 	mm *mock_store.MockMessagesPersistenceInterface
+	// uu 保存uu。
 	uu *mock_store.MockUsersPersistenceInterface
+	// tt 保存tt。
 	tt *mock_store.MockTopicsPersistenceInterface
+	// ss 保存ss。
 	ss *mock_store.MockSubsPersistenceInterface
 }
 
+// finish 完成finish所需的内部处理。
 func (b *TopicTestHelper) finish() {
 	b.topic.killTimer.Stop()
 	b.topic.callEstablishmentTimer.Stop()
@@ -65,6 +77,7 @@ func (b *TopicTestHelper) finish() {
 	<-b.hubDone
 }
 
+// newSession 创建并初始化会话。
 func (b *TopicTestHelper) newSession(sid string, uid types.Uid) (*Session, *responses) {
 	s := &Session{
 		sid:    sid,
@@ -79,6 +92,7 @@ func (b *TopicTestHelper) newSession(sid string, uid types.Uid) (*Session, *resp
 	return s, r
 }
 
+// setUp 更新Up。
 func (b *TopicTestHelper) setUp(t *testing.T, numUsers int, cat types.TopicCat, topicName string, attachSessions bool) {
 	t.Helper()
 	b.numUsers = numUsers
@@ -158,6 +172,7 @@ func (b *TopicTestHelper) setUp(t *testing.T, numUsers int, cat types.TopicCat, 
 	}
 }
 
+// tearDown 完成tearDown所需的内部处理。
 func (b *TopicTestHelper) tearDown() {
 	globals.hub = nil
 	store.Messages = nil
@@ -167,6 +182,7 @@ func (b *TopicTestHelper) tearDown() {
 	b.ctrl.Finish()
 }
 
+// testWriteLoop 持续运行testWriteLoop，直到输入通道关闭或收到停止信号。
 func (s *Session) testWriteLoop(results *responses, wg *sync.WaitGroup) {
 	for msg := range s.send {
 		results.messages = append(results.messages, msg)
@@ -174,6 +190,7 @@ func (s *Session) testWriteLoop(results *responses, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
+// testHubLoop 持续运行testHubLoop，直到输入通道关闭或收到停止信号。
 func (h *Hub) testHubLoop(t *testing.T, results map[string][]*ServerComMessage, done chan bool) {
 	t.Helper()
 	for msg := range h.routeSrv {
@@ -193,6 +210,7 @@ func (h *Hub) testHubLoop(t *testing.T, results map[string][]*ServerComMessage, 
 	done <- true
 }
 
+// TestHandleBroadcastDataP2P 验证 Handle Broadcast Data P 2 P 相关行为。
 func TestHandleBroadcastDataP2P(t *testing.T) {
 	numUsers := 2
 	helper := TopicTestHelper{}
@@ -276,6 +294,7 @@ func TestHandleBroadcastDataP2P(t *testing.T) {
 	}
 }
 
+// TestHandleBroadcastCall 验证 Handle Broadcast Call 相关行为。
 func TestHandleBroadcastCall(t *testing.T) {
 	numUsers := 2
 	helper := TopicTestHelper{}
@@ -386,6 +405,111 @@ func TestHandleBroadcastCall(t *testing.T) {
 	}
 }
 
+// TestHandleBroadcastAgoraGroupCall 验证群组通话会持久化为 Agora 邀请，
+// 并确保通过 ACL 校验的成员收到私有且绑定频道的 AccessToken2 响应。
+func TestHandleBroadcastAgoraGroupCall(t *testing.T) {
+	const topicName = "grp-agora-test"
+	helper := TopicTestHelper{}
+	helper.setUp(t, 3, types.TopicCatGrp, topicName, true)
+	previousAgora := globals.agora
+	globals.agora = &agoraProvider{
+		appID:           "0123456789abcdef0123456789abcdef",
+		appCertificate:  "abcdef0123456789abcdef0123456789",
+		tokenTTL:        time.Hour,
+		channelPrefix:   "im",
+		maxParticipants: 128,
+	}
+	defer func() {
+		globals.agora = previousAgora
+		helper.tearDown()
+	}()
+	helper.topic.lastID = 10
+	helper.mm.EXPECT().Save(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, true).Times(2)
+
+	originator := helper.uids[0]
+	invite := &ClientComMessage{
+		AsUser:   originator.UserId(),
+		Original: topicName,
+		Pub: &MsgClientPub{
+			Topic:   topicName,
+			Head:    map[string]any{"webrtc": "started"},
+			Content: map[string]any{"type": "video"},
+			NoEcho:  true,
+		},
+		sess: helper.sessions[0],
+	}
+	helper.topic.handleClientMsg(invite)
+	if helper.topic.currentCall == nil {
+		t.Fatal("group call was not created")
+	}
+	callSeq := helper.topic.currentCall.seq
+	if helper.topic.currentCall.provider != constCallProviderAgora {
+		t.Fatalf("call provider = %q, want %q",
+			helper.topic.currentCall.provider, constCallProviderAgora)
+	}
+
+	join := &ClientComMessage{
+		AsUser:   originator.UserId(),
+		Original: topicName,
+		Note: &MsgClientNote{
+			Topic: topicName,
+			What:  "call",
+			SeqId: callSeq,
+			Event: constCallEventJoin,
+		},
+		sess: helper.sessions[0],
+	}
+	helper.topic.handleClientMsg(join)
+	helper.finish()
+
+	party := helper.topic.currentCall.parties[helper.sessions[0].sid]
+	if !party.joined || party.agoraRole != "publisher" || party.agoraUID == 0 {
+		t.Fatalf("joined party = %+v, want publisher with non-zero Agora UID", party)
+	}
+	if helper.topic.currentCall.acceptedAt.IsZero() {
+		t.Fatal("acceptedAt was not set after first Agora participant joined")
+	}
+
+	var credentials agoraCallCredentials
+	var foundCredentials bool
+	for _, raw := range helper.results[0].messages {
+		response := raw.(*ServerComMessage)
+		if response.Info == nil || response.Info.What != "call" ||
+			response.Info.Event != constCallEventJoin {
+			continue
+		}
+		if err := json.Unmarshal(response.Info.Payload, &credentials); err != nil {
+			t.Fatalf("decode Agora credentials: %v", err)
+		}
+		foundCredentials = true
+	}
+	if !foundCredentials {
+		t.Fatal("originator did not receive private Agora credentials")
+	}
+	if credentials.Provider != constCallProviderAgora ||
+		credentials.AppID != globals.agora.appID ||
+		credentials.Channel != helper.topic.currentCall.channel ||
+		credentials.UID != party.agoraUID ||
+		credentials.Token == "" ||
+		credentials.Role != "publisher" ||
+		credentials.CallSeq != callSeq {
+		t.Fatalf("Agora credentials = %+v, want call-bound publisher credentials", credentials)
+	}
+
+	for _, raw := range helper.results[1].messages {
+		response := raw.(*ServerComMessage)
+		if response.Data != nil && response.Data.Head["call-provider"] != constCallProviderAgora {
+			t.Fatalf("group call data provider = %v, want %q",
+				response.Data.Head["call-provider"], constCallProviderAgora)
+		}
+		if response.Info != nil && len(response.Info.Payload) > 0 &&
+			strings.Contains(string(response.Info.Payload), credentials.Token) {
+			t.Fatal("Agora Token leaked to another group member")
+		}
+	}
+}
+
+// TestHandleBroadcastDataGroup 验证 Handle Broadcast Data Group 相关行为。
 func TestHandleBroadcastDataGroup(t *testing.T) {
 	topicName := "grp-test"
 	numUsers := 4
@@ -494,6 +618,137 @@ func TestHandleBroadcastDataGroup(t *testing.T) {
 	}
 }
 
+// TestHandleBroadcastDataIdempotentRetry 验证 Handle Broadcast Data Idempotent Retry 相关行为。
+func TestHandleBroadcastDataIdempotentRetry(t *testing.T) {
+	helper := TopicTestHelper{}
+	helper.setUp(t, 2, types.TopicCatP2P, "p2p-test", true)
+	defer helper.tearDown()
+
+	helper.topic.lastID = 7
+	helper.mm.EXPECT().
+		GetByClientId("p2p-test", helper.uids[0], "device-a:7").
+		Return(&types.Message{SeqId: 7, ClientId: "device-a:7"}, nil)
+
+	msg := &ClientComMessage{
+		Id:        "retry-1",
+		AsUser:    helper.uids[0].UserId(),
+		Original:  helper.uids[0].UserId(),
+		Timestamp: types.TimeNow(),
+		Pub: &MsgClientPub{
+			Id:       "retry-1",
+			Topic:    "p2p",
+			ClientId: "device-a:7",
+			Content:  "same message",
+		},
+		sess: helper.sessions[0],
+	}
+
+	helper.topic.handleClientMsg(msg)
+	helper.finish()
+
+	if helper.topic.lastID != 7 {
+		t.Fatalf("duplicate publish advanced topic sequence: got %d", helper.topic.lastID)
+	}
+	if len(helper.results[1].messages) != 0 {
+		t.Fatalf("duplicate publish was broadcast again: %d messages", len(helper.results[1].messages))
+	}
+	if len(helper.hubMessages) != 0 {
+		t.Fatalf("duplicate publish generated presence/push side effects: %d", len(helper.hubMessages))
+	}
+	if len(helper.results[0].messages) != 1 {
+		t.Fatalf("sender should receive one duplicate acknowledgement, got %d", len(helper.results[0].messages))
+	}
+	reply := helper.results[0].messages[0].(*ServerComMessage)
+	if reply.Ctrl == nil || reply.Ctrl.Code != http.StatusAlreadyReported {
+		t.Fatalf("expected 208 duplicate acknowledgement, got %#v", reply.Ctrl)
+	}
+	params := reply.Ctrl.Params.(map[string]any)
+	if params["seq"] != 7 || params["cid"] != "device-a:7" || params["duplicate"] != true {
+		t.Fatalf("unexpected duplicate acknowledgement params: %#v", params)
+	}
+}
+
+// TestReplyGetDataForwardSnapshot 验证 Reply Get Data Forward Snapshot 相关行为。
+func TestReplyGetDataForwardSnapshot(t *testing.T) {
+	helper := TopicTestHelper{}
+	helper.setUp(t, 1, types.TopicCatGrp, "grpTest", true)
+	defer helper.tearDown()
+	helper.topic.lastID = 7
+
+	helper.mm.EXPECT().
+		GetAll("grpTest", helper.uids[0], gomock.Any()).
+		DoAndReturn(func(_ string, _ types.Uid, opt *types.QueryOpt) ([]types.Message, error) {
+			if !opt.Forward || opt.Since != 4 || opt.Before != 8 || opt.Limit != 2 {
+				t.Fatalf("unexpected forward query options: %#v", opt)
+			}
+			return []types.Message{
+				{SeqId: 4, Topic: "grpTest", From: helper.uids[0].String(), ClientId: "c4", Content: "four"},
+				{SeqId: 5, Topic: "grpTest", From: helper.uids[0].String(), ClientId: "c5", Content: "five"},
+			}, nil
+		})
+
+	req := &MsgGetOpts{SinceId: 4, Limit: 2, Forward: true}
+	msg := &ClientComMessage{
+		Id:        "sync-1",
+		Original:  "grpTest",
+		Timestamp: types.TimeNow(),
+	}
+	if err := helper.topic.replyGetData(helper.sessions[0], helper.uids[0], false, req, msg); err != nil {
+		t.Fatal(err)
+	}
+	helper.finish()
+
+	got := helper.results[0].messages
+	if len(got) != 3 {
+		t.Fatalf("expected two data messages and one completion, got %d", len(got))
+	}
+	if got[0].(*ServerComMessage).Data.SeqId != 4 || got[1].(*ServerComMessage).Data.SeqId != 5 {
+		t.Fatalf("messages are not in forward order: %#v, %#v", got[0], got[1])
+	}
+	if got[0].(*ServerComMessage).Data.ClientId != "c4" {
+		t.Fatalf("stored client id was not returned: %#v", got[0])
+	}
+	ctrl := got[2].(*ServerComMessage).Ctrl
+	params := ctrl.Params.(map[string]any)
+	if params["cursor"] != 5 || params["high"] != 7 || params["hasMore"] != true {
+		t.Fatalf("unexpected catch-up cursor: %#v", params)
+	}
+}
+
+// TestReplyGetDelForwardSnapshot 验证 Reply Get Del Forward Snapshot 相关行为。
+func TestReplyGetDelForwardSnapshot(t *testing.T) {
+	helper := TopicTestHelper{}
+	helper.setUp(t, 1, types.TopicCatGrp, "grpTest", true)
+	defer helper.tearDown()
+	helper.topic.delID = 4
+
+	helper.mm.EXPECT().
+		GetDeleted("grpTest", helper.uids[0], gomock.Any()).
+		DoAndReturn(func(_ string, _ types.Uid, opt *types.QueryOpt) ([]types.Range, int, error) {
+			if !opt.Forward || opt.Since != 2 || opt.Before != 5 {
+				t.Fatalf("unexpected deletion sync options: %#v", opt)
+			}
+			return []types.Range{{Low: 11, Hi: 13}}, 3, nil
+		})
+
+	req := &MsgGetOpts{SinceId: 2, Limit: 10, Forward: true}
+	msg := &ClientComMessage{Id: "sync-del-1", Original: "grpTest", Timestamp: types.TimeNow()}
+	if err := helper.topic.replyGetDel(helper.sessions[0], helper.uids[0], req, msg); err != nil {
+		t.Fatal(err)
+	}
+	helper.finish()
+
+	got := helper.results[0].messages
+	if len(got) != 2 || got[0].(*ServerComMessage).Meta == nil || got[1].(*ServerComMessage).Ctrl == nil {
+		t.Fatalf("expected deletion metadata and completion cursor, got %#v", got)
+	}
+	params := got[1].(*ServerComMessage).Ctrl.Params.(map[string]any)
+	if params["cursor"] != 3 || params["high"] != 4 || params["hasMore"] != true {
+		t.Fatalf("unexpected deletion catch-up cursor: %#v", params)
+	}
+}
+
+// TestHandleBroadcastDataMissingWritePermission 验证 Handle Broadcast Data Missing Write Permission 相关行为。
 func TestHandleBroadcastDataMissingWritePermission(t *testing.T) {
 	topicName := "p2p-test"
 	numUsers := 2
@@ -548,6 +803,7 @@ func TestHandleBroadcastDataMissingWritePermission(t *testing.T) {
 	}
 }
 
+// TestHandleBroadcastDataDbError 验证 Handle Broadcast Data Db Error 相关行为。
 func TestHandleBroadcastDataDbError(t *testing.T) {
 	numUsers := 2
 	helper := TopicTestHelper{}
@@ -603,6 +859,7 @@ func TestHandleBroadcastDataDbError(t *testing.T) {
 	}
 }
 
+// TestHandleBroadcastDataInactiveTopic 验证 Handle Broadcast Data Inactive Topic 相关行为。
 func TestHandleBroadcastDataInactiveTopic(t *testing.T) {
 	numUsers := 2
 	helper := TopicTestHelper{}
@@ -652,6 +909,7 @@ func TestHandleBroadcastDataInactiveTopic(t *testing.T) {
 	}
 }
 
+// TestHandleBroadcastInfoP2P 验证 Handle Broadcast Info P 2 P 相关行为。
 func TestHandleBroadcastInfoP2P(t *testing.T) {
 	topicName := "usrP2P"
 	numUsers := 2
@@ -668,8 +926,11 @@ func TestHandleBroadcastInfoP2P(t *testing.T) {
 	helper.ss.EXPECT().Update(topicName, from, map[string]any{"ReadSeqId": readId}).Return(nil)
 
 	msg := &ClientComMessage{
-		AsUser: from.UserId(),
+		Id:       "read-8",
+		AsUser:   from.UserId(),
+		Original: to.UserId(),
 		Note: &MsgClientNote{
+			Id:    "read-8",
 			Topic: to.UserId(),
 			What:  "read",
 			SeqId: readId,
@@ -689,8 +950,15 @@ func TestHandleBroadcastInfoP2P(t *testing.T) {
 		t.Errorf("perUser[%s].readID: expected %d, found %d.", from.UserId(), readId, actualReadId)
 	}
 	// Server 消息.
-	if len(helper.results[0].messages) != 0 {
-		t.Errorf("Session 0 isn't expected to receive any messages. Received %d", len(helper.results[0].messages))
+	if len(helper.results[0].messages) != 1 {
+		t.Fatalf("Session 0 should receive one persisted read acknowledgement. Received %d", len(helper.results[0].messages))
+	}
+	ack := helper.results[0].messages[0].(*ServerComMessage)
+	if ack.Ctrl == nil || ack.Ctrl.Code != http.StatusOK {
+		t.Fatalf("unexpected read acknowledgement: %#v", ack.Ctrl)
+	}
+	if params := ack.Ctrl.Params.(map[string]any); params["what"] != "read" || params["seq"] != readId {
+		t.Fatalf("unexpected read acknowledgement params: %#v", params)
 	}
 	if len(helper.results[1].messages) != 1 {
 		t.Fatalf("Session 1 is expected to receive exactly 1 message. Received %d", len(helper.results[1].messages))
@@ -762,6 +1030,7 @@ func TestHandleBroadcastInfoP2P(t *testing.T) {
 	}
 }
 
+// TestHandleBroadcastInfoBogusNotification 验证 Handle Broadcast Info Bogus Notification 相关行为。
 func TestHandleBroadcastInfoBogusNotification(t *testing.T) {
 	topicName := "usrP2P"
 	numUsers := 2
@@ -810,6 +1079,7 @@ func TestHandleBroadcastInfoBogusNotification(t *testing.T) {
 	}
 }
 
+// TestHandleBroadcastInfoFilterOutRecvWithoutRPermission 验证 Handle Broadcast Info Filter Out Recv Without R Permission 相关行为。
 func TestHandleBroadcastInfoFilterOutRecvWithoutRPermission(t *testing.T) {
 	topicName := "usrP2P"
 	numUsers := 2
@@ -863,6 +1133,7 @@ func TestHandleBroadcastInfoFilterOutRecvWithoutRPermission(t *testing.T) {
 	}
 }
 
+// TestHandleBroadcastInfoFilterOutKpWithoutWPermission 验证 Handle Broadcast Info Filter Out Kp Without W Permission 相关行为。
 func TestHandleBroadcastInfoFilterOutKpWithoutWPermission(t *testing.T) {
 	topicName := "usrP2P"
 	numUsers := 2
@@ -916,6 +1187,7 @@ func TestHandleBroadcastInfoFilterOutKpWithoutWPermission(t *testing.T) {
 	}
 }
 
+// TestHandleBroadcastInfoDuplicatedRead 验证 Handle Broadcast Info Duplicated Read 相关行为。
 func TestHandleBroadcastInfoDuplicatedRead(t *testing.T) {
 	topicName := "usrP2P"
 	numUsers := 2
@@ -935,9 +1207,11 @@ func TestHandleBroadcastInfoDuplicatedRead(t *testing.T) {
 	helper.topic.perUser[from] = pud
 
 	msg := &ClientComMessage{
+		Id:       "read-8-retry",
 		AsUser:   from.UserId(),
 		Original: to.UserId(),
 		Note: &MsgClientNote{
+			Id:    "read-8-retry",
 			Topic: to.UserId(),
 			What:  "read",
 			SeqId: readId,
@@ -956,11 +1230,16 @@ func TestHandleBroadcastInfoDuplicatedRead(t *testing.T) {
 	if actualReadId := helper.topic.perUser[from].readID; actualReadId != 8 {
 		t.Errorf("perUser[%s].readID: expected 8, found %d.", from.UserId(), actualReadId)
 	}
-	// Server 消息.
-	for i, r := range helper.results {
-		if numMessages := len(r.messages); numMessages != 0 {
-			t.Errorf("User %d is not expected to receive any messages, %d received.", i, numMessages)
-		}
+	// The retry is acknowledged but not broadcast again.
+	if len(helper.results[0].messages) != 1 {
+		t.Fatalf("sender should receive one duplicate acknowledgement, got %d", len(helper.results[0].messages))
+	}
+	ack := helper.results[0].messages[0].(*ServerComMessage)
+	if ack.Ctrl == nil || ack.Ctrl.Code != http.StatusAlreadyReported {
+		t.Fatalf("unexpected duplicate read acknowledgement: %#v", ack.Ctrl)
+	}
+	if len(helper.results[1].messages) != 0 {
+		t.Fatalf("duplicate read was broadcast again: %d messages", len(helper.results[1].messages))
 	}
 
 	// Nothing should be routed through the hub.
@@ -969,6 +1248,7 @@ func TestHandleBroadcastInfoDuplicatedRead(t *testing.T) {
 	}
 }
 
+// TestHandleBroadcastInfoDbError 验证 Handle Broadcast Info Db Error 相关行为。
 func TestHandleBroadcastInfoDbError(t *testing.T) {
 	topicName := "usrP2P"
 	numUsers := 2
@@ -1019,6 +1299,7 @@ func TestHandleBroadcastInfoDbError(t *testing.T) {
 	}
 }
 
+// TestHandleBroadcastInfoInvalidChannelAccess 验证 Handle Broadcast Info Invalid Channel Access 相关行为。
 func TestHandleBroadcastInfoInvalidChannelAccess(t *testing.T) {
 	topicName := "grpTest"
 	chanName := "chnTest"
@@ -1075,6 +1356,7 @@ func TestHandleBroadcastInfoInvalidChannelAccess(t *testing.T) {
 	}
 }
 
+// TestHandleBroadcastInfoChannelProcessing 验证 Handle Broadcast Info Channel Processing 相关行为。
 func TestHandleBroadcastInfoChannelProcessing(t *testing.T) {
 	topicName := "grpTest"
 	chanName := "chnTest"
@@ -1156,6 +1438,7 @@ func TestHandleBroadcastInfoChannelProcessing(t *testing.T) {
 	}
 }
 
+// TestHandleBroadcastPresMe 验证 Handle Broadcast Pres Me 相关行为。
 func TestHandleBroadcastPresMe(t *testing.T) {
 	topicName := "usrMe"
 	numUsers := 1
@@ -1216,6 +1499,7 @@ func TestHandleBroadcastPresMe(t *testing.T) {
 	}
 }
 
+// TestHandleBroadcastPresInactiveTopic 验证 Handle Broadcast Pres Inactive Topic 相关行为。
 func TestHandleBroadcastPresInactiveTopic(t *testing.T) {
 	topicName := "usrMe"
 	numUsers := 1
@@ -1263,11 +1547,15 @@ func TestHandleBroadcastPresInactiveTopic(t *testing.T) {
 }
 
 const (
-	NoSub               = 0
-	ExistingSubEnabled  = 1
+	// NoSub 指定No订阅。
+	NoSub = 0
+	// ExistingSubEnabled 指定Existing订阅Enabled。
+	ExistingSubEnabled = 1
+	// ExistingSubDisabled 指定Existing订阅Disabled。
 	ExistingSubDisabled = 2
 )
 
+// NoChangeInStatusTest 完成NoChangeIn状态Test所需的内部处理。
 func NoChangeInStatusTest(t *testing.T, subscriptionStatus int, what string) *TopicTestHelper {
 	t.Helper()
 	topicName := "usrMe"
@@ -1321,14 +1609,17 @@ func NoChangeInStatusTest(t *testing.T, subscriptionStatus int, what string) *To
 	return helper
 }
 
+// TestHandleBroadcastPresUnkn 验证 Handle Broadcast Pres Unkn 相关行为。
 func TestHandleBroadcastPresUnkn(t *testing.T) {
 	NoChangeInStatusTest(t, ExistingSubEnabled, "?unkn").tearDown()
 }
 
+// TestHandleBroadcastPresNone 验证 Handle Broadcast Pres None 相关行为。
 func TestHandleBroadcastPresNone(t *testing.T) {
 	NoChangeInStatusTest(t, ExistingSubEnabled, "?none").tearDown()
 }
 
+// TestHandleBroadcastPresRedundantUpdate 验证 Handle Broadcast Pres Redundant Update 相关行为。
 func TestHandleBroadcastPresRedundantUpdate(t *testing.T) {
 	h := NoChangeInStatusTest(t, ExistingSubDisabled, "off+rem")
 	uid := h.uids[0]
@@ -1338,14 +1629,17 @@ func TestHandleBroadcastPresRedundantUpdate(t *testing.T) {
 	h.tearDown()
 }
 
+// TestHandleBroadcastPresNewSub 验证 Handle Broadcast Pres New Sub 相关行为。
 func TestHandleBroadcastPresNewSub(t *testing.T) {
 	NoChangeInStatusTest(t, NoSub, "off+wrong").tearDown()
 }
 
+// TestHandleBroadcastPresUnknownSub 验证 Handle Broadcast Pres Unknown Sub 相关行为。
 func TestHandleBroadcastPresUnknownSub(t *testing.T) {
 	NoChangeInStatusTest(t, NoSub, "on+rem").tearDown()
 }
 
+// TestReplyGetDescInvalidOpts 验证 Reply Get Desc Invalid Opts 相关行为。
 func TestReplyGetDescInvalidOpts(t *testing.T) {
 	numUsers := 1
 	helper := TopicTestHelper{}
@@ -1407,6 +1701,7 @@ func registerSessionVerifyOutputs(t *testing.T, sessionOutput *responses, expect
 	}
 }
 
+// TestRegisterSessionMe 验证 Register Session Me 相关行为。
 func TestRegisterSessionMe(t *testing.T) {
 	topicName := "usrMe"
 	numUsers := 1
@@ -1467,6 +1762,7 @@ func TestRegisterSessionMe(t *testing.T) {
 	}
 }
 
+// TestRegisterSessionInactiveTopic 验证 Register Session Inactive Topic 相关行为。
 func TestRegisterSessionInactiveTopic(t *testing.T) {
 	topicName := "usrMe"
 	numUsers := 1
@@ -1516,6 +1812,7 @@ func TestRegisterSessionInactiveTopic(t *testing.T) {
 	}
 }
 
+// TestRegisterSessionUserSpecifiedInSetMessage 验证 Register Session User Specified In Set Message 相关行为。
 func TestRegisterSessionUserSpecifiedInSetMessage(t *testing.T) {
 	topicName := "grpTest"
 	numUsers := 1
@@ -1569,6 +1866,7 @@ func TestRegisterSessionUserSpecifiedInSetMessage(t *testing.T) {
 	}
 }
 
+// TestRegisterSessionInvalidWantStrInSetMessage 验证 Register Session Invalid Want Str In Set Message 相关行为。
 func TestRegisterSessionInvalidWantStrInSetMessage(t *testing.T) {
 	topicName := "grpTest"
 	numUsers := 1
@@ -1622,6 +1920,7 @@ func TestRegisterSessionInvalidWantStrInSetMessage(t *testing.T) {
 	}
 }
 
+// TestRegisterSessionMaxSubscriberCountExceeded 验证 Register Session Max Subscriber Count Exceeded 相关行为。
 func TestRegisterSessionMaxSubscriberCountExceeded(t *testing.T) {
 	topicName := "grpTest"
 	// Pretend we already exceeded the maximum 用户 count. This should produce an 错误.
@@ -1678,6 +1977,7 @@ func TestRegisterSessionMaxSubscriberCountExceeded(t *testing.T) {
 	}
 }
 
+// TestRegisterSessionLowAuthLevelWithSysTopic 验证 Register Session Low Auth Level With Sys Topic 相关行为。
 func TestRegisterSessionLowAuthLevelWithSysTopic(t *testing.T) {
 	topicName := "sys"
 	// No one is subscribed to sys.
@@ -1730,6 +2030,7 @@ func TestRegisterSessionLowAuthLevelWithSysTopic(t *testing.T) {
 	}
 }
 
+// TestRegisterSessionNewChannelGetSubDbError 验证 Register Session New Channel Get Sub Db Error 相关行为。
 func TestRegisterSessionNewChannelGetSubDbError(t *testing.T) {
 	topicName := "grpTest"
 	chanName := "chnTest"
@@ -1786,6 +2087,7 @@ func TestRegisterSessionNewChannelGetSubDbError(t *testing.T) {
 	}
 }
 
+// TestRegisterSessionCreateSubFailed 验证 Register Session Create Sub Failed 相关行为。
 func TestRegisterSessionCreateSubFailed(t *testing.T) {
 	topicName := "grpTest"
 	numUsers := 1
@@ -1840,6 +2142,7 @@ func TestRegisterSessionCreateSubFailed(t *testing.T) {
 	}
 }
 
+// TestRegisterSessionAsChanUserNotChanSubcriber 验证 Register Session As Chan User Not Chan Subcriber 相关行为。
 func TestRegisterSessionAsChanUserNotChanSubcriber(t *testing.T) {
 	topicName := "grpTest"
 	chanName := "chnTest"
@@ -1893,6 +2196,7 @@ func TestRegisterSessionAsChanUserNotChanSubcriber(t *testing.T) {
 	}
 }
 
+// TestRegisterSessionOwnerBansHimself 验证 Register Session Owner Bans Himself 相关行为。
 func TestRegisterSessionOwnerBansHimself(t *testing.T) {
 	topicName := "grpTest"
 	numUsers := 1
@@ -1954,6 +2258,7 @@ func TestRegisterSessionOwnerBansHimself(t *testing.T) {
 	}
 }
 
+// TestRegisterSessionInvalidOwnershipTransfer 验证 Register Session Invalid Ownership Transfer 相关行为。
 func TestRegisterSessionInvalidOwnershipTransfer(t *testing.T) {
 	topicName := "grpTest"
 	numUsers := 2
@@ -2015,6 +2320,7 @@ func TestRegisterSessionInvalidOwnershipTransfer(t *testing.T) {
 	}
 }
 
+// TestRegisterSessionMetadataUpdateFails 验证 Register Session Metadata Update Fails 相关行为。
 func TestRegisterSessionMetadataUpdateFails(t *testing.T) {
 	topicName := "grpTest"
 	numUsers := 2
@@ -2079,6 +2385,7 @@ func TestRegisterSessionMetadataUpdateFails(t *testing.T) {
 	}
 }
 
+// TestRegisterSessionOwnerChangeDbCallFails 验证 Register Session Owner Change Db Call Fails 相关行为。
 func TestRegisterSessionOwnerChangeDbCallFails(t *testing.T) {
 	topicName := "grpTest"
 	numUsers := 1
@@ -2142,6 +2449,7 @@ func TestRegisterSessionOwnerChangeDbCallFails(t *testing.T) {
 	}
 }
 
+// TestUnregisterSessionSimple 验证 Unregister Session Simple 相关行为。
 func TestUnregisterSessionSimple(t *testing.T) {
 	topicName := "usrMe"
 	numUsers := 1
@@ -2208,6 +2516,7 @@ func TestUnregisterSessionSimple(t *testing.T) {
 	}
 }
 
+// TestUnregisterSessionInactiveTopic 验证 Unregister Session Inactive Topic 相关行为。
 func TestUnregisterSessionInactiveTopic(t *testing.T) {
 	topicName := "usrMe"
 	numUsers := 1
@@ -2266,6 +2575,7 @@ func TestUnregisterSessionInactiveTopic(t *testing.T) {
 	}
 }
 
+// TestUnregisterSessionUnsubscribe 验证 Unregister Session Unsubscribe 相关行为。
 func TestUnregisterSessionUnsubscribe(t *testing.T) {
 	topicName := "grpTest"
 	numUsers := 3
@@ -2379,6 +2689,7 @@ func TestUnregisterSessionUnsubscribe(t *testing.T) {
 	}
 }
 
+// TestUnregisterSessionOwnerCannotUnsubscribe 验证 Unregister Session Owner Cannot Unsubscribe 相关行为。
 func TestUnregisterSessionOwnerCannotUnsubscribe(t *testing.T) {
 	topicName := "grpTest"
 	numUsers := 3
@@ -2426,6 +2737,7 @@ func TestUnregisterSessionOwnerCannotUnsubscribe(t *testing.T) {
 	}
 }
 
+// TestUnregisterSessionUnsubDeleteCallFails 验证 Unregister Session Unsub Delete Call Fails 相关行为。
 func TestUnregisterSessionUnsubDeleteCallFails(t *testing.T) {
 	topicName := "grpTest"
 	numUsers := 3
@@ -2476,6 +2788,7 @@ func TestUnregisterSessionUnsubDeleteCallFails(t *testing.T) {
 	}
 }
 
+// TestHandleMetaChanErr 验证 Handle Meta Chan Err 相关行为。
 func TestHandleMetaChanErr(t *testing.T) {
 	topicName := "grpTest"
 	chanName := "chnTest"
@@ -2510,6 +2823,7 @@ func TestHandleMetaChanErr(t *testing.T) {
 	}
 }
 
+// TestHandleMetaGet 验证 Handle Meta Get 相关行为。
 func TestHandleMetaGet(t *testing.T) {
 	topicName := "usrMe"
 	numUsers := 1
@@ -2566,13 +2880,18 @@ func TestHandleMetaGet(t *testing.T) {
 	}
 }
 
-// Matches a subset in a superset.
-type supersetOf struct{ subset map[string]string }
+// supersetOf 是用于验证 map 是否包含指定键值子集的 GoMock 匹配器。
+type supersetOf struct {
+	// subset 保存期望在实际 map 中出现的键值集合。
+	subset map[string]string
+}
 
+// SupersetOf 完成SupersetOf所需的内部处理。
 func SupersetOf(subset map[string]string) gomock.Matcher {
 	return &supersetOf{subset}
 }
 
+// Matches 判断是否满足es条件。
 func (s *supersetOf) Matches(x any) bool {
 	super := x.(map[string]any)
 	if super == nil {
@@ -2591,10 +2910,12 @@ func (s *supersetOf) Matches(x any) bool {
 	return true
 }
 
+// String 返回当前值的可读字符串表示。
 func (s *supersetOf) String() string {
 	return fmt.Sprintf("%+v is subset", s.subset)
 }
 
+// TestHandleMetaSetDescMePublicPrivate 验证 Handle Meta Set Desc Me Public Private 相关行为。
 func TestHandleMetaSetDescMePublicPrivate(t *testing.T) {
 	topicName := "usrMe"
 	numUsers := 1
@@ -2669,6 +2990,7 @@ func TestHandleMetaSetDescMePublicPrivate(t *testing.T) {
 	}
 }
 
+// TestHandleSessionUpdateSessToForeground 验证 Handle Session Update Sess To Foreground 相关行为。
 func TestHandleSessionUpdateSessToForeground(t *testing.T) {
 	topicName := "usrMe"
 	numUsers := 1
@@ -2695,6 +3017,7 @@ func TestHandleSessionUpdateSessToForeground(t *testing.T) {
 	}
 }
 
+// TestHandleSessionUpdateUserAgent 验证 Handle Session Update User Agent 相关行为。
 func TestHandleSessionUpdateUserAgent(t *testing.T) {
 	topicName := "usrMe"
 	numUsers := 1
@@ -2726,6 +3049,7 @@ func TestHandleSessionUpdateUserAgent(t *testing.T) {
 	timer.Stop()
 }
 
+// TestHandleUATimerEvent 验证 Handle UA Timer Event 相关行为。
 func TestHandleUATimerEvent(t *testing.T) {
 	topicName := "usrMe"
 	numUsers := 1
@@ -2774,6 +3098,7 @@ func TestHandleUATimerEvent(t *testing.T) {
 	}
 }
 
+// TestHandleTopicTimeout 验证 Handle Topic Timeout 相关行为。
 func TestHandleTopicTimeout(t *testing.T) {
 	topicName := "usrMe"
 	numUsers := 1
@@ -2830,6 +3155,7 @@ func TestHandleTopicTimeout(t *testing.T) {
 	}
 }
 
+// TestHandleTopicTermination 验证 Handle Topic Termination 相关行为。
 func TestHandleTopicTermination(t *testing.T) {
 	topicName := "usrMe"
 	numUsers := 1
@@ -2869,6 +3195,7 @@ func TestHandleTopicTermination(t *testing.T) {
 	}
 }
 
+// TestHandleBroadcastDataWithAttachments 验证 Handle Broadcast Data With Attachments 相关行为。
 func TestHandleBroadcastDataWithAttachments(t *testing.T) {
 	numUsers := 2
 	helper := TopicTestHelper{}
@@ -2917,6 +3244,7 @@ func TestHandleBroadcastDataWithAttachments(t *testing.T) {
 	}
 }
 
+// TestHandleBroadcastInfoChannelWithMultipleReaders 验证 Handle Broadcast Info Channel With Multiple Readers 相关行为。
 func TestHandleBroadcastInfoChannelWithMultipleReaders(t *testing.T) {
 	topicName := "grpTest"
 	chanName := "chnTest"
@@ -2975,6 +3303,7 @@ func TestHandleBroadcastInfoChannelWithMultipleReaders(t *testing.T) {
 	}
 }
 
+// TestRegisterSessionWithComplexModeString 验证 Register Session With Complex Mode String 相关行为。
 func TestRegisterSessionWithComplexModeString(t *testing.T) {
 	topicName := "grpTest"
 	numUsers := 2
@@ -3031,6 +3360,7 @@ func TestRegisterSessionWithComplexModeString(t *testing.T) {
 	registerSessionVerifyOutputs(t, r, []int{http.StatusOK})
 }
 
+// TestHandleBroadcastDataGroupWithMutedUser 验证 Handle Broadcast Data Group With Muted User 相关行为。
 func TestHandleBroadcastDataGroupWithMutedUser(t *testing.T) {
 	topicName := "grp-test"
 	numUsers := 4
@@ -3081,6 +3411,7 @@ func TestHandleBroadcastDataGroupWithMutedUser(t *testing.T) {
 	}
 }
 
+// TestUnregisterSessionWithPendingCall 验证 Unregister Session With Pending Call 相关行为。
 func TestUnregisterSessionWithPendingCall(t *testing.T) {
 	numUsers := 2
 	helper := TopicTestHelper{}
@@ -3175,6 +3506,7 @@ func TestUnregisterSessionWithPendingCall(t *testing.T) {
 	}
 }
 
+// TestReplyDelMsgHardDelete 验证 Reply Del Msg Hard Delete 相关行为。
 func TestReplyDelMsgHardDelete(t *testing.T) {
 	// Test hard delete scenario - hard deletes affect all 用户 equally
 	// and don't update individual unread counters the same way as soft deletes
@@ -3192,7 +3524,7 @@ func TestReplyDelMsgHardDelete(t *testing.T) {
 
 	pud1 := helper.topic.perUser[user1]
 	pud1.readID = 10
-	pud1.modeGiven = types.ModeCFull  // Full 权限 including delete
+	pud1.modeGiven = types.ModeCFull // Full 权限 including delete
 	pud1.modeWant = types.ModeCFull
 	helper.topic.perUser[user1] = pud1
 
@@ -3205,7 +3537,7 @@ func TestReplyDelMsgHardDelete(t *testing.T) {
 	// Simulate user1 doing a hard delete of 消息 7 and 8
 	msg := &ClientComMessage{
 		Del: &MsgClientDel{
-			Id: "del123",
+			Id:   "del123",
 			What: "msg",
 			DelSeq: []MsgRange{
 				{LowId: 7, HiId: 9}, // Deletes 消息 7 and 8 [7, 9)
@@ -3241,6 +3573,7 @@ func TestReplyDelMsgHardDelete(t *testing.T) {
 	}
 }
 
+// TestReplyDelMsgUpdatesUnreadCounters 验证 Reply Del Msg Updates Unread Counters 相关行为。
 func TestReplyDelMsgUpdatesUnreadCounters(t *testing.T) {
 	// This test simulates the scenario from issue #898:
 	// 1. User1 sends 消息 to User2
@@ -3260,17 +3593,17 @@ func TestReplyDelMsgUpdatesUnreadCounters(t *testing.T) {
 	helper.topic.lastID = 10
 
 	pud1 := helper.topic.perUser[user1]
-	pud1.readID = 10  // user1 has read all
+	pud1.readID = 10 // user1 has read all
 	helper.topic.perUser[user1] = pud1
 
 	pud2 := helper.topic.perUser[user2]
-	pud2.readID = 5   // user2 has 5 unread 消息
+	pud2.readID = 5 // user2 has 5 unread 消息
 	helper.topic.perUser[user2] = pud2
 
 	// Simulate user1 deleting 消息 7 and 8 (2 of user2's unread 消息)
 	msg := &ClientComMessage{
 		Del: &MsgClientDel{
-			Id: "del123",
+			Id:   "del123",
 			What: "msg",
 			DelSeq: []MsgRange{
 				{LowId: 7, HiId: 9}, // Deletes 消息 7 and 8 [7, 9)
@@ -3306,6 +3639,7 @@ func TestReplyDelMsgUpdatesUnreadCounters(t *testing.T) {
 	}
 }
 
+// TestCalculateUnreadInRanges 验证 Calculate Unread In Ranges 相关行为。
 func TestCalculateUnreadInRanges(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -3376,6 +3710,7 @@ func TestCalculateUnreadInRanges(t *testing.T) {
 	}
 }
 
+// TestMain 验证 Main 相关行为。
 func TestMain(m *testing.M) {
 	logs.Init(os.Stderr, "stdFlags")
 	// Set max subscriber count to effective infinity.

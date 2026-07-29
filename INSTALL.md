@@ -200,13 +200,45 @@
 请遵循 [配置指南](./docs/faq.md#问开启离线-push-消息推送有哪些方案)。
 
 
-### 启用视频通话
+### 启用音视频通话
 
-视频通话使用 [WebRTC](https://en.wikipedia.org/wiki/WebRTC) 技术。WebRTC 是一种点对点（P2P）协议：一旦通话建立，客户端应用程序之间会直接传输数据。直接数据传输效率高，但当双方无法直接通过公网互通时会产生问题。WebRTC 通过实现 [TURN(S)](https://en.wikipedia.org/wiki/Traversal_Using_Relays_around_NAT) 和 [STUN](https://en.wikipedia.org/wiki/STUN) 协议的 [ICE](https://en.wikipedia.org/wiki/Interactive_Connectivity_Establishment) 服务器作为备用方案来解决该问题。
+P2P 视频通话使用 [WebRTC](https://en.wikipedia.org/wiki/WebRTC) 技术。WebRTC 是一种点对点（P2P）协议：一旦通话建立，客户端应用程序之间会直接传输数据。直接数据传输效率高，但当双方无法直接通过公网互通时会产生问题。WebRTC 通过实现 [TURN(S)](https://en.wikipedia.org/wiki/Traversal_Using_Relays_around_NAT) 和 [STUN](https://en.wikipedia.org/wiki/STUN) 协议的 [ICE](https://en.wikipedia.org/wiki/Interactive_Connectivity_Establishment) 服务器作为备用方案来解决该问题。
 
 IM 开箱即用情况下不提供 ICE 服务器。你必须自行安装配置（或购买）你自己的服务器，否则视频和语音通话功能将不可用。
 
 一旦你从服务提供商处获取了 ICE TURN/STUN 配置，将其添加到 `im.conf` 的 `"webrtc"` -> `"ice_servers"`（或 `"ice_servers_file"`）节中。同时将 `"webrtc"` -> `"enabled"` 修改为 `true`。`im.conf` 中提供了一个示例配置仅供参考，**它无法工作**，因为它使用的是虚拟地址而非真实的服务器地址。
+
+群组语音和视频通话使用 [Agora RTC](https://docs.agora.io/en/realtime-media/video)。先在 Agora Console 创建启用 App Certificate 的项目，然后设置服务进程环境变量：
+
+```bash
+export AGORA_APP_ID="你的 32 位 Agora App ID"
+export AGORA_APP_CERTIFICATE="你的 32 位 Agora App Certificate"
+```
+
+在 `im.conf` 中同时开启 `"webrtc.enabled"` 和 `"webrtc.agora.enabled"`。服务端会按群组 ACL 签发绑定频道与 Session UID 的短期 AccessToken2；App Certificate 不会下发到客户端。客户端必须集成目标平台的 Agora RTC SDK，并按照 [`docs/API.md`](./docs/API.md#音视频通话-video-calls) 的 `join`、`refresh`、`leave` 协议加入和续期。
+
+最小配置如下：
+
+```json
+{
+  "webrtc": {
+    "enabled": true,
+    "call_establishment_timeout": 30,
+    "agora": {
+      "enabled": true,
+      "app_id": "",
+      "app_certificate": "",
+      "token_ttl": 3600,
+      "channel_prefix": "im",
+      "max_participants": 128
+    }
+  }
+}
+```
+
+启动后，客户端可从 `{hi}` 响应的 `groupCallProvider: "agora"` 判断服务端是否开启群组通话。当前仓库已完成服务端和协议测试，但正式上线前仍需使用真实 Agora 项目完成 Web、Android、iOS 客户端加入、续期、断线重连及弱网测试。
+
+Agora Token 最长有效 24 小时。生产环境还应在 Agora Console 开启 Co-host Token Authentication，以便在 Agora 网络侧严格区分 publisher 和 subscriber 权限。具体要求参见 Agora 官方的 [Token Server](https://docs.agora.io/en/realtime-media/video/build/authenticate-users/deploy-token-server) 和 [Token 续期](https://docs.agora.io/en/realtime-media/video/build/authenticate-users/authentication-workflow) 文档。
 
 
 ### 关于后台运行服务器的注意事项

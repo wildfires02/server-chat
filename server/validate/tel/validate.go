@@ -36,19 +36,25 @@ type validator struct {
 	// Twilio 服务配置（可选）
 	Twilio json.RawMessage `json:"twilio_conf"`
 
+	// universalTempl 保存universalTempl列表。
 	universalTempl []*textt.Template
-	langMatcher    i18n.Matcher
-	maxCodeValue   *big.Int
+	// langMatcher 保存语言Matcher。
+	langMatcher i18n.Matcher
+	// maxCodeValue 保存maxCode值。
+	maxCodeValue *big.Int
 }
 
 const (
+	// validatorName 指定校验器名称。
 	validatorName = "tel"
 
+	// defaultMaxRetries 指定默认MaxRetries。
 	defaultMaxRetries = 3
 
 	// 未配置时的默认验证码长度
 	defaultCodeLength = 6
 
+	// defaultSender 指定默认Sender。
 	defaultSender = "IM"
 )
 
@@ -265,6 +271,7 @@ func (v *validator) send(to, body string) error {
 	return nil
 }
 
+// init 注册当前包提供的实现并初始化包级状态。
 func init() {
 	store.RegisterValidator(validatorName, &validator{})
 }

@@ -1,3 +1,4 @@
+// Package store 提供领域模型及持久化访问层。
 package store
 
 import (
@@ -8,9 +9,13 @@ import (
 
 // SubsPersistenceInterface 定义订阅持久化存储的方法接口。
 type SubsPersistenceInterface interface {
+	// Create 创建并初始化Create。
 	Create(subs ...*types.Subscription) error
+	// Get 查询并返回Get。
 	Get(topic string, user types.Uid, keepDeleted bool) (*types.Subscription, error)
+	// Update 更新Update。
 	Update(topic string, user types.Uid, update map[string]any) error
+	// Delete 删除或清理删除。
 	Delete(topic string, user types.Uid) error
 }
 
@@ -20,6 +25,18 @@ type subsMapper struct{}
 // Subs 是导出 SubsPersistenceInterface 的单例锚对象。
 var Subs SubsPersistenceInterface
 
+// subscriptionCounterTopic 返回需要维护 SubCnt 的持久化 Topic。
+// 频道读者使用 chn... 订阅键，但计数始终属于对应的 grp... Topic。
+func subscriptionCounterTopic(topic string) string {
+	if types.IsEphemeralTopic(topic) {
+		return ""
+	}
+	if types.IsChannel(topic) {
+		return types.ChnToGrp(topic)
+	}
+	return topic
+}
+
 // Create 创建多个订阅。
 func (subsMapper) Create(subs ...*types.Subscription) error {
 	if len(subs) == 0 {
@@ -27,21 +44,18 @@ func (subsMapper) Create(subs ...*types.Subscription) error {
 		return nil
 	}
 
-	topic := subs[0].Topic
-	if types.IsEphemeralTopic(topic) {
-		// 临时 Topic 不持久化在 'Topic' 表中，不要尝试更新它们。
-		// 不允许混合临时和真实 Topic。
-		topic = ""
-	}
+	subscriptionTopic := subs[0].Topic
+	counterTopic := subscriptionCounterTopic(subscriptionTopic)
 
 	for _, sub := range subs {
 		sub.InitTimes()
-		if topic != "" && sub.Topic != topic {
-			return fmt.Errorf("all subscriptions must be for the same topic, got %s vs %s", sub.Topic, topic)
+		if subscriptionTopic != "" && sub.Topic != subscriptionTopic {
+			return fmt.Errorf("all subscriptions must be for the same topic, got %s vs %s",
+				sub.Topic, subscriptionTopic)
 		}
 	}
 
-	return adp.TopicShare(topic, subs)
+	return adp.TopicShare(counterTopic, subs)
 }
 
 // Get 根据 Topic 和用户 ID 获取订阅。

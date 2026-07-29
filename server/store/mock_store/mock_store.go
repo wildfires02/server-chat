@@ -445,6 +445,21 @@ func (mr *MockUsersPersistenceInterfaceMockRecorder) FindSubs(caller, prefPrefix
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindSubs", reflect.TypeOf((*MockUsersPersistenceInterface)(nil).FindSubs), caller, prefPrefix, required, optional, activeOnly)
 }
 
+// Search mocks base method.
+func (m *MockUsersPersistenceInterface) Search(caller types.Uid, query *types.PeerSearchQuery) ([]types.Subscription, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Search", caller, query)
+	ret0, _ := ret[0].([]types.Subscription)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Search indicates an expected call of Search.
+func (mr *MockUsersPersistenceInterfaceMockRecorder) Search(caller, query interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Search", reflect.TypeOf((*MockUsersPersistenceInterface)(nil).Search), caller, query)
+}
+
 // Get mocks base method.
 func (m *MockUsersPersistenceInterface) Get(uid types.Uid) (*types.User, error) {
 	m.ctrl.T.Helper()
@@ -1073,6 +1088,108 @@ func (mr *MockMessagesPersistenceInterfaceMockRecorder) GetAll(topic, forUser, o
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAll", reflect.TypeOf((*MockMessagesPersistenceInterface)(nil).GetAll), topic, forUser, opt)
 }
 
+// GetByClientId mocks base method.
+func (m *MockMessagesPersistenceInterface) GetByClientId(topic string, from types.Uid, clientID string) (*types.Message, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetByClientId", topic, from, clientID)
+	ret0, _ := ret[0].(*types.Message)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetByClientId indicates an expected call of GetByClientId.
+func (mr *MockMessagesPersistenceInterfaceMockRecorder) GetByClientId(topic, from, clientID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByClientId", reflect.TypeOf((*MockMessagesPersistenceInterface)(nil).GetByClientId), topic, from, clientID)
+}
+
+// Get mocks base method.
+func (m *MockMessagesPersistenceInterface) Get(topic string, seqID int) (*types.Message, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Get", topic, seqID)
+	ret0, _ := ret[0].(*types.Message)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Get indicates an expected call of Get.
+func (mr *MockMessagesPersistenceInterfaceMockRecorder) Get(topic, seqID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockMessagesPersistenceInterface)(nil).Get), topic, seqID)
+}
+
+// Update mocks base method.
+func (m *MockMessagesPersistenceInterface) Update(msg *types.Message) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Update", msg)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Update indicates an expected call of Update.
+func (mr *MockMessagesPersistenceInterfaceMockRecorder) Update(msg interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockMessagesPersistenceInterface)(nil).Update), msg)
+}
+
+// Schedule mocks base method.
+func (m *MockMessagesPersistenceInterface) Schedule(msg *types.ScheduledMessage) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Schedule", msg)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Schedule indicates an expected call of Schedule.
+func (mr *MockMessagesPersistenceInterfaceMockRecorder) Schedule(msg interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Schedule", reflect.TypeOf((*MockMessagesPersistenceInterface)(nil).Schedule), msg)
+}
+
+// GetScheduledByClientId mocks base method.
+func (m *MockMessagesPersistenceInterface) GetScheduledByClientId(topic string, from types.Uid, clientID string) (*types.ScheduledMessage, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetScheduledByClientId", topic, from, clientID)
+	ret0, _ := ret[0].(*types.ScheduledMessage)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetScheduledByClientId indicates an expected call of GetScheduledByClientId.
+func (mr *MockMessagesPersistenceInterfaceMockRecorder) GetScheduledByClientId(topic, from, clientID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetScheduledByClientId", reflect.TypeOf((*MockMessagesPersistenceInterface)(nil).GetScheduledByClientId), topic, from, clientID)
+}
+
+// GetDueScheduled mocks base method.
+func (m *MockMessagesPersistenceInterface) GetDueScheduled(now time.Time, limit int) ([]types.ScheduledMessage, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDueScheduled", now, limit)
+	ret0, _ := ret[0].([]types.ScheduledMessage)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDueScheduled indicates an expected call of GetDueScheduled.
+func (mr *MockMessagesPersistenceInterfaceMockRecorder) GetDueScheduled(now, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDueScheduled", reflect.TypeOf((*MockMessagesPersistenceInterface)(nil).GetDueScheduled), now, limit)
+}
+
+// DeleteScheduled mocks base method.
+func (m *MockMessagesPersistenceInterface) DeleteScheduled(id, topic string, from types.Uid) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteScheduled", id, topic, from)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteScheduled indicates an expected call of DeleteScheduled.
+func (mr *MockMessagesPersistenceInterfaceMockRecorder) DeleteScheduled(id, topic, from interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteScheduled", reflect.TypeOf((*MockMessagesPersistenceInterface)(nil).DeleteScheduled), id, topic, from)
+}
+
 // GetDeleted mocks base method.
 func (m *MockMessagesPersistenceInterface) GetDeleted(topic string, forUser types.Uid, opt *types.QueryOpt) ([]types.Range, int, error) {
 	m.ctrl.T.Helper()
@@ -1087,6 +1204,21 @@ func (m *MockMessagesPersistenceInterface) GetDeleted(topic string, forUser type
 func (mr *MockMessagesPersistenceInterfaceMockRecorder) GetDeleted(topic, forUser, opt interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDeleted", reflect.TypeOf((*MockMessagesPersistenceInterface)(nil).GetDeleted), topic, forUser, opt)
+}
+
+// Search mocks base method.
+func (m *MockMessagesPersistenceInterface) Search(topic string, forUser types.Uid, query *types.MessageSearchQuery) ([]types.Message, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Search", topic, forUser, query)
+	ret0, _ := ret[0].([]types.Message)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Search indicates an expected call of Search.
+func (mr *MockMessagesPersistenceInterfaceMockRecorder) Search(topic, forUser, query interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Search", reflect.TypeOf((*MockMessagesPersistenceInterface)(nil).Search), topic, forUser, query)
 }
 
 // Save mocks base method.

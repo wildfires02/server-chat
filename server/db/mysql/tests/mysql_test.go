@@ -8,6 +8,7 @@
 // 4) Replace mysql specific db queries inside test to your own queries.
 // 5) Run.
 
+// Package tests 提供数据库持久化、迁移或测试支持。
 package tests
 
 import (
@@ -37,6 +38,7 @@ import (
 	"chat/server/store/types"
 )
 
+// configType 保存配置Type的数据和运行状态。
 type configType struct {
 	// If Reset=true test will recreate 数据库 every time it runs
 	Reset bool `json:"reset_db_data"`
@@ -44,14 +46,25 @@ type configType struct {
 	Adapters map[string]json.RawMessage `json:"adapters"`
 }
 
+// config 保存配置的共享实例或运行状态。
 var config configType
+
+// adp 保存adp的共享实例或运行状态。
 var adp adapter.Adapter
+
+// db 保存数据库的共享实例或运行状态。
 var db *sqlx.DB
+
+// testData 保存test数据的共享实例或运行状态。
 var testData *test_data.TestData
 
+// dummyUid1 保存dummy用户标识1的共享实例或运行状态。
 var dummyUid1 = types.Uid(12345)
+
+// dummyUid2 保存dummy用户标识2的共享实例或运行状态。
 var dummyUid2 = types.Uid(54321)
 
+// TestCreateDb 验证 Create Db 相关行为。
 func TestCreateDb(t *testing.T) {
 	if err := adp.CreateDb(config.Reset); err != nil {
 		t.Fatal(err)
@@ -81,6 +94,7 @@ func TestUserCreate(t *testing.T) {
 	}
 }
 
+// TestCredUpsert 验证 Cred Upsert 相关行为。
 func TestCredUpsert(t *testing.T) {
 	// Test just inserts:
 	for i := 0; i < 2; i++ {
@@ -128,6 +142,7 @@ func TestCredUpsert(t *testing.T) {
 	}
 }
 
+// TestAuthAddRecord 验证 Auth Add Record 相关行为。
 func TestAuthAddRecord(t *testing.T) {
 	for _, rec := range testData.Recs {
 		err := adp.AuthAddRecord(types.ParseUserId("usr"+rec.UserId), rec.Scheme, rec.Unique,
@@ -144,6 +159,7 @@ func TestAuthAddRecord(t *testing.T) {
 	}
 }
 
+// TestTopicCreate 验证 Topic Create 相关行为。
 func TestTopicCreate(t *testing.T) {
 	err := adp.TopicCreate(testData.Topics[0])
 	if err != nil {
@@ -157,10 +173,12 @@ func TestTopicCreate(t *testing.T) {
 	}
 }
 
+// decodeUid 将输入解析为用户标识。
 func decodeUid(u string) int64 {
 	return store.DecodeUid(types.ParseUid(u))
 }
 
+// TestTopicCreateP2P 验证 Topic Create P 2 P 相关行为。
 func TestTopicCreateP2P(t *testing.T) {
 	err := adp.TopicCreateP2P(testData.Subs[2], testData.Subs[3])
 	if err != nil {
@@ -186,6 +204,7 @@ func TestTopicCreateP2P(t *testing.T) {
 	}
 }
 
+// TestTopicShare 验证 Topic Share 相关行为。
 func TestTopicShare(t *testing.T) {
 	if err := adp.TopicShare(testData.Subs[0].Topic, testData.Subs); err != nil {
 		t.Fatal(err)
@@ -213,6 +232,7 @@ func TestTopicShare(t *testing.T) {
 	}
 }
 
+// TestMessageSave 验证 Message Save 相关行为。
 func TestMessageSave(t *testing.T) {
 	for _, msg := range testData.Msgs {
 		err := adp.MessageSave(msg)
@@ -237,6 +257,7 @@ func TestMessageSave(t *testing.T) {
 	}
 }
 
+// TestFileStartUpload 验证 File Start Upload 相关行为。
 func TestFileStartUpload(t *testing.T) {
 	for _, f := range testData.Files {
 		err := adp.FileStartUpload(f)
@@ -269,6 +290,7 @@ func TestUserGet(t *testing.T) {
 	}
 }
 
+// TestUserGetAll 验证 User Get All 相关行为。
 func TestUserGetAll(t *testing.T) {
 	// Test not found (dummy UIDs).
 	got, err := adp.UserGetAll(dummyUid1, dummyUid2)
@@ -297,6 +319,7 @@ func TestUserGetAll(t *testing.T) {
 	}
 }
 
+// TestUserGetByCred 验证 User Get By Cred 相关行为。
 func TestUserGetByCred(t *testing.T) {
 	// Test not found
 	got, err := adp.UserGetByCred("foo", "bar")
@@ -313,6 +336,7 @@ func TestUserGetByCred(t *testing.T) {
 	}
 }
 
+// TestCredGetActive 验证 Cred Get Active 相关行为。
 func TestCredGetActive(t *testing.T) {
 	got, err := adp.CredGetActive(types.ParseUserId("usr"+testData.Users[2].Id), "tel")
 	if err != nil {
@@ -332,6 +356,7 @@ func TestCredGetActive(t *testing.T) {
 	}
 }
 
+// TestCredGetAll 验证 Cred Get All 相关行为。
 func TestCredGetAll(t *testing.T) {
 	got, err := adp.CredGetAll(types.ParseUserId("usr"+testData.Users[2].Id), "", false)
 	if err != nil {
@@ -357,6 +382,7 @@ func TestCredGetAll(t *testing.T) {
 	}
 }
 
+// TestAuthGetUniqueRecord 验证 Auth Get Unique Record 相关行为。
 func TestAuthGetUniqueRecord(t *testing.T) {
 	uid, authLvl, secret, expires, err := adp.AuthGetUniqueRecord("basic:alice")
 	if err != nil {
@@ -379,6 +405,7 @@ func TestAuthGetUniqueRecord(t *testing.T) {
 	}
 }
 
+// TestAuthGetRecord 验证 Auth Get Record 相关行为。
 func TestAuthGetRecord(t *testing.T) {
 	recId, authLvl, secret, expires, err := adp.AuthGetRecord(types.ParseUserId("usr"+testData.Recs[0].UserId), "basic")
 	if err != nil {
@@ -401,6 +428,7 @@ func TestAuthGetRecord(t *testing.T) {
 	}
 }
 
+// TestTopicGet 验证 Topic Get 相关行为。
 func TestTopicGet(t *testing.T) {
 	got, err := adp.TopicGet(testData.Topics[0].Id)
 	if err != nil {
@@ -419,6 +447,7 @@ func TestTopicGet(t *testing.T) {
 	}
 }
 
+// TestTopicsForUser 验证 Topics For User 相关行为。
 func TestTopicsForUser(t *testing.T) {
 	qOpts := types.QueryOpt{
 		Topic: "p2p9AVDamaNCRbfKzGSh3mE0w",
@@ -461,6 +490,7 @@ func TestTopicsForUser(t *testing.T) {
 	}
 }
 
+// TestUsersForTopic 验证 Users For Topic 相关行为。
 func TestUsersForTopic(t *testing.T) {
 	qOpts := types.QueryOpt{
 		User:  types.ParseUserId("usr" + testData.Users[0].Id),
@@ -491,6 +521,7 @@ func TestUsersForTopic(t *testing.T) {
 	}
 }
 
+// TestOwnTopics 验证 Own Topics 相关行为。
 func TestOwnTopics(t *testing.T) {
 	gotSubs, err := adp.OwnTopics(types.ParseUserId("usr" + testData.Users[0].Id))
 	if err != nil {
@@ -504,6 +535,7 @@ func TestOwnTopics(t *testing.T) {
 	}
 }
 
+// TestSubscriptionGet 验证 Subscription Get 相关行为。
 func TestSubscriptionGet(t *testing.T) {
 	got, err := adp.SubscriptionGet(testData.Topics[0].Id, types.ParseUserId("usr"+testData.Users[0].Id), false)
 	if err != nil {
@@ -524,6 +556,7 @@ func TestSubscriptionGet(t *testing.T) {
 	}
 }
 
+// TestSubsForUser 验证 Subs For User 相关行为。
 func TestSubsForUser(t *testing.T) {
 	gotSubs, err := adp.SubsForUser(types.ParseUserId("usr" + testData.Users[0].Id))
 	if err != nil {
@@ -543,6 +576,7 @@ func TestSubsForUser(t *testing.T) {
 	}
 }
 
+// TestSubsForTopic 验证 Subs For Topic 相关行为。
 func TestSubsForTopic(t *testing.T) {
 	qOpts := types.QueryOpt{
 		User:  types.ParseUserId("usr" + testData.Users[0].Id),
@@ -565,6 +599,7 @@ func TestSubsForTopic(t *testing.T) {
 	}
 }
 
+// TestFind 验证 Find 相关行为。
 func TestFind(t *testing.T) {
 	reqTags := [][]string{{"alice", "bob", "carol", "travel", "qwer", "asdf", "zxcv"}}
 	got, err := adp.Find("usr"+testData.Users[2].Id, "", reqTags, nil, true)
@@ -576,6 +611,7 @@ func TestFind(t *testing.T) {
 	}
 }
 
+// TestMessageGetAll 验证 Message Get All 相关行为。
 func TestMessageGetAll(t *testing.T) {
 	opts := types.QueryOpt{
 		Since:  1,
@@ -600,6 +636,7 @@ func TestMessageGetAll(t *testing.T) {
 	}
 }
 
+// TestFileGet 验证 File Get 相关行为。
 func TestFileGet(t *testing.T) {
 	// General test done during TestFileFinishUpload().
 
@@ -641,6 +678,7 @@ func TestUserUpdate(t *testing.T) {
 	}
 }
 
+// TestUserUpdateTags 验证 User Update Tags 相关行为。
 func TestUserUpdateTags(t *testing.T) {
 	addTags := testData.Tags[0]
 	removeTags := testData.Tags[1]
@@ -693,6 +731,7 @@ func TestUserUpdateTags(t *testing.T) {
 	}
 }
 
+// TestCredFail 验证 Cred Fail 相关行为。
 func TestCredFail(t *testing.T) {
 	err := adp.CredFail(types.ParseUserId("usr"+testData.Creds[3].User), "tel")
 	if err != nil {
@@ -718,6 +757,7 @@ func TestCredFail(t *testing.T) {
 	}
 }
 
+// TestCredConfirm 验证 Cred Confirm 相关行为。
 func TestCredConfirm(t *testing.T) {
 	err := adp.CredConfirm(types.ParseUserId("usr"+testData.Creds[3].User), "tel")
 	if err != nil {
@@ -743,6 +783,7 @@ func TestCredConfirm(t *testing.T) {
 	}
 }
 
+// TestAuthUpdRecord 验证 Auth Upd Record 相关行为。
 func TestAuthUpdRecord(t *testing.T) {
 	rec := testData.Recs[1]
 	newSecret := []byte{'s', 'e', 'c', 'r', 'e', 't'}
@@ -778,6 +819,7 @@ func TestAuthUpdRecord(t *testing.T) {
 	}
 }
 
+// TestTopicUpdateOnMessage 验证 Topic Update On Message 相关行为。
 func TestTopicUpdateOnMessage(t *testing.T) {
 	msg := types.Message{
 		ObjHeader: types.ObjHeader{
@@ -804,6 +846,7 @@ func TestTopicUpdateOnMessage(t *testing.T) {
 	}
 }
 
+// TestTopicUpdate 验证 Topic Update 相关行为。
 func TestTopicUpdate(t *testing.T) {
 	update := map[string]any{
 		"UpdatedAt": testData.Now.Add(55 * time.Minute),
@@ -822,6 +865,7 @@ func TestTopicUpdate(t *testing.T) {
 	}
 }
 
+// TestTopicOwnerChange 验证 Topic Owner Change 相关行为。
 func TestTopicOwnerChange(t *testing.T) {
 	err := adp.TopicOwnerChange(testData.Topics[0].Id, types.ParseUserId("usr"+testData.Users[1].Id))
 	if err != nil {
@@ -838,6 +882,7 @@ func TestTopicOwnerChange(t *testing.T) {
 	}
 }
 
+// TestSubsUpdate 验证 Subs Update 相关行为。
 func TestSubsUpdate(t *testing.T) {
 	update := map[string]any{
 		"UpdatedAt": testData.Now.Add(22 * time.Minute),
@@ -870,6 +915,7 @@ func TestSubsUpdate(t *testing.T) {
 	}
 }
 
+// TestSubsDelete 验证 Subs Delete 相关行为。
 func TestSubsDelete(t *testing.T) {
 	err := adp.SubsDelete(testData.Topics[1].Id, types.ParseUserId("usr"+testData.Users[0].Id))
 	if err != nil {
@@ -886,6 +932,7 @@ func TestSubsDelete(t *testing.T) {
 	}
 }
 
+// TestDeviceUpsert 验证 Device Upsert 相关行为。
 func TestDeviceUpsert(t *testing.T) {
 	err := adp.DeviceUpsert(types.ParseUserId("usr"+testData.Users[0].Id), testData.Devs[0])
 	if err != nil {
@@ -939,6 +986,7 @@ func TestDeviceUpsert(t *testing.T) {
 	}
 }
 
+// TestFileFinishUpload 验证 File Finish Upload 相关行为。
 func TestFileFinishUpload(t *testing.T) {
 	got, err := adp.FileFinishUpload(testData.Files[0], true, 22222)
 	if err != nil {
@@ -952,6 +1000,7 @@ func TestFileFinishUpload(t *testing.T) {
 	}
 }
 
+// TestMessageAttachments 验证 Message Attachments 相关行为。
 func TestMessageAttachments(t *testing.T) {
 	fids := []string{testData.Files[0].Id, testData.Files[1].Id}
 	err := adp.FileLinkAttachments("", types.ZeroUid, types.ParseUid(testData.Msgs[1].Id), fids)
@@ -990,6 +1039,7 @@ func TestDeviceGetAll(t *testing.T) {
 	}
 }
 
+// TestDeviceDelete 验证 Device Delete 相关行为。
 func TestDeviceDelete(t *testing.T) {
 	err := adp.DeviceDelete(types.ParseUserId("usr"+testData.Users[1].Id), testData.Devs[0].DeviceId)
 	if err != nil {
@@ -1036,6 +1086,7 @@ func TestPCacheUpsert(t *testing.T) {
 	}
 }
 
+// TestPCacheGet 验证 P Cache Get 相关行为。
 func TestPCacheGet(t *testing.T) {
 	value, err := adp.PCacheGet("test_key")
 	if err != nil {
@@ -1052,6 +1103,7 @@ func TestPCacheGet(t *testing.T) {
 	}
 }
 
+// TestPCacheDelete 验证 P Cache Delete 相关行为。
 func TestPCacheDelete(t *testing.T) {
 	err := adp.PCacheDelete("test_key")
 	if err != nil {
@@ -1065,6 +1117,7 @@ func TestPCacheDelete(t *testing.T) {
 	}
 }
 
+// TestPCacheExpire 验证 P Cache Expire 相关行为。
 func TestPCacheExpire(t *testing.T) {
 	// Insert some test keys with prefix
 	adp.PCacheUpsert("prefix_key1", "value1", false)
@@ -1105,10 +1158,12 @@ func TestCredDel(t *testing.T) {
 	}
 }
 
+// TestAuthDelScheme 验证 Auth Del Scheme 相关行为。
 func TestAuthDelScheme(t *testing.T) {
 	// tested during TestAuthUpdRecord
 }
 
+// TestAuthDelAllRecords 验证 Auth Del All Records 相关行为。
 func TestAuthDelAllRecords(t *testing.T) {
 	delCount, err := adp.AuthDelAllRecords(types.ParseUserId("usr" + testData.Recs[0].UserId))
 	if err != nil {
@@ -1125,10 +1180,12 @@ func TestAuthDelAllRecords(t *testing.T) {
 	}
 }
 
+// TestSubsDelForUser 验证 Subs Del For User 相关行为。
 func TestSubsDelForUser(t *testing.T) {
 	// Tested during TestUserDelete (both hard and soft deletions)
 }
 
+// TestMessageDeleteList 验证 Message Delete List 相关行为。
 func TestMessageDeleteList(t *testing.T) {
 	toDel := types.DelMessage{
 		ObjHeader: types.ObjHeader{
@@ -1196,6 +1253,7 @@ func TestMessageDeleteList(t *testing.T) {
 	}
 }
 
+// TestTopicDelete 验证 Topic Delete 相关行为。
 func TestTopicDelete(t *testing.T) {
 	err := adp.TopicDelete(testData.Topics[1].Id, false, false)
 	if err != nil {
@@ -1225,6 +1283,7 @@ func TestTopicDelete(t *testing.T) {
 	}
 }
 
+// TestFileDeleteUnused 验证 File Delete Unused 相关行为。
 func TestFileDeleteUnused(t *testing.T) {
 	locs, err := adp.FileDeleteUnused(time.Now().Add(1*time.Minute), 999)
 	if err != nil {
@@ -1235,6 +1294,7 @@ func TestFileDeleteUnused(t *testing.T) {
 	}
 }
 
+// TestUserDelete 验证 User Delete 相关行为。
 func TestUserDelete(t *testing.T) {
 	err := adp.UserDelete(types.ParseUserId("usr"+testData.Users[0].Id), false)
 	if err != nil {
@@ -1266,6 +1326,7 @@ func TestUserDelete(t *testing.T) {
 
 // ================== Other tests =================================
 
+// TestUserUnreadCount 验证 User Unread Count 相关行为。
 func TestUserUnreadCount(t *testing.T) {
 	uids := []types.Uid{
 		types.ParseUserId("usr" + testData.Users[1].Id),
@@ -1299,6 +1360,7 @@ func TestUserUnreadCount(t *testing.T) {
 	}
 }
 
+// TestMessageGetDeleted 验证 Message Get Deleted 相关行为。
 func TestMessageGetDeleted(t *testing.T) {
 	qOpts := types.QueryOpt{
 		Since:  1,
@@ -1319,6 +1381,7 @@ func mismatchErrorString(key string, got, want any) string {
 	return fmt.Sprintf("%s mismatch:\nGot  = %+v\nWant = %+v", key, got, want)
 }
 
+// init 注册当前包提供的实现并初始化包级状态。
 func init() {
 	logs.Init(os.Stderr, "stdFlags")
 	adp = backend.GetTestAdapter()
@@ -1362,6 +1425,7 @@ func init() {
 	store.SetTestUidGenerator(*testData.UGen)
 }
 
+// stripJSONComments 完成stripJSONComments所需的内部处理。
 func stripJSONComments(data []byte) []byte {
 	var buf bytes.Buffer
 	inString := false

@@ -1,3 +1,4 @@
+// Package main 实现数据库初始化与示例数据导入工具。
 package main
 
 import (
@@ -24,33 +25,48 @@ import (
 	"github.com/spf13/viper"
 )
 
+// configType 保存配置Type的数据和运行状态。
 type configType struct {
-	P2PDeleteEnabled bool            `json:"p2p_delete_enabled"`
-	StoreConfig      json.RawMessage `json:"store_config"`
+	// P2PDeleteEnabled 保存P2P删除Enabled。
+	P2PDeleteEnabled bool `json:"p2p_delete_enabled"`
+	// StoreConfig 保存存储配置。
+	StoreConfig json.RawMessage `json:"store_config"`
 }
 
+// theCard 保存theCard的数据和运行状态。
 type theCard struct {
-	Fn    string `json:"fn"`
+	// Fn 保存Fn。
+	Fn string `json:"fn"`
+	// Photo 保存Photo。
 	Photo string `json:"photo"`
-	Type  string `json:"type"`
+	// Type 保存Type。
+	Type string `json:"type"`
 }
 
+// tPrivate 保存tPrivate的数据和运行状态。
 type tPrivate struct {
+	// Comment 保存Comment。
 	Comment string `json:"comment"`
 }
 
+// tTrusted 保存t可信资料的数据和运行状态。
 type tTrusted struct {
+	// Verified 保存Verified。
 	Verified bool `json:"verified,omitempty"`
-	Staff    bool `json:"staff,omitempty"`
+	// Staff 保存Staff。
+	Staff bool `json:"staff,omitempty"`
 }
 
+// IsZero 判断对象是否满足 Is Zero 条件。
 func (t tTrusted) IsZero() bool {
 	return !t.Verified && !t.Staff
 }
 
 // DefAccess is default access mode.
 type DefAccess struct {
+	// Auth 保存认证。
 	Auth string `json:"auth"`
+	// Anon 保存Anon。
 	Anon string `json:"anon"`
 }
 
@@ -77,19 +93,32 @@ User object in data.json
 	  }
 */
 type User struct {
-	CreatedAt   string   `json:"createdAt"`
-	Email       string   `json:"email"`
-	Tel         string   `json:"tel"`
-	AuthLevel   string   `json:"authLevel"`
-	Username    string   `json:"username"`
-	Password    string   `json:"passhash"`
-	Private     tPrivate `json:"private"`
-	Public      theCard  `json:"public"`
-	Trusted     tTrusted `json:"trusted"`
-	State       string   `json:"state"`
-	Status      any      `json:"status"`
+	// CreatedAt 保存CreatedAt时间。
+	CreatedAt string `json:"createdAt"`
+	// Email 保存Email。
+	Email string `json:"email"`
+	// Tel 保存Tel。
+	Tel string `json:"tel"`
+	// AuthLevel 保存认证Level。
+	AuthLevel string `json:"authLevel"`
+	// Username 指示是否启用或满足Username。
+	Username string `json:"username"`
+	// Password 保存密码。
+	Password string `json:"passhash"`
+	// Private 保存Private。
+	Private tPrivate `json:"private"`
+	// Public 保存公开资料。
+	Public theCard `json:"public"`
+	// Trusted 保存可信资料。
+	Trusted tTrusted `json:"trusted"`
+	// State 保存状态。
+	State string `json:"state"`
+	// Status 保存状态。
+	Status any `json:"status"`
+	// AddressBook 保存AddressBook列表。
 	AddressBook []string `json:"addressBook"`
-	Tags        []string `json:"tags"`
+	// Tags 保存Tags列表。
+	Tags []string `json:"tags"`
 }
 
 /*
@@ -102,15 +131,24 @@ GroupTopic object in data.json
 	"public": {"fn": "Let's talk about flowers", "photo": "abc-64.jpg", "type": "jpg"}
 */
 type GroupTopic struct {
-	CreatedAt    string    `json:"createdAt"`
-	Name         string    `json:"name"`
-	Owner        string    `json:"owner"`
-	Channel      bool      `json:"channel"`
-	Public       theCard   `json:"public"`
-	Trusted      tTrusted  `json:"trusted"`
-	Access       DefAccess `json:"access"`
-	Tags         []string  `json:"tags"`
-	OwnerPrivate tPrivate  `json:"ownerPrivate"`
+	// CreatedAt 保存CreatedAt时间。
+	CreatedAt string `json:"createdAt"`
+	// Name 保存名称。
+	Name string `json:"name"`
+	// Owner 保存Owner。
+	Owner string `json:"owner"`
+	// Channel 保存通道。
+	Channel bool `json:"channel"`
+	// Public 保存公开资料。
+	Public theCard `json:"public"`
+	// Trusted 保存可信资料。
+	Trusted tTrusted `json:"trusted"`
+	// Access 保存Access。
+	Access DefAccess `json:"access"`
+	// Tags 保存Tags列表。
+	Tags []string `json:"tags"`
+	// OwnerPrivate 保存OwnerPrivate。
+	OwnerPrivate tPrivate `json:"ownerPrivate"`
 }
 
 /*
@@ -125,13 +163,20 @@ GroupSub object in data.json
 	"have": "JRWP"
 */
 type GroupSub struct {
-	CreatedAt string   `json:"createdAt"`
-	Private   tPrivate `json:"private"`
-	Topic     string   `json:"topic"`
-	User      string   `json:"user"`
-	AsChan    bool     `json:"asChan"`
-	Want      string   `json:"want"`
-	Have      string   `json:"have"`
+	// CreatedAt 保存CreatedAt时间。
+	CreatedAt string `json:"createdAt"`
+	// Private 保存Private。
+	Private tPrivate `json:"private"`
+	// Topic 保存Topic。
+	Topic string `json:"topic"`
+	// User 指示是否启用或满足用户。
+	User string `json:"user"`
+	// AsChan 保存AsChan。
+	AsChan bool `json:"asChan"`
+	// Want 保存Want。
+	Want string `json:"want"`
+	// Have 保存Have。
+	Have string `json:"have"`
 }
 
 /*
@@ -146,29 +191,42 @@ P2PUser topic in data.json
 ]
 */
 type P2PUser struct {
-	Name    string   `json:"name"`
+	// Name 保存名称。
+	Name string `json:"name"`
+	// Private 保存Private。
 	Private tPrivate `json:"private"`
-	Want    string   `json:"want"`
-	Have    string   `json:"have"`
+	// Want 保存Want。
+	Want string `json:"want"`
+	// Have 保存Have。
+	Have string `json:"have"`
 }
 
 // P2PSub is a p2p 订阅 in data.json
 type P2PSub struct {
-	CreatedAt string    `json:"createdAt"`
-	Users     []P2PUser `json:"users"`
+	// CreatedAt 保存CreatedAt时间。
+	CreatedAt string `json:"createdAt"`
+	// Users 指示是否启用或满足Users。
+	Users []P2PUser `json:"users"`
 	// Cached value 'user1:user2' as a surrogare Topic name
 	pair string
 }
 
 // Data is a 消息 in data.json.
 type Data struct {
-	Users       []User           `json:"users"`
-	Grouptopics []GroupTopic     `json:"grouptopics"`
-	Groupsubs   []GroupSub       `json:"groupsubs"`
-	P2psubs     []P2PSub         `json:"p2psubs"`
-	Messages    []string         `json:"messages"`
-	Forms       []map[string]any `json:"forms"`
-	datapath    string
+	// Users 指示是否启用或满足Users。
+	Users []User `json:"users"`
+	// Grouptopics 保存Grouptopics列表。
+	Grouptopics []GroupTopic `json:"grouptopics"`
+	// Groupsubs 保存Groupsubs列表。
+	Groupsubs []GroupSub `json:"groupsubs"`
+	// P2psubs 保存P2psubs列表。
+	P2psubs []P2PSub `json:"p2psubs"`
+	// Messages 保存Messages列表。
+	Messages []string `json:"messages"`
+	// Forms 保存Forms列表。
+	Forms []map[string]any `json:"forms"`
+	// datapath 保存datapath。
+	datapath string
 }
 
 // Generate random string as a name of the group Topic
@@ -193,6 +251,7 @@ func getPassword(n int) string {
 	return string(passwd)
 }
 
+// stripJSONComments 完成stripJSONComments所需的内部处理。
 func stripJSONComments(data []byte) []byte {
 	var buf bytes.Buffer
 	inString := false
@@ -255,6 +314,7 @@ func stripJSONComments(data []byte) []byte {
 	return buf.Bytes()
 }
 
+// main 解析启动参数、初始化依赖并运行当前服务或命令。
 func main() {
 	reset := flag.Bool("reset", false, "force database reset")
 	upgrade := flag.Bool("upgrade", false, "perform database version upgrade")

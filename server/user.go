@@ -1,3 +1,4 @@
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -736,20 +737,28 @@ type UserCacheReq struct {
 	PushRcpt *push.Receipt
 }
 
+// userCacheEntry 保存用户缓存Entry的数据和运行状态。
 type userCacheEntry struct {
+	// unread 保存unread。
 	unread int
+	// topics 保存topics。
 	topics int
 }
 
 // 从数据库读取未读计数器时保留的更新条目
 type bufferedUpdate struct {
+	// val 保存val。
 	val int
+	// inc 保存inc。
 	inc bool
 }
 
+// ioResult 保存io结果的数据和运行状态。
 type ioResult struct {
+	// counts 按键索引counts。
 	counts map[types.Uid]int
-	err    error
+	// err 保存err。
+	err error
 }
 
 // 表示待处理的推送通知回执
@@ -769,17 +778,20 @@ type pendingReceiptsQueue []*pendingReceipt
 // Heap 接口方法
 func (pq pendingReceiptsQueue) Len() int { return len(pq) }
 
+// Less 报告排序位置 i 的元素是否应位于位置 j 之前。
 func (pq pendingReceiptsQueue) Less(i, j int) bool {
 	// 我们希望 Pop 返回最高优先级而非最低优先级，因此使用大于号
 	return pq[i].pendingIOs < pq[j].pendingIOs
 }
 
+// Swap 交换排序集合中两个位置的元素。
 func (pq pendingReceiptsQueue) Swap(i, j int) {
 	pq[i], pq[j] = pq[j], pq[i]
 	pq[i].index = i
 	pq[j].index = j
 }
 
+// Push 完成Push所需的内部处理。
 func (pq *pendingReceiptsQueue) Push(x any) {
 	n := len(*pq)
 	item := x.(*pendingReceipt)
@@ -787,6 +799,7 @@ func (pq *pendingReceiptsQueue) Push(x any) {
 	*pq = append(*pq, item)
 }
 
+// Pop 完成Pop所需的内部处理。
 func (pq *pendingReceiptsQueue) Pop() any {
 	old := *pq
 	n := len(old)
@@ -797,6 +810,7 @@ func (pq *pendingReceiptsQueue) Pop() any {
 	return item
 }
 
+// fix 完成fix所需的内部处理。
 func (pq *pendingReceiptsQueue) fix(index int) {
 	heap.Fix(pq, index)
 }
@@ -815,6 +829,7 @@ func usersShutdown() {
 	}
 }
 
+// usersUpdateUnread 完成usersUpdateUnread所需的内部处理。
 func usersUpdateUnread(uid types.Uid, val int, inc bool) {
 	if globals.usersUpdate == nil || (val == 0 && inc) {
 		return
@@ -928,6 +943,7 @@ func usersRequestFromCluster(req *UserCacheReq) {
 	}
 }
 
+// usersCache 保存users缓存的共享实例或运行状态。
 var usersCache map[types.Uid]userCacheEntry
 
 // 处理用户缓存更新的协程

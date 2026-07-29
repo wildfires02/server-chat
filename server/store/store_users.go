@@ -1,6 +1,8 @@
+// Package store 提供领域模型及持久化访问层。
 package store
 
 import (
+	"sort"
 	"strings"
 	"time"
 
@@ -10,34 +12,65 @@ import (
 
 // UsersPersistenceInterface 定义用户记录持久化存储的方法接口。
 type UsersPersistenceInterface interface {
+	// Create 创建并初始化Create。
 	Create(user *types.User, private any) (*types.User, error)
+	// GetAuthRecord 查询并返回认证Record。
 	GetAuthRecord(user types.Uid, scheme string) (string, auth.Level, []byte, time.Time, error)
+	// GetAuthUniqueRecord 查询并返回认证UniqueRecord。
 	GetAuthUniqueRecord(scheme, unique string) (types.Uid, auth.Level, []byte, time.Time, error)
+	// AddAuthRecord 向当前集合添加认证Record。
 	AddAuthRecord(uid types.Uid, authLvl auth.Level, scheme, unique string, secret []byte, expires time.Time) error
+	// UpdateAuthRecord 更新认证Record。
 	UpdateAuthRecord(uid types.Uid, authLvl auth.Level, scheme, unique string, secret []byte, expires time.Time) error
+	// DelAuthRecords 完成Del认证Records所需的内部处理。
 	DelAuthRecords(uid types.Uid, scheme string) error
+	// Get 查询并返回Get。
 	Get(uid types.Uid) (*types.User, error)
+	// GetAll 查询并返回All。
 	GetAll(uid ...types.Uid) ([]types.User, error)
+	// GetByCred 查询并返回By凭据。
 	GetByCred(method, value string) (types.Uid, error)
+	// Delete 删除或清理删除。
 	Delete(id types.Uid, hard bool) error
+	// UpdateLastSeen 更新LastSeen。
 	UpdateLastSeen(uid types.Uid, userAgent string, when time.Time) error
+	// Update 更新Update。
 	Update(uid types.Uid, update map[string]any) error
+	// UpdateTags 更新Tags。
 	UpdateTags(uid types.Uid, add, remove, reset []string) ([]string, error)
+	// UpdateState 更新状态。
 	UpdateState(uid types.Uid, state types.ObjState) error
+	// GetSubs 查询并返回Subs。
 	GetSubs(id types.Uid) ([]types.Subscription, error)
+	// FindSubs 查询并返回Subs。
 	FindSubs(caller types.Uid, prefPrefix string, required [][]string, optional []string, activeOnly bool) ([]types.Subscription, error)
+	// FindOne 查询并返回One。
 	FindOne(tag string) (string, error)
+	// Search 按公开别名或名称关键词发现用户、群组和广播频道。
+	Search(caller types.Uid, query *types.PeerSearchQuery) ([]types.Subscription, error)
+	// GetTopics 查询并返回Topics。
 	GetTopics(id types.Uid, opts *types.QueryOpt) ([]types.Subscription, error)
+	// GetTopicsAny 查询并返回TopicsAny。
 	GetTopicsAny(id types.Uid, opts *types.QueryOpt) ([]types.Subscription, error)
+	// GetOwnTopics 查询并返回OwnTopics。
 	GetOwnTopics(id types.Uid) ([]string, error)
+	// GetChannels 查询并返回Channels。
 	GetChannels(id types.Uid) ([]string, error)
+	// UpsertCred 完成Upsert凭据所需的内部处理。
 	UpsertCred(cred *types.Credential) (bool, error)
+	// ConfirmCred 完成Confirm凭据所需的内部处理。
 	ConfirmCred(id types.Uid, method string) error
+	// FailCred 完成Fail凭据所需的内部处理。
 	FailCred(id types.Uid, method string) error
+	// GetActiveCred 查询并返回Active凭据。
 	GetActiveCred(id types.Uid, method string) (*types.Credential, error)
+	// GetAllCreds 查询并返回AllCreds。
 	GetAllCreds(id types.Uid, method string, validatedOnly bool) ([]types.Credential, error)
+	// DelCred 完成Del凭据所需的内部处理。
 	DelCred(id types.Uid, method, value string) error
+	// GetUnreadCount 查询并返回Unread数量。
 	GetUnreadCount(ids ...types.Uid) (map[types.Uid]int, error)
+	// GetUnvalidated 查询并返回Unvalidated。
 	GetUnvalidated(lastUpdatedBefore time.Time, limit int) ([]types.Uid, error)
 }
 
@@ -191,6 +224,56 @@ func (usersMapper) FindSubs(caller types.Uid, prefPrefix string, required [][]st
 // FindOne 返回匹配给定标签的 Topic 和/或用户，支持部分匹配。
 func (usersMapper) FindOne(tag string) (string, error) {
 	return adp.FindOne(tag)
+}
+
+// Search 按公开别名或名称关键词发现用户、群组和广播频道。
+func (usersMapper) Search(caller types.Uid, query *types.PeerSearchQuery) ([]types.Subscription, error) {
+	if query == nil || query.Query == "" || query.Limit <= 0 {
+		return nil, nil
+	}
+	found, err := adp.FindByName(caller.UserId(), query)
+	if err != nil {
+		return nil, err
+	}
+
+	// 私有 Topic 不得仅因为名称或 Tag 命中而泄露公开资料。
+	filtered := found[:0]
+	for i := range found {
+		sub := &found[i]
+		if len(sub.Topic) < 3 {
+			continue
+		}
+		category := types.GetTopicCat(sub.Topic)
+		// 搜索只允许返回公开用户、群组和广播频道；系统与内部 Topic 永不暴露。
+		if category != types.TopicCatMe && category != types.TopicCatGrp {
+			continue
+		}
+		if category == types.TopicCatGrp {
+			defacs := sub.GetDefaultAccess()
+			if defacs == nil || !((defacs.Auth | defacs.Anon).IsJoiner()) {
+				continue
+			}
+		}
+		filtered = append(filtered, *sub)
+	}
+	found = filtered
+	sort.SliceStable(found, func(i, j int) bool {
+		if found[i].GetSearchScore() != found[j].GetSearchScore() {
+			return found[i].GetSearchScore() > found[j].GetSearchScore()
+		}
+		if found[i].GetSubCnt() != found[j].GetSubCnt() {
+			return found[i].GetSubCnt() > found[j].GetSubCnt()
+		}
+		return found[i].Topic < found[j].Topic
+	})
+	if query.Offset >= len(found) {
+		return nil, nil
+	}
+	found = found[query.Offset:]
+	if len(found) > query.Limit {
+		found = found[:query.Limit]
+	}
+	return found, nil
 }
 
 // GetTopics 加载用户的订阅列表，将 Public+Trusted 字段复制到订阅

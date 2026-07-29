@@ -1,3 +1,4 @@
+// Package types 提供领域模型及持久化访问层。
 package types
 
 // StoreError 满足 error 接口，并允许使用常量值进行直接相等性比较。

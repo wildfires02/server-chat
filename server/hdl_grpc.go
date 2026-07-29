@@ -7,6 +7,7 @@
  *
  *****************************************************************************/
 
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -22,10 +23,13 @@ import (
 	"google.golang.org/grpc/peer"
 )
 
+// grpcNodeServer 保存gRPC节点服务端的数据和运行状态。
 type grpcNodeServer struct {
+	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
 	pbx.UnimplementedNodeServer
 }
 
+// closeGrpc 停止gRPC并释放相关资源。
 func (sess *Session) closeGrpc() {
 	if sess.proto == GRPC {
 		sess.lock.Lock()
@@ -73,6 +77,7 @@ func (*grpcNodeServer) MessageLoop(stream pbx.Node_MessageLoopServer) error {
 	return nil
 }
 
+// sendMessageGrpc 处理消息gRPC消息或事件。
 func (sess *Session) sendMessageGrpc(msg any) bool {
 	if len(sess.send) > sendQueueLimit {
 		logs.Err.Println("grpc: outbound queue limit exceeded", sess.sid)
@@ -86,6 +91,7 @@ func (sess *Session) sendMessageGrpc(msg any) bool {
 	return true
 }
 
+// writeGrpcLoop 保存gRPCLoop。
 func (sess *Session) writeGrpcLoop() {
 	defer func() {
 		sess.closeGrpc() // exit MessageLoop
@@ -136,6 +142,7 @@ func (sess *Session) writeGrpcLoop() {
 	}
 }
 
+// grpcWrite 完成gRPCWrite所需的内部处理。
 func grpcWrite(sess *Session, msg any) error {
 	if out := sess.grpcnode; out != nil {
 		// 如果 msg 不是 *pbx.ServerMsg 类型将会 panic。这是有意为之的 panic。
@@ -144,6 +151,7 @@ func grpcWrite(sess *Session, msg any) error {
 	return nil
 }
 
+// serveGrpc 处理gRPC消息或事件。
 func serveGrpc(addr string, kaEnabled bool, tlsConf *tls.Config) (*grpc.Server, error) {
 	if addr == "" {
 		return nil, nil

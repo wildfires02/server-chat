@@ -16,48 +16,79 @@ import (
 	"time"
 )
 
+// UserSeed 保存用户Seed的数据和运行状态。
 type UserSeed struct {
-	CreatedAt string            `json:"createdAt"`
-	Email     string            `json:"email"`
-	Passhash  string            `json:"passhash"`
-	Private   map[string]string `json:"private"`
-	Public    map[string]string `json:"public"`
-	Tags      []string          `json:"tags"`
-	State     string            `json:"state"`
-	Status    map[string]string `json:"status"`
-	Username  string            `json:"username"`
+	// CreatedAt 保存CreatedAt时间。
+	CreatedAt string `json:"createdAt"`
+	// Email 保存Email。
+	Email string `json:"email"`
+	// Passhash 保存Passhash。
+	Passhash string `json:"passhash"`
+	// Private 按键索引Private。
+	Private map[string]string `json:"private"`
+	// Public 按键索引公开资料。
+	Public map[string]string `json:"public"`
+	// Tags 保存Tags列表。
+	Tags []string `json:"tags"`
+	// State 保存状态。
+	State string `json:"state"`
+	// Status 按键索引状态。
+	Status map[string]string `json:"status"`
+	// Username 指示是否启用或满足Username。
+	Username string `json:"username"`
 }
 
+// GroupSeed 保存GroupSeed的数据和运行状态。
 type GroupSeed struct {
-	CreatedAt string            `json:"createdAt"`
-	Name      string            `json:"name"`
-	Owner     string            `json:"owner"`
-	Tags      []string          `json:"tags"`
-	Public    map[string]string `json:"public"`
+	// CreatedAt 保存CreatedAt时间。
+	CreatedAt string `json:"createdAt"`
+	// Name 保存名称。
+	Name string `json:"name"`
+	// Owner 保存Owner。
+	Owner string `json:"owner"`
+	// Tags 保存Tags列表。
+	Tags []string `json:"tags"`
+	// Public 按键索引公开资料。
+	Public map[string]string `json:"public"`
 }
 
+// P2PUserRef 保存P2P用户Ref的数据和运行状态。
 type P2PUserRef struct {
+	// Name 保存名称。
 	Name string `json:"name"`
 }
 
+// P2PSeed 保存P2PSeed的数据和运行状态。
 type P2PSeed struct {
-	CreatedAt string       `json:"createdAt"`
-	Users     []P2PUserRef `json:"users"`
-}
-
-type GroupSubSeed struct {
+	// CreatedAt 保存CreatedAt时间。
 	CreatedAt string `json:"createdAt"`
-	Topic     string `json:"topic"`
-	User      string `json:"user"`
+	// Users 指示是否启用或满足Users。
+	Users []P2PUserRef `json:"users"`
 }
 
+// GroupSubSeed 保存Group订阅Seed的数据和运行状态。
+type GroupSubSeed struct {
+	// CreatedAt 保存CreatedAt时间。
+	CreatedAt string `json:"createdAt"`
+	// Topic 保存Topic。
+	Topic string `json:"topic"`
+	// User 指示是否启用或满足用户。
+	User string `json:"user"`
+}
+
+// Dataset 保存Dataset的数据和运行状态。
 type Dataset struct {
-	Users       []UserSeed     `json:"users"`
-	GroupTopics []GroupSeed    `json:"grouptopics"`
-	P2PSubs     []P2PSeed      `json:"p2psubs"`
-	GroupSubs   []GroupSubSeed `json:"groupsubs"`
+	// Users 指示是否启用或满足Users。
+	Users []UserSeed `json:"users"`
+	// GroupTopics 保存GroupTopics列表。
+	GroupTopics []GroupSeed `json:"grouptopics"`
+	// P2PSubs 保存P2PSubs列表。
+	P2PSubs []P2PSeed `json:"p2psubs"`
+	// GroupSubs 保存GroupSubs列表。
+	GroupSubs []GroupSubSeed `json:"groupsubs"`
 }
 
+// main 解析启动参数、初始化依赖并运行当前服务或命令。
 func main() {
 	numUsers := flag.Int("num_users", 50, "生成的测试用户账号数量")
 	outFile := flag.String("out", "", "输出的 JSON 数据集文件路径 (默认为标准输出 stdout)")

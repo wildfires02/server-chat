@@ -23,23 +23,32 @@ import (
 )
 
 const (
-	pushPath      = "pushv1"
-	subsPath      = "sub"
+	// pushPath 指定pushPath。
+	pushPath = "pushv1"
+	// subsPath 指定subsPath。
+	subsPath = "sub"
+	// pushBatchSize 指定push批次Size。
 	pushBatchSize = 100
-	subBatchSize  = 1000
-	bufferSize    = 1024
+	// subBatchSize 指定订阅批次Size。
+	subBatchSize = 1000
+	// bufferSize 指定缓冲区Size。
+	bufferSize = 1024
 )
 
+// handler 保存处理器的共享实例或运行状态。
 var handler Handler
 
+// maxPooledPostBodyCap 指定maxPooledPostBodyCap。
 const maxPooledPostBodyCap = 1 << 16
 
+// postBodyPool 保存postBody池的共享实例或运行状态。
 var postBodyPool = sync.Pool{
 	New: func() any {
 		return new(bytes.Buffer)
 	},
 }
 
+// gzipWriterPool 保存gzip写入器池的共享实例或运行状态。
 var gzipWriterPool = sync.Pool{
 	New: func() any {
 		return gzip.NewWriter(nil)
@@ -48,56 +57,77 @@ var gzipWriterPool = sync.Pool{
 
 // Handler TNPG 推送客户端处理器结构体。
 type Handler struct {
-	input   chan *push.Receipt
+	// input 传递input相关的异步事件。
+	input chan *push.Receipt
+	// channel 传递通道相关的异步事件。
 	channel chan *push.ChannelReq
-	stop    chan bool
+	// stop 传递stop相关的异步事件。
+	stop chan bool
+	// pushUrl 保存pushURL。
 	pushUrl string
-	subUrl  string
+	// subUrl 保存订阅URL。
+	subUrl string
 }
 
+// configType 保存配置Type的数据和运行状态。
 type configType struct {
-	Enabled         bool   `json:"enabled"`
-	ServerAddr      string `json:"server_addr"`
-	OrgID           string `json:"org"`
+	// Enabled 指示是否启用或满足Enabled。
+	Enabled bool `json:"enabled"`
+	// ServerAddr 保存服务端Addr。
+	ServerAddr string `json:"server_addr"`
+	// OrgID 保存Org标识。
+	OrgID string `json:"org"`
+	// AuthToken 保存认证令牌。
 	AuthToken       string `json:"token"`
 	DebugPushGWHost string `json:"debug_server"` // 兼容配置别名
 }
 
 // subUnsubReq 设备 Token 订阅/取消订阅 FCM Topic 频道的网关请求格式。
 type subUnsubReq struct {
-	Channel  string   `json:"channel,omitempty"`
+	// Channel 保存通道。
+	Channel string `json:"channel,omitempty"`
+	// Channels 保存Channels列表。
 	Channels []string `json:"channels,omitempty"`
-	Device   string   `json:"device,omitempty"`
-	Devices  []string `json:"devices,omitempty"`
-	Unsub    bool     `json:"unsub"`
+	// Device 保存设备。
+	Device string `json:"device,omitempty"`
+	// Devices 保存Devices列表。
+	Devices []string `json:"devices,omitempty"`
+	// Unsub 保存Unsub。
+	Unsub bool `json:"unsub"`
 }
 
+// tnpgResponse 保存tnpg响应的数据和运行状态。
 type tnpgResponse struct {
 	// 仅推送消息时的单条消息 ID
 	MessageID string `json:"msg_id,omitempty"`
 	// 服务器返回的 HTTP 状态码
 	Code int `json:"code,omitempty"`
 	// FCM 错误码
-	ErrorCode     string `json:"errcode,omitempty"`
+	ErrorCode string `json:"errcode,omitempty"`
+	// ExtendedError 保存Extended错误。
 	ExtendedError string `json:"exerr,omitempty"`
-	ErrorMessage  string `json:"errmsg,omitempty"`
+	// ErrorMessage 保存错误消息。
+	ErrorMessage string `json:"errmsg,omitempty"`
 	// 仅订阅/取消订阅时的索引位置
 	Index int `json:"index,omitempty"`
 }
 
+// batchResponse 保存批次响应的数据和运行状态。
 type batchResponse struct {
 	// 成功发送的消息数量
 	SuccessCount int `json:"sent_count"`
 	// 失败数量
 	FailureCount int `json:"fail_count"`
 	// 批次整体失败时的错误码与错误信息
-	FatalCode    string `json:"errcode,omitempty"`
+	FatalCode string `json:"errcode,omitempty"`
+	// FatalMessage 保存Fatal消息。
 	FatalMessage string `json:"errmsg,omitempty"`
 	// 单条消息的详细响应列表（顺序与请求数组一致）
 	Responses []*tnpgResponse `json:"resp,omitempty"`
 
 	// 本地状态字段
-	httpCode   int
+	httpCode int
+	// httpStatus 保存HTTP状态。
 	httpStatus string
 }
 
@@ -362,6 +392,7 @@ func (Handler) Stop() {
 	handler.stop <- true
 }
 
+// init 注册当前包提供的实现并初始化包级状态。
 func init() {
 	push.Register("tnpg", &handler)
 }

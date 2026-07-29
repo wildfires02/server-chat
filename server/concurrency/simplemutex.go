@@ -1,3 +1,4 @@
+// Package concurrency 实现即时通信服务端的协议、路由和业务逻辑。
 package concurrency
 
 // SimpleMutex 是基于容量为 1 的 Channel 实现的互斥锁。

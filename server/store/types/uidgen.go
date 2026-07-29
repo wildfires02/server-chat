@@ -1,3 +1,4 @@
+// Package types 提供领域模型及持久化访问层。
 package types
 
 import (
@@ -12,10 +13,13 @@ import (
 // UidGenerator 保存 Snowflake 雪花算法实例及 XTEA 分组加密参数。
 // 替代数据库默认的 UUID，生成经过加密打散的 uint64 唯一 ID。
 type UidGenerator struct {
-	seq    *sf.Node
+	// seq 保存序列号。
+	seq *sf.Node
+	// cipher 保存cipher。
 	cipher *xtea.Cipher
 }
 
+// ErrUninitialized 保存ErrUninitialized的共享实例或运行状态。
 var ErrUninitialized = errors.New("UID 生成器未初始化")
 
 // Init 初始化 UID 生成器（指定工作节点 ID workerID 和 XTEA 加密 key）。

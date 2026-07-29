@@ -1,12 +1,16 @@
+// Package types 提供领域模型及持久化访问层。
 package types
 
 import "time"
 
 // User 是数据库中存储的用户记录数据结构。
 type User struct {
+	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
 	ObjHeader `bson:",inline"`
 
-	State   ObjState
+	// State 保存状态。
+	State ObjState
+	// StateAt 保存状态At时间。
 	StateAt *time.Time `json:"StateAt,omitempty" bson:",omitempty"`
 
 	// 用户针对 P2P Topic 的默认访问权限（作为默认的 modeGiven 赠与权限）
@@ -19,7 +23,9 @@ type User struct {
 	// 用户上次访问 Topic 时提供的 UserAgent
 	UserAgent string
 
-	Public  any
+	// Public 保存公开资料。
+	Public any
+	// Trusted 保存可信资料。
 	Trusted any
 
 	// 用于查找该用户的唯一索引标签（邮箱、手机号等）。
@@ -34,6 +40,7 @@ type User struct {
 
 // Credential 包含验证和检查凭据（如邮箱或手机号）有效性所需的数据。
 type Credential struct {
+	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
 	ObjHeader `bson:",inline"`
 	// 凭据所有者
 	User string
@@ -59,11 +66,13 @@ type LastSeenUA struct {
 
 // 订阅到 Topic
 type Subscription struct {
+	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
 	ObjHeader `bson:",inline"`
 	// 与 Topic 有关联关系的用户
 	User string
 	// 订阅的 Topic
-	Topic     string
+	Topic string
+	// DeletedAt 保存DeletedAt时间。
 	DeletedAt *time.Time `bson:",omitempty"`
 
 	// 在订阅软删除期间持久化的值
@@ -109,6 +118,8 @@ type Subscription struct {
 
 	// 这不是一个完全初始化的订阅对象
 	dummy bool
+	// searchScore 是数据库搜索阶段计算的临时相关性分数，不持久化也不下发。
+	searchScore int
 }
 
 // SetPublic 将值分配给 `public`，否则无法从包外部访问。
@@ -239,19 +250,38 @@ func (s *Subscription) IsDummy() bool {
 	return s.dummy
 }
 
-// Contact 是搜索连接的结果
-type Contact struct {
-	Id       string
-	MatchOn  []string
-	Access   DefaultAccess
-	LastSeen time.Time
-	Public   any
+// SetSearchScore 保存仅用于当前搜索结果排序的相关性分数。
+func (s *Subscription) SetSearchScore(score int) {
+	s.searchScore = score
 }
 
+// GetSearchScore 返回仅用于当前搜索结果排序的相关性分数。
+func (s *Subscription) GetSearchScore() int {
+	return s.searchScore
+}
+
+// Contact 是搜索连接的结果
+type Contact struct {
+	// Id 保存标识。
+	Id string
+	// MatchOn 保存MatchOn列表。
+	MatchOn []string
+	// Access 保存Access。
+	Access DefaultAccess
+	// LastSeen 保存LastSeen。
+	LastSeen time.Time
+	// Public 保存公开资料。
+	Public any
+}
+
+// perUserData 保存per用户数据的数据和运行状态。
 type perUserData struct {
+	// private 保存private。
 	private any
-	want    AccessMode
-	given   AccessMode
+	// want 保存want。
+	want AccessMode
+	// given 保存given。
+	given AccessMode
 }
 
 // DeviceDef 是连接设备提供的数据。主要用于推送通知。
@@ -280,6 +310,7 @@ const (
 
 // FileDef 是文件上传的存储记录
 type FileDef struct {
+	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
 	ObjHeader `bson:",inline"`
 	// 上传状态
 	Status int

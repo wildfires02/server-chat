@@ -1,3 +1,4 @@
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 /******************************************************************************
@@ -33,20 +34,45 @@ type MsgGetOpts struct {
 	Limit int `json:"limit,omitempty"`
 	// 获取指定 ID 区间范围内的消息。
 	IdRanges []MsgRange `json:"ranges,omitempty"`
+	// 按 SeqId 升序返回消息。用于从 SinceId 开始进行无间隙的断线追赶。
+	Forward bool `json:"forward,omitempty"`
 }
 
 // MsgGetQuery 表示 Topic 元数据或消息数据的获取查询请求。
 type MsgGetQuery struct {
+	// What 保存What时间。
 	What string `json:"what"`
 
 	// "desc" 描述查询参数: IfModifiedSince
 	Desc *MsgGetOpts `json:"desc,omitempty"`
 	// "sub" 订阅关系查询参数: User, Topic, IfModifiedSince, Limit
 	Sub *MsgGetOpts `json:"sub,omitempty"`
-	// "data" 消息数据查询参数: Since, Before, Limit
+	// "data" 消息数据查询参数: Since, Before, Limit, IfModifiedSince
 	Data *MsgGetOpts `json:"data,omitempty"`
 	// "del" 删除记录查询参数: Since, Before, Limit
 	Del *MsgGetOpts `json:"del,omitempty"`
+	// "search" 关键词发现或当前 Topic 消息全文搜索参数。
+	Search *MsgSearchOpts `json:"search,omitempty"`
+}
+
+// MsgSearchOpts 定义 Peer 发现与会话内消息搜索参数。
+type MsgSearchOpts struct {
+	// Query 是用户输入的关键词。
+	Query string `json:"q"`
+	// Scope 可取 peers 或 topic；在 fnd Topic 上默认为 peers，其它 Topic 默认为 topic。
+	Scope string `json:"scope,omitempty"`
+	// From 仅返回该用户发送的消息，仅适用于 topic 范围。
+	From string `json:"from,omitempty"`
+	// Kinds 仅返回指定的服务端消息类型，仅适用于 topic 范围。
+	Kinds []string `json:"kinds,omitempty"`
+	// MinDate 仅返回该时间点及之后创建的消息。
+	MinDate *time.Time `json:"min_date,omitempty"`
+	// MaxDate 仅返回该时间点之前创建的消息。
+	MaxDate *time.Time `json:"max_date,omitempty"`
+	// Cursor 是上一页返回的不透明分页游标。
+	Cursor string `json:"cursor,omitempty"`
+	// Limit 是本页最多返回的结果数量。
+	Limit int `json:"limit,omitempty"`
 }
 
 // MsgSetSub 在 {set.sub} 请求中用于更新当前订阅或邀请其他用户。
@@ -56,6 +82,11 @@ type MsgSetSub struct {
 
 	// 访问权限模式变更（Given 或 Want）
 	Mode string `json:"mode,omitempty"`
+
+	// 面向业务层的成员角色。设置他人角色时可使用 admin、member、
+	// readonly、banned；广播频道还支持 publisher、subscriber。
+	// Role 与 Mode 互斥，服务端会把角色转换为受约束的 ACL。
+	Role string `json:"role,omitempty"`
 }
 
 // MsgSetDesc 是在 set.what == "desc" 时用于更新属性的结构体。
@@ -98,8 +129,10 @@ type MsgSetQuery struct {
 
 // MsgRange 表示单个 ID (HiId=0) 或一个连续的 ID 范围 [LowId .. HiId)（左闭右开）。
 type MsgRange struct {
+	// LowId 保存Low标识。
 	LowId int `json:"low,omitempty"`
-	HiId  int `json:"hi,omitempty"`
+	// HiId 保存Hi标识。
+	HiId int `json:"hi,omitempty"`
 }
 
 /****************************************************************
@@ -132,6 +165,7 @@ type MsgClientAcc struct {
 	User string `json:"user,omitempty"`
 	// 一次性操作（如密码重置）的临时认证参数
 	TmpScheme string `json:"tmpscheme,omitempty"`
+	// TmpSecret 保存Tmp密钥列表。
 	TmpSecret []byte `json:"tmpsecret,omitempty"`
 	// 账号状态: normal, suspended
 	State string `json:"status,omitempty"`
@@ -165,7 +199,9 @@ type MsgClientLogin struct {
 
 // MsgClientSub 表示订阅请求 {sub} 消息。
 type MsgClientSub struct {
-	Id    string `json:"id,omitempty"`
+	// Id 保存标识。
+	Id string `json:"id,omitempty"`
+	// Topic 保存Topic。
 	Topic string `json:"topic"`
 
 	// 镜像 {set} 更新选项
@@ -184,26 +220,43 @@ type MsgClientSub struct {
 }
 
 const (
+	// constMsgMetaDesc 指定constMsg元数据Desc。
 	constMsgMetaDesc = 1 << iota
+	// constMsgMetaSub 指定constMsg元数据订阅。
 	constMsgMetaSub
+	// constMsgMetaData 指定constMsg元数据数据。
 	constMsgMetaData
+	// constMsgMetaTags 指定constMsg元数据Tags。
 	constMsgMetaTags
+	// constMsgMetaDel 指定constMsg元数据Del。
 	constMsgMetaDel
+	// constMsgMetaCred 指定constMsg元数据凭据。
 	constMsgMetaCred
+	// constMsgMetaAux 指定constMsg元数据Aux。
 	constMsgMetaAux
+	// constMsgMetaSearch 指定关键词发现或消息全文搜索。
+	constMsgMetaSearch
 )
 
 const (
+	// constMsgDelTopic 指定constMsgDelTopic。
 	constMsgDelTopic = iota + 1
+	// constMsgDelMsg 指定constMsgDelMsg。
 	constMsgDelMsg
+	// constMsgDelSub 指定constMsgDel订阅。
 	constMsgDelSub
+	// constMsgDelUser 指定constMsgDel用户。
 	constMsgDelUser
+	// constMsgDelCred 指定constMsgDel凭据。
 	constMsgDelCred
+	// constMsgDelScheduled 指定constMsgDel定时消息。
+	constMsgDelScheduled
 )
 
+// parseMsgClientMeta 将输入解析为Msg客户端元数据。
 func parseMsgClientMeta(params string) int {
 	var bits int
-	parts := strings.SplitN(params, " ", 8)
+	parts := strings.SplitN(params, " ", 9)
 	for _, p := range parts {
 		switch p {
 		case "desc":
@@ -220,6 +273,8 @@ func parseMsgClientMeta(params string) int {
 			bits |= constMsgMetaCred
 		case "aux":
 			bits |= constMsgMetaAux
+		case "search":
+			bits |= constMsgMetaSearch
 		default:
 			// 忽略未知项
 		}
@@ -227,6 +282,7 @@ func parseMsgClientMeta(params string) int {
 	return bits
 }
 
+// parseMsgClientDel 将输入解析为Msg客户端Del。
 func parseMsgClientDel(params string) int {
 	switch params {
 	case "", "msg":
@@ -239,6 +295,8 @@ func parseMsgClientDel(params string) int {
 		return constMsgDelUser
 	case "cred":
 		return constMsgDelCred
+	case "sched":
+		return constMsgDelScheduled
 	default:
 		// 忽略未知项
 	}
@@ -247,43 +305,83 @@ func parseMsgClientDel(params string) int {
 
 // MsgDefaultAcsMode 表示 Topic 的默认访问权限模式。
 type MsgDefaultAcsMode struct {
+	// Auth 保存认证。
 	Auth string `json:"auth,omitempty"`
+	// Anon 保存Anon。
 	Anon string `json:"anon,omitempty"`
 }
 
 // MsgClientLeave 表示退订请求 {leave} 消息。
 type MsgClientLeave struct {
-	Id    string `json:"id,omitempty"`
+	// Id 保存标识。
+	Id string `json:"id,omitempty"`
+	// Topic 保存Topic。
 	Topic string `json:"topic"`
-	Unsub bool   `json:"unsub,omitempty"`
+	// Unsub 保存Unsub。
+	Unsub bool `json:"unsub,omitempty"`
+}
+
+// MsgMessageRef 是客户端对已存在消息的引用。Topic 为空表示当前 Topic。
+type MsgMessageRef struct {
+	// Topic 是原始消息所在会话；为空时使用当前发布目标。
+	Topic string `json:"topic,omitempty"`
+	// SeqId 是原始消息在对应 Topic 中的服务端序列号。
+	SeqId int `json:"seq"`
 }
 
 // MsgClientPub 表示客户端向 Topic 订阅者发布数据的 {pub} 请求。
 type MsgClientPub struct {
-	Id      string         `json:"id,omitempty"`
-	Topic   string         `json:"topic"`
-	NoEcho  bool           `json:"noecho,omitempty"`
-	Head    map[string]any `json:"head,omitempty"`
-	Content any            `json:"content"`
+	// Id 保存标识。
+	Id string `json:"id,omitempty"`
+	// Topic 保存Topic。
+	Topic string `json:"topic"`
+	// ClientId 是客户端生成的持久化幂等键；同一发送者重试时必须保持不变。
+	ClientId string `json:"cid,omitempty"`
+	// NoEcho 保存NoEcho。
+	NoEcho bool `json:"noecho,omitempty"`
+	// Kind 是客户端声明的正文类型，服务端会根据正文重新推导并校验。
+	Kind string `json:"kind,omitempty"`
+	// ReplyTo 是当前 Topic 中被回复消息的 SeqId。
+	ReplyTo int `json:"reply,omitempty"`
+	// ReplaceSeq 是要原地编辑的消息 SeqId。
+	ReplaceSeq int `json:"replace,omitempty"`
+	// Forward 指向要复制正文的原始消息。
+	Forward *MsgMessageRef `json:"forward,omitempty"`
+	// GroupId 将连续的图片或视频组成同一媒体相册。
+	GroupId string `json:"group,omitempty"`
+	// ScheduleAt 指定未来投递时间；为空表示立即发送。
+	ScheduleAt *time.Time `json:"schedule,omitempty"`
+	// Head 按键索引消息头。
+	Head map[string]any `json:"head,omitempty"`
+	// Content 保存正文。
+	Content any `json:"content"`
 }
 
 // MsgClientGet 表示查询 Topic 状态的 {get} 请求。
 type MsgClientGet struct {
-	Id    string `json:"id,omitempty"`
+	// Id 保存标识。
+	Id string `json:"id,omitempty"`
+	// Topic 保存Topic。
 	Topic string `json:"topic"`
+	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
 	MsgGetQuery
 }
 
 // MsgClientSet 表示更新 Topic 状态的 {set} 请求。
 type MsgClientSet struct {
-	Id    string `json:"id,omitempty"`
+	// Id 保存标识。
+	Id string `json:"id,omitempty"`
+	// Topic 保存Topic。
 	Topic string `json:"topic"`
+	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
 	MsgSetQuery
 }
 
 // MsgClientDel 表示删除消息或 Topic 的 {del} 请求。
 type MsgClientDel struct {
-	Id    string `json:"id,omitempty"`
+	// Id 保存标识。
+	Id string `json:"id,omitempty"`
+	// Topic 保存Topic。
 	Topic string `json:"topic,omitempty"`
 	// 删除目标类型:
 	// * "msg" 删除消息（默认）
@@ -300,11 +398,15 @@ type MsgClientDel struct {
 	Cred *MsgCredClient `json:"cred,omitempty"`
 	// 是否物理强行删除（如对所有用户物理删除该消息）
 	Hard bool `json:"hard,omitempty"`
+	// what=sched 时要取消的定时消息 ID。
+	ScheduledId string `json:"scheduled,omitempty"`
 }
 
 // MsgClientNote 表示客户端发起的事件状态通知 {note}（如已读、正在输入等）。
 type MsgClientNote struct {
-	// 不带 Id，服务端不会对 {note} 包发送确认，属于“即发即弃”消息
+	// 可选请求 ID。read/recv 携带 ID 时服务端返回持久化确认；省略时保持旧版即发即弃语义。
+	Id string `json:"id,omitempty"`
+	// Topic 保存Topic。
 	Topic string `json:"topic"`
 	// 事件汇报类型: "recv" - 收到消息, "read" - 已读消息, "kp" - 正在输入通知
 	What string `json:"what"`
@@ -316,6 +418,10 @@ type MsgClientNote struct {
 	Event string `json:"event,omitempty"`
 	// 任意 JSON 载荷（用于音视频 WebRTC 协商）
 	Payload json.RawMessage `json:"payload,omitempty"`
+	// react 事件使用的 Unicode Emoji 或自定义反应标识。
+	Reaction string `json:"reaction,omitempty"`
+	// react/pin 事件为 true 时表示移除。
+	Remove bool `json:"remove,omitempty"`
 }
 
 // MsgClientExtra 表示随主消息附带的额外扩展数据。
@@ -330,16 +436,26 @@ type MsgClientExtra struct {
 
 // ClientComMessage 是客户端上行消息的统一封装外壳。
 type ClientComMessage struct {
-	Hi    *MsgClientHi    `json:"hi"`
-	Acc   *MsgClientAcc   `json:"acc"`
+	// Hi 保存Hi。
+	Hi *MsgClientHi `json:"hi"`
+	// Acc 保存Acc。
+	Acc *MsgClientAcc `json:"acc"`
+	// Login 保存登录。
 	Login *MsgClientLogin `json:"login"`
-	Sub   *MsgClientSub   `json:"sub"`
+	// Sub 保存订阅。
+	Sub *MsgClientSub `json:"sub"`
+	// Leave 保存Leave。
 	Leave *MsgClientLeave `json:"leave"`
-	Pub   *MsgClientPub   `json:"pub"`
-	Get   *MsgClientGet   `json:"get"`
-	Set   *MsgClientSet   `json:"set"`
-	Del   *MsgClientDel   `json:"del"`
-	Note  *MsgClientNote  `json:"note"`
+	// Pub 保存Pub。
+	Pub *MsgClientPub `json:"pub"`
+	// Get 保存Get。
+	Get *MsgClientGet `json:"get"`
+	// Set 保存Set。
+	Set *MsgClientSet `json:"set"`
+	// Del 保存Del。
+	Del *MsgClientDel `json:"del"`
+	// Note 保存事件通知。
+	Note *MsgClientNote `json:"note"`
 	// 可选扩展数据
 	Extra *MsgClientExtra `json:"extra"`
 
@@ -364,6 +480,8 @@ type ClientComMessage struct {
 	sess *Session
 	// 标识该消息已完成初始化
 	init bool
+	// 定时投递器提供的已校验持久化消息。
+	scheduled *types.ScheduledMessage
 }
 
 /****************************************************************
@@ -378,6 +496,7 @@ type MsgLastSeenInfo struct {
 	UserAgent string `json:"ua,omitempty"`
 }
 
+// describe 完成describe所需的内部处理。
 func (src *MsgLastSeenInfo) describe() string {
 	return "'" + src.UserAgent + "' @ " + src.When.String()
 }
@@ -400,8 +519,11 @@ type MsgAccessMode struct {
 	Given string `json:"given,omitempty"`
 	// 最终生效的综合权限模式 (want & given)
 	Mode string `json:"mode,omitempty"`
+	// 由最终 ACL 推导出的业务角色，便于客户端直接展示和管理成员。
+	Role string `json:"role,omitempty"`
 }
 
+// describe 完成describe所需的内部处理。
 func (src *MsgAccessMode) describe() string {
 	var s string
 	if src.Want != "" {
@@ -413,12 +535,17 @@ func (src *MsgAccessMode) describe() string {
 	if src.Mode != "" {
 		s += " m=" + src.Mode
 	}
+	if src.Role != "" {
+		s += " role=" + src.Role
+	}
 	return strings.TrimSpace(s)
 }
 
 // MsgTopicDesc 表示 Topic 的描述信息，在 Meta 消息中下发给客户端。
 type MsgTopicDesc struct {
+	// CreatedAt 保存CreatedAt时间。
 	CreatedAt *time.Time `json:"created,omitempty"`
+	// UpdatedAt 保存UpdatedAt时间。
 	UpdatedAt *time.Time `json:"updated,omitempty"`
 	// 最后一条消息发送的时间戳
 	TouchedAt *time.Time `json:"touched,omitempty"`
@@ -435,22 +562,29 @@ type MsgTopicDesc struct {
 	// P2P 对方用户最后上线时间戳与 User-Agent
 	LastSeen *MsgLastSeenInfo `json:"seen,omitempty"`
 
+	// DefaultAcs 保存默认Acs。
 	DefaultAcs *MsgDefaultAcsMode `json:"defacs,omitempty"`
 	// 当前生效的访问权限模式
 	Acs *MsgAccessMode `json:"acs,omitempty"`
 	// 最大消息 ID
-	SeqId     int `json:"seq,omitempty"`
+	SeqId int `json:"seq,omitempty"`
+	// ReadSeqId 保存Read序列号标识。
 	ReadSeqId int `json:"read,omitempty"`
+	// RecvSeqId 保存Recv序列号标识。
 	RecvSeqId int `json:"recv,omitempty"`
 	// 请求用户视角的最新删除操作 ID
-	DelId   int `json:"clear,omitempty"`
-	SubCnt  int `json:"subcnt,omitempty"`
-	Public  any `json:"public,omitempty"`
+	DelId int `json:"clear,omitempty"`
+	// SubCnt 保存订阅Cnt。
+	SubCnt int `json:"subcnt,omitempty"`
+	// Public 保存公开资料。
+	Public any `json:"public,omitempty"`
+	// Trusted 保存可信资料。
 	Trusted any `json:"trusted,omitempty"`
 	// 每个订阅专有的私有数据
 	Private any `json:"private,omitempty"`
 }
 
+// describe 完成describe所需的内部处理。
 func (src *MsgTopicDesc) describe() string {
 	var s string
 	if src.State != "" {
@@ -534,6 +668,7 @@ type MsgTopicSub struct {
 	LastSeen *MsgLastSeenInfo `json:"seen,omitempty"`
 }
 
+// describe 完成describe所需的内部处理。
 func (src *MsgTopicSub) describe() string {
 	s := src.Topic + ":" + src.User + " online=" + strconv.FormatBool(src.Online) + " acs=" + src.Acs.describe()
 
@@ -569,18 +704,26 @@ func (src *MsgTopicSub) describe() string {
 
 // MsgDelValues 描述删除消息的请求结果参数。
 type MsgDelValues struct {
-	DelId  int        `json:"clear,omitempty"`
+	// DelId 保存Del标识。
+	DelId int `json:"clear,omitempty"`
+	// DelSeq 保存Del序列号列表。
 	DelSeq []MsgRange `json:"delseq,omitempty"`
 }
 
 // MsgServerCtrl 表示服务端控制响应消息 {ctrl}。
 type MsgServerCtrl struct {
-	Id     string `json:"id,omitempty"`
-	Topic  string `json:"topic,omitempty"`
-	Params any    `json:"params,omitempty"`
+	// Id 保存标识。
+	Id string `json:"id,omitempty"`
+	// Topic 保存Topic。
+	Topic string `json:"topic,omitempty"`
+	// Params 保存Params。
+	Params any `json:"params,omitempty"`
 
-	Code      int       `json:"code"`
-	Text      string    `json:"text,omitempty"`
+	// Code 保存Code。
+	Code int `json:"code"`
+	// Text 保存Text。
+	Text string `json:"text,omitempty"`
+	// Timestamp 保存Timestamp。
 	Timestamp time.Time `json:"ts"`
 }
 
@@ -593,20 +736,61 @@ func (src *MsgServerCtrl) copy() *MsgServerCtrl {
 	return &dst
 }
 
+// describe 完成describe所需的内部处理。
 func (src *MsgServerCtrl) describe() string {
 	return src.Topic + " id=" + src.Id + " code=" + strconv.Itoa(src.Code) + " txt=" + src.Text
 }
 
+// MsgForwardedMessage 描述转发消息的原始来源。
+type MsgForwardedMessage struct {
+	// Topic 在 P2P 会话中为空，避免暴露内部路由名称。
+	Topic string `json:"topic,omitempty"`
+	// SeqId 是原始消息的服务端序列号。
+	SeqId int `json:"seq"`
+	// From 是原始发送者的公开用户 ID。
+	From string `json:"from,omitempty"`
+	// Timestamp 是原始消息的创建时间。
+	Timestamp time.Time `json:"ts"`
+}
+
+// MsgReaction 是下发给客户端的反应聚合计数。
+type MsgReaction struct {
+	// Reaction 是 Unicode Emoji 或自定义反应标识。
+	Reaction string `json:"reaction"`
+	// Count 是当前参与该反应的用户数。
+	Count int `json:"count"`
+}
+
 // MsgServerData 表示服务端数据广播消息 {data}。
 type MsgServerData struct {
+	// Topic 保存Topic。
 	Topic string `json:"topic"`
 	// 发送消息的用户 ID，由系统发出时可为空
-	From      string         `json:"from,omitempty"`
-	Timestamp time.Time      `json:"ts"`
-	DeletedAt *time.Time     `json:"deleted,omitempty"`
-	SeqId     int            `json:"seq"`
-	Head      map[string]any `json:"head,omitempty"`
-	Content   any            `json:"content"`
+	From string `json:"from,omitempty"`
+	// ClientId 回传发布方提供的幂等键，便于多端对账。
+	ClientId string `json:"cid,omitempty"`
+	// Timestamp 保存Timestamp。
+	Timestamp time.Time `json:"ts"`
+	// EditedAt 是最近一次成功编辑时间。
+	EditedAt *time.Time `json:"edited,omitempty"`
+	// DeletedAt 保存DeletedAt时间。
+	DeletedAt *time.Time `json:"deleted,omitempty"`
+	// SeqId 保存序列号标识。
+	SeqId int `json:"seq"`
+	// Kind 是服务端从正文推导出的可信消息类型。
+	Kind string `json:"kind,omitempty"`
+	// ReplyTo 是当前 Topic 中被回复消息的 SeqId。
+	ReplyTo int `json:"reply,omitempty"`
+	// Forwarded 仅在转发消息中包含原始来源摘要。
+	Forwarded *MsgForwardedMessage `json:"forwarded,omitempty"`
+	// GroupId 是服务端按发送者命名空间归一化后的媒体相册 ID。
+	GroupId string `json:"group,omitempty"`
+	// Reactions 仅包含聚合计数，不暴露服务端存储的用户明细。
+	Reactions []MsgReaction `json:"reactions,omitempty"`
+	// Head 按键索引消息头。
+	Head map[string]any `json:"head,omitempty"`
+	// Content 保存正文。
+	Content any `json:"content"`
 }
 
 // 拷贝数据消息对象。
@@ -618,6 +802,7 @@ func (src *MsgServerData) copy() *MsgServerData {
 	return &dst
 }
 
+// describe 完成describe所需的内部处理。
 func (src *MsgServerData) describe() string {
 	s := src.Topic + " from=" + src.From + " seq=" + strconv.Itoa(src.SeqId)
 	if src.DeletedAt != nil {
@@ -633,15 +818,24 @@ func (src *MsgServerData) describe() string {
 
 // MsgServerPres 表示在线状态变更通知消息 {pres}。
 type MsgServerPres struct {
-	Topic     string     `json:"topic"`
-	Src       string     `json:"src,omitempty"`
-	What      string     `json:"what"`
-	UserAgent string     `json:"ua,omitempty"`
-	SeqId     int        `json:"seq,omitempty"`
-	DelId     int        `json:"clear,omitempty"`
-	DelSeq    []MsgRange `json:"delseq,omitempty"`
-	AcsTarget string     `json:"tgt,omitempty"`
-	AcsActor  string     `json:"act,omitempty"`
+	// Topic 保存Topic。
+	Topic string `json:"topic"`
+	// Src 保存Src。
+	Src string `json:"src,omitempty"`
+	// What 保存What时间。
+	What string `json:"what"`
+	// UserAgent 指示是否启用或满足用户Agent。
+	UserAgent string `json:"ua,omitempty"`
+	// SeqId 保存序列号标识。
+	SeqId int `json:"seq,omitempty"`
+	// DelId 保存Del标识。
+	DelId int `json:"clear,omitempty"`
+	// DelSeq 保存Del序列号列表。
+	DelSeq []MsgRange `json:"delseq,omitempty"`
+	// AcsTarget 保存AcsTarget。
+	AcsTarget string `json:"tgt,omitempty"`
+	// AcsActor 保存AcsActor。
+	AcsActor string `json:"act,omitempty"`
 	// Acs 变更增量
 	Acs *MsgAccessMode `json:"dacs,omitempty"`
 
@@ -651,7 +845,8 @@ type MsgServerPres struct {
 	WantReply bool `json:"-"`
 
 	// 发送到 Topic 在线成员时的访问模式过滤器
-	FilterIn  int `json:"-"`
+	FilterIn int `json:"-"`
+	// FilterOut 保存过滤条件Out。
 	FilterOut int `json:"-"`
 
 	// 发送到 'me' 时跳过已订阅当前 Topic 的 Session
@@ -673,6 +868,7 @@ func (src *MsgServerPres) copy() *MsgServerPres {
 	return &dst
 }
 
+// describe 完成describe所需的内部处理。
 func (src *MsgServerPres) describe() string {
 	s := src.Topic
 	if src.Src != "" {
@@ -708,9 +904,12 @@ func (src *MsgServerPres) describe() string {
 
 // MsgServerMeta 表示 Topic 元数据变更响应 {meta}。
 type MsgServerMeta struct {
-	Id    string `json:"id,omitempty"`
+	// Id 保存标识。
+	Id string `json:"id,omitempty"`
+	// Topic 保存Topic。
 	Topic string `json:"topic"`
 
+	// Timestamp 保存Timestamp。
 	Timestamp *time.Time `json:"ts,omitempty"`
 
 	// Topic 描述信息
@@ -725,6 +924,20 @@ type MsgServerMeta struct {
 	Cred []*MsgCredServer `json:"cred,omitempty"`
 	// 辅助扩展数据
 	Aux map[string]any `json:"aux,omitempty"`
+	// Search 保存关键词发现或消息全文搜索结果。
+	Search *MsgSearchResult `json:"search,omitempty"`
+}
+
+// MsgSearchResult 是统一的 Peer 发现与消息全文搜索结果。
+type MsgSearchResult struct {
+	// Scope 表示本响应属于 peers 或 topic 搜索。
+	Scope string `json:"scope"`
+	// Peers 保存用户、群组和频道发现结果。
+	Peers []MsgTopicSub `json:"peers,omitempty"`
+	// Messages 保存当前 Topic 中的消息命中结果。
+	Messages []*MsgServerData `json:"messages,omitempty"`
+	// Next 是下一页使用的不透明游标；为空表示已经到达结果末尾。
+	Next string `json:"next,omitempty"`
 }
 
 // 拷贝元数据响应对象。
@@ -736,6 +949,7 @@ func (src *MsgServerMeta) copy() *MsgServerMeta {
 	return &dst
 }
 
+// describe 完成describe所需的内部处理。
 func (src *MsgServerMeta) describe() string {
 	s := src.Topic + " id=" + src.Id
 
@@ -764,6 +978,9 @@ func (src *MsgServerMeta) describe() string {
 		x, _ := json.Marshal(src.Aux)
 		s += " aux=[" + string(x) + "]"
 	}
+	if src.Search != nil {
+		s += " search=" + src.Search.Scope
+	}
 	return s
 }
 
@@ -783,6 +1000,10 @@ type MsgServerInfo struct {
 	Event string `json:"event,omitempty"`
 	// 任意 JSON 载荷（音视频通话使用）
 	Payload json.RawMessage `json:"payload,omitempty"`
+	// react 事件中被添加或移除的反应。
+	Reaction string `json:"reaction,omitempty"`
+	// react/pin 事件为 true 时表示移除。
+	Remove bool `json:"remove,omitempty"`
 
 	// 非路由内部参数
 
@@ -799,6 +1020,7 @@ func (src *MsgServerInfo) copy() *MsgServerInfo {
 	return &dst
 }
 
+// describe 完成describe所需的内部处理。
 func (src *MsgServerInfo) describe() string {
 	s := src.Topic
 	if src.Src != "" {
@@ -816,10 +1038,15 @@ func (src *MsgServerInfo) describe() string {
 
 // ServerComMessage 是服务端下行消息的统一封装外壳。
 type ServerComMessage struct {
+	// Ctrl 保存Ctrl。
 	Ctrl *MsgServerCtrl `json:"ctrl,omitempty"`
+	// Data 保存数据。
 	Data *MsgServerData `json:"data,omitempty"`
+	// Meta 保存元数据。
 	Meta *MsgServerMeta `json:"meta,omitempty"`
+	// Pres 保存Pres。
 	Pres *MsgServerPres `json:"pres,omitempty"`
+	// Info 保存通知。
 	Info *MsgServerInfo `json:"info,omitempty"`
 
 	// 内部传输字段
@@ -864,6 +1091,7 @@ func (src *ServerComMessage) copy() *ServerComMessage {
 	return dst
 }
 
+// describe 完成describe所需的内部处理。
 func (src *ServerComMessage) describe() string {
 	if src == nil {
 		return "-"

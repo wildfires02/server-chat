@@ -1,3 +1,4 @@
+// Package fcm 提供消息推送实现。
 package fcm
 
 import (
@@ -25,6 +26,7 @@ const (
 	defaultTimeToLive = 3600
 )
 
+// payloadToData 完成载荷To数据所需的内部处理。
 func payloadToData(pl *push.Payload) (map[string]string, error) {
 	if pl == nil {
 		return nil, errors.New("empty push payload")
@@ -91,6 +93,7 @@ func payloadToData(pl *push.Payload) (map[string]string, error) {
 	return data, nil
 }
 
+// clonePayload 返回载荷的独立副本。
 func clonePayload(src map[string]string) map[string]string {
 	dst := make(map[string]string, len(src))
 	maps.Copy(dst, src)
@@ -237,6 +240,7 @@ func ChannelsForUser(uid t.Uid) []string {
 	return channels
 }
 
+// androidNotificationConfig 完成androidNotification配置所需的内部处理。
 func androidNotificationConfig(what, topic string, data map[string]string, config *configType) *fcmv1.AndroidConfig {
 	timeToLive := strconv.Itoa(defaultTimeToLive) + "s"
 	if config != nil && config.TimeToLive > 0 {
@@ -299,10 +303,12 @@ func androidNotificationConfig(what, topic string, data map[string]string, confi
 	return ac
 }
 
+// apnsShouldPresentAlert 完成apnsShouldPresentAlert所需的内部处理。
 func apnsShouldPresentAlert(what, callStatus, isSilent string, config *configType) bool {
 	return config.Apns != nil && config.Apns.Enabled && what != push.ActRead && callStatus == "" && isSilent == ""
 }
 
+// apnsNotificationConfig 完成apnsNotification配置所需的内部处理。
 func apnsNotificationConfig(what, topic string, data map[string]string, unread int, config *configType) *fcmv1.ApnsConfig {
 	callStatus := data["webrtc"]
 	expires := time.Now().UTC().Add(time.Duration(defaultTimeToLive) * time.Second)
@@ -378,6 +384,7 @@ func apnsNotificationConfig(what, topic string, data map[string]string, unread i
 	return ac
 }
 
+// webpushNotificationConfig 完成webpushNotification配置所需的内部处理。
 func webpushNotificationConfig(what, topic string, data map[string]string, config *configType) *fcmv1.WebpushConfig {
 	if config == nil || config.Webpush == nil || !config.Webpush.Enabled {
 		return nil

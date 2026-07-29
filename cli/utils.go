@@ -1,3 +1,4 @@
+// Package main 实现服务端命令行客户端。
 package main
 
 import (
@@ -9,22 +10,33 @@ import (
 	"strings"
 )
 
+// DefaultCookieFile 指定默认Cookie文件。
 const DefaultCookieFile = ".cli-cookie"
 
+// CookieData 保存Cookie数据的数据和运行状态。
 type CookieData struct {
-	User  string `json:"user,omitempty"`
+	// User 指示是否启用或满足用户。
+	User string `json:"user,omitempty"`
+	// Token 保存令牌。
 	Token string `json:"token,omitempty"`
 }
 
+// CardPhoto 保存CardPhoto的数据和运行状态。
 type CardPhoto struct {
+	// Type 保存Type。
 	Type string `json:"type,omitempty"`
+	// Data 保存数据。
 	Data string `json:"data,omitempty"`
 }
 
+// Card 保存Card的数据和运行状态。
 type Card struct {
-	Fn    string     `json:"fn,omitempty"`
+	// Fn 保存Fn。
+	Fn string `json:"fn,omitempty"`
+	// Photo 保存Photo。
 	Photo *CardPhoto `json:"photo,omitempty"`
-	Note  string     `json:"note,omitempty"`
+	// Note 保存事件通知。
+	Note string `json:"note,omitempty"`
 }
 
 // MakeTheCard creates a JSON string for user public profile.

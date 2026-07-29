@@ -25,9 +25,13 @@ const (
 type AuthLevel int32
 
 const (
+	// NONE 表示该枚举对应的协议状态。
 	AuthLevel_NONE AuthLevel = 0
+	// ANON 表示该枚举对应的协议状态。
 	AuthLevel_ANON AuthLevel = 10
+	// AUTH 表示该枚举对应的协议状态。
 	AuthLevel_AUTH AuthLevel = 20
+	// ROOT 表示该枚举对应的协议状态。
 	AuthLevel_ROOT AuthLevel = 30
 )
 
@@ -74,15 +78,28 @@ func (AuthLevel) EnumDescriptor() ([]byte, []int) {
 	return file_model_proto_rawDescGZIP(), []int{0}
 }
 
+// InfoNote 定义 InfoNote 的 Protobuf 枚举值集合。
 type InfoNote int32
 
 const (
 	// 无效占位值，枚举名必须全局唯一
-	InfoNote_X1   InfoNote = 0
+	InfoNote_X1 InfoNote = 0
+	// READ 表示该枚举对应的协议状态。
 	InfoNote_READ InfoNote = 1
+	// RECV 表示该枚举对应的协议状态。
 	InfoNote_RECV InfoNote = 2
-	InfoNote_KP   InfoNote = 3
+	// KP 表示该枚举对应的协议状态。
+	InfoNote_KP InfoNote = 3
+	// CALL 表示该枚举对应的协议状态。
 	InfoNote_CALL InfoNote = 4
+	// KPA 表示该枚举对应的协议状态。
+	InfoNote_KPA InfoNote = 5
+	// KPV 表示该枚举对应的协议状态。
+	InfoNote_KPV InfoNote = 6
+	// REACT 表示该枚举对应的协议状态。
+	InfoNote_REACT InfoNote = 7
+	// PIN 表示该枚举对应的协议状态。
+	InfoNote_PIN InfoNote = 8
 )
 
 // Enum value maps for InfoNote.
@@ -93,13 +110,21 @@ var (
 		2: "RECV",
 		3: "KP",
 		4: "CALL",
+		5: "KPA",
+		6: "KPV",
+		7: "REACT",
+		8: "PIN",
 	}
 	InfoNote_value = map[string]int32{
-		"X1":   0,
-		"READ": 1,
-		"RECV": 2,
-		"KP":   3,
-		"CALL": 4,
+		"X1":    0,
+		"READ":  1,
+		"RECV":  2,
+		"KP":    3,
+		"CALL":  4,
+		"KPA":   5,
+		"KPV":   6,
+		"REACT": 7,
+		"PIN":   8,
 	}
 )
 
@@ -130,31 +155,48 @@ func (InfoNote) EnumDescriptor() ([]byte, []int) {
 	return file_model_proto_rawDescGZIP(), []int{1}
 }
 
+// CallEvent 定义 CallEvent 的 Protobuf 枚举值集合。
 type CallEvent int32
 
 const (
 	// 无效占位值，枚举名必须全局唯一
-	CallEvent_X2            CallEvent = 0
-	CallEvent_ACCEPT        CallEvent = 1
-	CallEvent_ANSWER        CallEvent = 2
-	CallEvent_HANG_UP       CallEvent = 3
+	CallEvent_X2 CallEvent = 0
+	// ACCEPT 表示该枚举对应的协议状态。
+	CallEvent_ACCEPT CallEvent = 1
+	// ANSWER 表示该枚举对应的协议状态。
+	CallEvent_ANSWER CallEvent = 2
+	// HANG_UP 表示该枚举对应的协议状态。
+	CallEvent_HANG_UP CallEvent = 3
+	// ICE_CANDIDATE 表示该枚举对应的协议状态。
 	CallEvent_ICE_CANDIDATE CallEvent = 4
-	CallEvent_INVITE        CallEvent = 5
-	CallEvent_OFFER         CallEvent = 6
-	CallEvent_RINGING       CallEvent = 7
+	// INVITE 表示该枚举对应的协议状态。
+	CallEvent_INVITE CallEvent = 5
+	// OFFER 表示该枚举对应的协议状态。
+	CallEvent_OFFER CallEvent = 6
+	// RINGING 表示该枚举对应的协议状态。
+	CallEvent_RINGING CallEvent = 7
+	// JOIN 表示成员请求加入 Agora 群组通话。
+	CallEvent_JOIN CallEvent = 8
+	// LEAVE 表示成员离开 Agora 群组通话。
+	CallEvent_LEAVE CallEvent = 9
+	// REFRESH 表示客户端请求续签即将过期的 Agora Token。
+	CallEvent_REFRESH CallEvent = 10
 )
 
 // Enum value maps for CallEvent.
 var (
 	CallEvent_name = map[int32]string{
-		0: "X2",
-		1: "ACCEPT",
-		2: "ANSWER",
-		3: "HANG_UP",
-		4: "ICE_CANDIDATE",
-		5: "INVITE",
-		6: "OFFER",
-		7: "RINGING",
+		0:  "X2",
+		1:  "ACCEPT",
+		2:  "ANSWER",
+		3:  "HANG_UP",
+		4:  "ICE_CANDIDATE",
+		5:  "INVITE",
+		6:  "OFFER",
+		7:  "RINGING",
+		8:  "JOIN",
+		9:  "LEAVE",
+		10: "REFRESH",
 	}
 	CallEvent_value = map[string]int32{
 		"X2":            0,
@@ -165,6 +207,9 @@ var (
 		"INVITE":        5,
 		"OFFER":         6,
 		"RINGING":       7,
+		"JOIN":          8,
+		"LEAVE":         9,
+		"REFRESH":       10,
 	}
 )
 
@@ -255,8 +300,11 @@ func (RespCode) EnumDescriptor() ([]byte, []int) {
 type Crud int32
 
 const (
+	// CREATE 表示该枚举对应的协议状态。
 	Crud_CREATE Crud = 0
+	// UPDATE 表示该枚举对应的协议状态。
 	Crud_UPDATE Crud = 1
+	// DELETE 表示该枚举对应的协议状态。
 	Crud_DELETE Crud = 2
 )
 
@@ -306,12 +354,19 @@ type ClientDel_What int32
 
 const (
 	// 无效占位值，枚举名必须全局唯一
-	ClientDel_X0    ClientDel_What = 0
-	ClientDel_MSG   ClientDel_What = 1
+	ClientDel_X0 ClientDel_What = 0
+	// MSG 表示该枚举对应的协议状态。
+	ClientDel_MSG ClientDel_What = 1
+	// TOPIC 表示该枚举对应的协议状态。
 	ClientDel_TOPIC ClientDel_What = 2
-	ClientDel_SUB   ClientDel_What = 3
-	ClientDel_USER  ClientDel_What = 4
-	ClientDel_CRED  ClientDel_What = 5
+	// SUB 表示该枚举对应的协议状态。
+	ClientDel_SUB ClientDel_What = 3
+	// USER 表示该枚举对应的协议状态。
+	ClientDel_USER ClientDel_What = 4
+	// CRED 表示该枚举对应的协议状态。
+	ClientDel_CRED ClientDel_What = 5
+	// SCHEDULED 表示该枚举对应的协议状态。
+	ClientDel_SCHEDULED ClientDel_What = 6
 )
 
 // Enum value maps for ClientDel_What.
@@ -323,14 +378,16 @@ var (
 		3: "SUB",
 		4: "USER",
 		5: "CRED",
+		6: "SCHEDULED",
 	}
 	ClientDel_What_value = map[string]int32{
-		"X0":    0,
-		"MSG":   1,
-		"TOPIC": 2,
-		"SUB":   3,
-		"USER":  4,
-		"CRED":  5,
+		"X0":        0,
+		"MSG":       1,
+		"TOPIC":     2,
+		"SUB":       3,
+		"USER":      4,
+		"CRED":      5,
+		"SCHEDULED": 6,
 	}
 )
 
@@ -358,27 +415,41 @@ func (x ClientDel_What) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ClientDel_What.Descriptor instead.
 func (ClientDel_What) EnumDescriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{18, 0}
+	return file_model_proto_rawDescGZIP(), []int{20, 0}
 }
 
+// What 定义 What 的 Protobuf 枚举值集合。
 type ServerPres_What int32
 
 const (
 	// 无效占位值，枚举名必须全局唯一
-	ServerPres_X3   ServerPres_What = 0
-	ServerPres_ON   ServerPres_What = 1
-	ServerPres_OFF  ServerPres_What = 2
-	ServerPres_UA   ServerPres_What = 3
-	ServerPres_UPD  ServerPres_What = 4
+	ServerPres_X3 ServerPres_What = 0
+	// ON 表示该枚举对应的协议状态。
+	ServerPres_ON ServerPres_What = 1
+	// OFF 表示该枚举对应的协议状态。
+	ServerPres_OFF ServerPres_What = 2
+	// UA 表示该枚举对应的协议状态。
+	ServerPres_UA ServerPres_What = 3
+	// UPD 表示该枚举对应的协议状态。
+	ServerPres_UPD ServerPres_What = 4
+	// GONE 表示该枚举对应的协议状态。
 	ServerPres_GONE ServerPres_What = 5
-	ServerPres_ACS  ServerPres_What = 6
+	// ACS 表示该枚举对应的协议状态。
+	ServerPres_ACS ServerPres_What = 6
+	// TERM 表示该枚举对应的协议状态。
 	ServerPres_TERM ServerPres_What = 7
-	ServerPres_MSG  ServerPres_What = 8
+	// MSG 表示该枚举对应的协议状态。
+	ServerPres_MSG ServerPres_What = 8
+	// READ 表示该枚举对应的协议状态。
 	ServerPres_READ ServerPres_What = 9
+	// RECV 表示该枚举对应的协议状态。
 	ServerPres_RECV ServerPres_What = 10
-	ServerPres_DEL  ServerPres_What = 11
+	// DEL 表示该枚举对应的协议状态。
+	ServerPres_DEL ServerPres_What = 11
+	// TAGS 表示该枚举对应的协议状态。
 	ServerPres_TAGS ServerPres_What = 12
-	ServerPres_AUX  ServerPres_What = 13
+	// AUX 表示该枚举对应的协议状态。
+	ServerPres_AUX ServerPres_What = 13
 )
 
 // Enum value maps for ServerPres_What.
@@ -441,7 +512,7 @@ func (x ServerPres_What) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ServerPres_What.Descriptor instead.
 func (ServerPres_What) EnumDescriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{28, 0}
+	return file_model_proto_rawDescGZIP(), []int{33, 0}
 }
 
 // 占位空消息
@@ -483,9 +554,11 @@ func (*Unused) Descriptor() ([]byte, []int) {
 
 // 主题默认访问权限模式
 type DefaultAcsMode struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Auth          string                 `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
-	Anon          string                 `protobuf:"bytes,2,opt,name=anon,proto3" json:"anon,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// auth 保存该消息字段对应的协议值。
+	Auth string `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
+	// anon 保存该消息字段对应的协议值。
+	Anon          string `protobuf:"bytes,2,opt,name=anon,proto3" json:"anon,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -540,7 +613,9 @@ type AccessMode struct {
 	// 用户申请的访问权限模式
 	Want string `protobuf:"bytes,1,opt,name=want,proto3" json:"want,omitempty"`
 	// 管理员授予用户的访问权限模式
-	Given         string `protobuf:"bytes,2,opt,name=given,proto3" json:"given,omitempty"`
+	Given string `protobuf:"bytes,2,opt,name=given,proto3" json:"given,omitempty"`
+	// 服务端根据最终 ACL 推导出的业务角色
+	Role          string `protobuf:"bytes,3,opt,name=role,proto3" json:"role,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -589,13 +664,22 @@ func (x *AccessMode) GetGiven() string {
 	return ""
 }
 
+func (x *AccessMode) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
 // SetSub：在 set.sub 请求中更新当前订阅或邀请其他用户的负载数据，{sub.what} == "sub"
 type SetSub struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// 受此请求影响的目标用户 ID。默认为空（当前用户）
 	UserId string `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	// 访问模式变更，根据上下文代表 Given 或 Want
-	Mode          string `protobuf:"bytes,2,opt,name=mode,proto3" json:"mode,omitempty"`
+	Mode string `protobuf:"bytes,2,opt,name=mode,proto3" json:"mode,omitempty"`
+	// 高层成员角色；与 mode 互斥
+	Role          string `protobuf:"bytes,3,opt,name=role,proto3" json:"role,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -640,6 +724,13 @@ func (x *SetSub) GetUserId() string {
 func (x *SetSub) GetMode() string {
 	if x != nil {
 		return x.Mode
+	}
+	return ""
+}
+
+func (x *SetSub) GetRole() string {
+	if x != nil {
+		return x.Role
 	}
 	return ""
 }
@@ -719,11 +810,15 @@ func (x *ClientCred) GetParams() map[string][]byte {
 
 // SetDesc：在 set.what == "desc" 和 sub.init 消息中客户端发往服务端的数据
 type SetDesc struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	DefaultAcs    *DefaultAcsMode        `protobuf:"bytes,1,opt,name=default_acs,json=defaultAcs,proto3" json:"default_acs,omitempty"`
-	Public        []byte                 `protobuf:"bytes,2,opt,name=public,proto3" json:"public,omitempty"`
-	Private       []byte                 `protobuf:"bytes,3,opt,name=private,proto3" json:"private,omitempty"`
-	Trusted       []byte                 `protobuf:"bytes,4,opt,name=trusted,proto3" json:"trusted,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// default_acs 保存该消息字段对应的协议值。
+	DefaultAcs *DefaultAcsMode `protobuf:"bytes,1,opt,name=default_acs,json=defaultAcs,proto3" json:"default_acs,omitempty"`
+	// public 保存该消息字段对应的协议值。
+	Public []byte `protobuf:"bytes,2,opt,name=public,proto3" json:"public,omitempty"`
+	// private 保存该消息字段对应的协议值。
+	Private []byte `protobuf:"bytes,3,opt,name=private,proto3" json:"private,omitempty"`
+	// trusted 保存该消息字段对应的协议值。
+	Trusted       []byte `protobuf:"bytes,4,opt,name=trusted,proto3" json:"trusted,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -786,10 +881,13 @@ func (x *SetDesc) GetTrusted() []byte {
 	return nil
 }
 
+// SeqRange 定义 SeqRange 的 Protobuf 消息结构。
 type SeqRange struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Low           int32                  `protobuf:"varint,1,opt,name=low,proto3" json:"low,omitempty"`
-	Hi            int32                  `protobuf:"varint,2,opt,name=hi,proto3" json:"hi,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// low 保存该消息字段对应的协议值。
+	Low int32 `protobuf:"varint,1,opt,name=low,proto3" json:"low,omitempty"`
+	// hi 保存该消息字段对应的协议值。
+	Hi            int32 `protobuf:"varint,2,opt,name=hi,proto3" json:"hi,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -838,6 +936,7 @@ func (x *SeqRange) GetHi() int32 {
 	return 0
 }
 
+// GetOpts 定义 GetOpts 的 Protobuf 消息结构。
 type GetOpts struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// 时间戳（自 1970/01/01 Epoch 以来的毫秒数）
@@ -853,7 +952,9 @@ type GetOpts struct {
 	// 返回结果的最大条数
 	Limit int32 `protobuf:"varint,6,opt,name=limit,proto3" json:"limit,omitempty"`
 	// 根据具体 ID 或 ID 范围段加载消息
-	Ranges        []*SeqRange `protobuf:"bytes,7,rep,name=ranges,proto3" json:"ranges,omitempty"`
+	Ranges []*SeqRange `protobuf:"bytes,7,rep,name=ranges,proto3" json:"ranges,omitempty"`
+	// 按 seq_id 升序返回结果，用于断线后的无间隙追赶
+	Forward       bool `protobuf:"varint,8,opt,name=forward,proto3" json:"forward,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -937,22 +1038,144 @@ func (x *GetOpts) GetRanges() []*SeqRange {
 	return nil
 }
 
+func (x *GetOpts) GetForward() bool {
+	if x != nil {
+		return x.Forward
+	}
+	return false
+}
+
+// SearchOpts 定义 Peer 发现与当前 Topic 消息全文搜索参数。
+type SearchOpts struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// query 是用户输入的关键词。
+	Query string `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	// scope 可取 peers 或 topic。
+	Scope string `protobuf:"bytes,2,opt,name=scope,proto3" json:"scope,omitempty"`
+	// from_user_id 仅返回该用户发送的消息。
+	FromUserId string `protobuf:"bytes,3,opt,name=from_user_id,json=fromUserId,proto3" json:"from_user_id,omitempty"`
+	// kinds 仅返回指定的服务端消息类型。
+	Kinds []string `protobuf:"bytes,4,rep,name=kinds,proto3" json:"kinds,omitempty"`
+	// min_date 仅返回该时间点及之后创建的消息，使用 Epoch 毫秒。
+	MinDate int64 `protobuf:"varint,5,opt,name=min_date,json=minDate,proto3" json:"min_date,omitempty"`
+	// max_date 仅返回该时间点之前创建的消息，使用 Epoch 毫秒。
+	MaxDate int64 `protobuf:"varint,6,opt,name=max_date,json=maxDate,proto3" json:"max_date,omitempty"`
+	// cursor 是上一页返回的不透明分页游标。
+	Cursor string `protobuf:"bytes,7,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	// limit 是本页最多返回的结果数量。
+	Limit         int32 `protobuf:"varint,8,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SearchOpts) Reset() {
+	*x = SearchOpts{}
+	mi := &file_model_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchOpts) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchOpts) ProtoMessage() {}
+
+func (x *SearchOpts) ProtoReflect() protoreflect.Message {
+	mi := &file_model_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchOpts.ProtoReflect.Descriptor instead.
+func (*SearchOpts) Descriptor() ([]byte, []int) {
+	return file_model_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *SearchOpts) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
+}
+
+func (x *SearchOpts) GetScope() string {
+	if x != nil {
+		return x.Scope
+	}
+	return ""
+}
+
+func (x *SearchOpts) GetFromUserId() string {
+	if x != nil {
+		return x.FromUserId
+	}
+	return ""
+}
+
+func (x *SearchOpts) GetKinds() []string {
+	if x != nil {
+		return x.Kinds
+	}
+	return nil
+}
+
+func (x *SearchOpts) GetMinDate() int64 {
+	if x != nil {
+		return x.MinDate
+	}
+	return 0
+}
+
+func (x *SearchOpts) GetMaxDate() int64 {
+	if x != nil {
+		return x.MaxDate
+	}
+	return 0
+}
+
+func (x *SearchOpts) GetCursor() string {
+	if x != nil {
+		return x.Cursor
+	}
+	return ""
+}
+
+func (x *SearchOpts) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+// GetQuery 定义 GetQuery 的 Protobuf 消息结构。
 type GetQuery struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	What  string                 `protobuf:"bytes,1,opt,name=what,proto3" json:"what,omitempty"`
+	// what 保存该消息字段对应的协议值。
+	What string `protobuf:"bytes,1,opt,name=what,proto3" json:"what,omitempty"`
 	// "desc" 请求的参数
 	Desc *GetOpts `protobuf:"bytes,2,opt,name=desc,proto3" json:"desc,omitempty"`
 	// "sub" 请求的参数
 	Sub *GetOpts `protobuf:"bytes,3,opt,name=sub,proto3" json:"sub,omitempty"`
 	// "data" 请求的参数
-	Data          *GetOpts `protobuf:"bytes,4,opt,name=data,proto3" json:"data,omitempty"`
+	Data *GetOpts `protobuf:"bytes,4,opt,name=data,proto3" json:"data,omitempty"`
+	// "del" 删除记录请求的参数
+	Del *GetOpts `protobuf:"bytes,5,opt,name=del,proto3" json:"del,omitempty"`
+	// "search" 关键词发现或消息全文搜索参数
+	Search        *SearchOpts `protobuf:"bytes,6,opt,name=search,proto3" json:"search,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetQuery) Reset() {
 	*x = GetQuery{}
-	mi := &file_model_proto_msgTypes[8]
+	mi := &file_model_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -964,7 +1187,7 @@ func (x *GetQuery) String() string {
 func (*GetQuery) ProtoMessage() {}
 
 func (x *GetQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[8]
+	mi := &file_model_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -977,7 +1200,7 @@ func (x *GetQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetQuery.ProtoReflect.Descriptor instead.
 func (*GetQuery) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{8}
+	return file_model_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetQuery) GetWhat() string {
@@ -1008,6 +1231,21 @@ func (x *GetQuery) GetData() *GetOpts {
 	return nil
 }
 
+func (x *GetQuery) GetDel() *GetOpts {
+	if x != nil {
+		return x.Del
+	}
+	return nil
+}
+
+func (x *GetQuery) GetSearch() *SearchOpts {
+	if x != nil {
+		return x.Search
+	}
+	return nil
+}
+
+// SetQuery 定义 SetQuery 的 Protobuf 消息结构。
 type SetQuery struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// 主题元数据，仅在新建主题和新建订阅时使用
@@ -1026,7 +1264,7 @@ type SetQuery struct {
 
 func (x *SetQuery) Reset() {
 	*x = SetQuery{}
-	mi := &file_model_proto_msgTypes[9]
+	mi := &file_model_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1038,7 +1276,7 @@ func (x *SetQuery) String() string {
 func (*SetQuery) ProtoMessage() {}
 
 func (x *SetQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[9]
+	mi := &file_model_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1051,7 +1289,7 @@ func (x *SetQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetQuery.ProtoReflect.Descriptor instead.
 func (*SetQuery) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{9}
+	return file_model_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *SetQuery) GetDesc() *SetDesc {
@@ -1091,21 +1329,28 @@ func (x *SetQuery) GetAux() map[string][]byte {
 
 // 客户端握手消息
 type ClientHi struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	UserAgent     string                 `protobuf:"bytes,2,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
-	Ver           string                 `protobuf:"bytes,3,opt,name=ver,proto3" json:"ver,omitempty"`
-	DeviceId      string                 `protobuf:"bytes,4,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
-	Lang          string                 `protobuf:"bytes,5,opt,name=lang,proto3" json:"lang,omitempty"`
-	Platform      string                 `protobuf:"bytes,6,opt,name=platform,proto3" json:"platform,omitempty"`
-	Background    bool                   `protobuf:"varint,7,opt,name=background,proto3" json:"background,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// id 保存该消息字段对应的协议值。
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// user_agent 保存该消息字段对应的协议值。
+	UserAgent string `protobuf:"bytes,2,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
+	// ver 保存该消息字段对应的协议值。
+	Ver string `protobuf:"bytes,3,opt,name=ver,proto3" json:"ver,omitempty"`
+	// device_id 保存该消息字段对应的协议值。
+	DeviceId string `protobuf:"bytes,4,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
+	// lang 保存该消息字段对应的协议值。
+	Lang string `protobuf:"bytes,5,opt,name=lang,proto3" json:"lang,omitempty"`
+	// platform 保存该消息字段对应的协议值。
+	Platform string `protobuf:"bytes,6,opt,name=platform,proto3" json:"platform,omitempty"`
+	// background 保存该消息字段对应的协议值。
+	Background    bool `protobuf:"varint,7,opt,name=background,proto3" json:"background,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ClientHi) Reset() {
 	*x = ClientHi{}
-	mi := &file_model_proto_msgTypes[10]
+	mi := &file_model_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1117,7 +1362,7 @@ func (x *ClientHi) String() string {
 func (*ClientHi) ProtoMessage() {}
 
 func (x *ClientHi) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[10]
+	mi := &file_model_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1130,7 +1375,7 @@ func (x *ClientHi) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientHi.ProtoReflect.Descriptor instead.
 func (*ClientHi) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{10}
+	return file_model_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ClientHi) GetId() string {
@@ -1185,7 +1430,8 @@ func (x *ClientHi) GetBackground() bool {
 // 用户创建/修改消息 {acc}
 type ClientAcc struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// id 保存该消息字段对应的协议值。
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// 正在创建或修改的目标用户 ID
 	UserId string `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	// 账号初始可用的认证方案
@@ -1207,7 +1453,8 @@ type ClientAcc struct {
 	// 认证权限级别
 	AuthLevel AuthLevel `protobuf:"varint,11,opt,name=auth_level,json=authLevel,proto3,enum=pbx.AuthLevel" json:"auth_level,omitempty"`
 	// 用于密码重置等一次性操作的临时认证参数
-	TmpScheme     string `protobuf:"bytes,12,opt,name=tmp_scheme,json=tmpScheme,proto3" json:"tmp_scheme,omitempty"`
+	TmpScheme string `protobuf:"bytes,12,opt,name=tmp_scheme,json=tmpScheme,proto3" json:"tmp_scheme,omitempty"`
+	// tmp_secret 保存该消息字段对应的协议值。
 	TmpSecret     []byte `protobuf:"bytes,13,opt,name=tmp_secret,json=tmpSecret,proto3" json:"tmp_secret,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1215,7 +1462,7 @@ type ClientAcc struct {
 
 func (x *ClientAcc) Reset() {
 	*x = ClientAcc{}
-	mi := &file_model_proto_msgTypes[11]
+	mi := &file_model_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1227,7 +1474,7 @@ func (x *ClientAcc) String() string {
 func (*ClientAcc) ProtoMessage() {}
 
 func (x *ClientAcc) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[11]
+	mi := &file_model_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1240,7 +1487,7 @@ func (x *ClientAcc) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientAcc.ProtoReflect.Descriptor instead.
 func (*ClientAcc) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{11}
+	return file_model_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ClientAcc) GetId() string {
@@ -1337,7 +1584,8 @@ func (x *ClientAcc) GetTmpSecret() []byte {
 // 登录认证消息 {login}
 type ClientLogin struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// id 保存该消息字段对应的协议值。
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// 认证方案 (basic, token 等)
 	Scheme string `protobuf:"bytes,2,opt,name=scheme,proto3" json:"scheme,omitempty"`
 	// 共享密钥
@@ -1350,7 +1598,7 @@ type ClientLogin struct {
 
 func (x *ClientLogin) Reset() {
 	*x = ClientLogin{}
-	mi := &file_model_proto_msgTypes[12]
+	mi := &file_model_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1362,7 +1610,7 @@ func (x *ClientLogin) String() string {
 func (*ClientLogin) ProtoMessage() {}
 
 func (x *ClientLogin) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[12]
+	mi := &file_model_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1375,7 +1623,7 @@ func (x *ClientLogin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientLogin.ProtoReflect.Descriptor instead.
 func (*ClientLogin) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{12}
+	return file_model_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ClientLogin) GetId() string {
@@ -1409,8 +1657,10 @@ func (x *ClientLogin) GetCred() []*ClientCred {
 // 订阅请求消息 {sub}
 type ClientSub struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Topic string                 `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
+	// id 保存该消息字段对应的协议值。
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// topic 保存该消息字段对应的协议值。
+	Topic string `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
 	// 镜像 {set} 参数
 	SetQuery *SetQuery `protobuf:"bytes,3,opt,name=set_query,json=setQuery,proto3" json:"set_query,omitempty"`
 	// 镜像 {get} 参数
@@ -1421,7 +1671,7 @@ type ClientSub struct {
 
 func (x *ClientSub) Reset() {
 	*x = ClientSub{}
-	mi := &file_model_proto_msgTypes[13]
+	mi := &file_model_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1433,7 +1683,7 @@ func (x *ClientSub) String() string {
 func (*ClientSub) ProtoMessage() {}
 
 func (x *ClientSub) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[13]
+	mi := &file_model_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1446,7 +1696,7 @@ func (x *ClientSub) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientSub.ProtoReflect.Descriptor instead.
 func (*ClientSub) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{13}
+	return file_model_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ClientSub) GetId() string {
@@ -1479,17 +1729,20 @@ func (x *ClientSub) GetGetQuery() *GetQuery {
 
 // 取消订阅/离开请求消息 {leave}
 type ClientLeave struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Topic         string                 `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
-	Unsub         bool                   `protobuf:"varint,3,opt,name=unsub,proto3" json:"unsub,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// id 保存该消息字段对应的协议值。
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// topic 保存该消息字段对应的协议值。
+	Topic string `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
+	// unsub 保存该消息字段对应的协议值。
+	Unsub         bool `protobuf:"varint,3,opt,name=unsub,proto3" json:"unsub,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ClientLeave) Reset() {
 	*x = ClientLeave{}
-	mi := &file_model_proto_msgTypes[14]
+	mi := &file_model_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1501,7 +1754,7 @@ func (x *ClientLeave) String() string {
 func (*ClientLeave) ProtoMessage() {}
 
 func (x *ClientLeave) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[14]
+	mi := &file_model_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1514,7 +1767,7 @@ func (x *ClientLeave) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientLeave.ProtoReflect.Descriptor instead.
 func (*ClientLeave) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{14}
+	return file_model_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ClientLeave) GetId() string {
@@ -1538,21 +1791,95 @@ func (x *ClientLeave) GetUnsub() bool {
 	return false
 }
 
+// MessageRef 定义 MessageRef 的 Protobuf 消息结构。
+type MessageRef struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 为空表示当前主题。
+	Topic string `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
+	// 被引用消息在主题内的服务端序列号。
+	SeqId         int32 `protobuf:"varint,2,opt,name=seq_id,json=seqId,proto3" json:"seq_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MessageRef) Reset() {
+	*x = MessageRef{}
+	mi := &file_model_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MessageRef) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MessageRef) ProtoMessage() {}
+
+func (x *MessageRef) ProtoReflect() protoreflect.Message {
+	mi := &file_model_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MessageRef.ProtoReflect.Descriptor instead.
+func (*MessageRef) Descriptor() ([]byte, []int) {
+	return file_model_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *MessageRef) GetTopic() string {
+	if x != nil {
+		return x.Topic
+	}
+	return ""
+}
+
+func (x *MessageRef) GetSeqId() int32 {
+	if x != nil {
+		return x.SeqId
+	}
+	return 0
+}
+
 // 客户端发布消息请求 {pub}（向主题订阅者广播数据）
 type ClientPub struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Topic         string                 `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
-	NoEcho        bool                   `protobuf:"varint,3,opt,name=no_echo,json=noEcho,proto3" json:"no_echo,omitempty"`
-	Head          map[string][]byte      `protobuf:"bytes,4,rep,name=head,proto3" json:"head,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Content       []byte                 `protobuf:"bytes,5,opt,name=content,proto3" json:"content,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// id 保存该消息字段对应的协议值。
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// topic 保存该消息字段对应的协议值。
+	Topic string `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
+	// no_echo 保存该消息字段对应的协议值。
+	NoEcho bool `protobuf:"varint,3,opt,name=no_echo,json=noEcho,proto3" json:"no_echo,omitempty"`
+	// head 保存该消息字段对应的协议值。
+	Head map[string][]byte `protobuf:"bytes,4,rep,name=head,proto3" json:"head,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// content 保存该消息字段对应的协议值。
+	Content []byte `protobuf:"bytes,5,opt,name=content,proto3" json:"content,omitempty"`
+	// 客户端生成的持久化幂等键
+	ClientId string `protobuf:"bytes,6,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	// 由服务端校验的消息类型：text/drafty/image/video/voice/audio/file。
+	Kind string `protobuf:"bytes,7,opt,name=kind,proto3" json:"kind,omitempty"`
+	// 当前主题内被回复消息的服务端序列号。
+	ReplyTo int32 `protobuf:"varint,8,opt,name=reply_to,json=replyTo,proto3" json:"reply_to,omitempty"`
+	// 要原地替换正文的消息序列号；仅消息作者或管理员可用。
+	ReplaceSeq int32 `protobuf:"varint,9,opt,name=replace_seq,json=replaceSeq,proto3" json:"replace_seq,omitempty"`
+	// 要复制正文的原始消息引用。
+	Forward *MessageRef `protobuf:"bytes,10,opt,name=forward,proto3" json:"forward,omitempty"`
+	// 连续图片或视频使用的客户端相册标识。
+	GroupId string `protobuf:"bytes,11,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
+	// 计划投递时间（Epoch 毫秒）；0 表示立即发送。
+	ScheduleAt    int64 `protobuf:"varint,12,opt,name=schedule_at,json=scheduleAt,proto3" json:"schedule_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ClientPub) Reset() {
 	*x = ClientPub{}
-	mi := &file_model_proto_msgTypes[15]
+	mi := &file_model_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1564,7 +1891,7 @@ func (x *ClientPub) String() string {
 func (*ClientPub) ProtoMessage() {}
 
 func (x *ClientPub) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[15]
+	mi := &file_model_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1577,7 +1904,7 @@ func (x *ClientPub) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientPub.ProtoReflect.Descriptor instead.
 func (*ClientPub) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{15}
+	return file_model_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ClientPub) GetId() string {
@@ -1615,19 +1942,71 @@ func (x *ClientPub) GetContent() []byte {
 	return nil
 }
 
+func (x *ClientPub) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *ClientPub) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *ClientPub) GetReplyTo() int32 {
+	if x != nil {
+		return x.ReplyTo
+	}
+	return 0
+}
+
+func (x *ClientPub) GetReplaceSeq() int32 {
+	if x != nil {
+		return x.ReplaceSeq
+	}
+	return 0
+}
+
+func (x *ClientPub) GetForward() *MessageRef {
+	if x != nil {
+		return x.Forward
+	}
+	return nil
+}
+
+func (x *ClientPub) GetGroupId() string {
+	if x != nil {
+		return x.GroupId
+	}
+	return ""
+}
+
+func (x *ClientPub) GetScheduleAt() int64 {
+	if x != nil {
+		return x.ScheduleAt
+	}
+	return 0
+}
+
 // 查询主题状态请求 {get}
 type ClientGet struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Topic         string                 `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
-	Query         *GetQuery              `protobuf:"bytes,3,opt,name=query,proto3" json:"query,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// id 保存该消息字段对应的协议值。
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// topic 保存该消息字段对应的协议值。
+	Topic string `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
+	// query 保存该消息字段对应的协议值。
+	Query         *GetQuery `protobuf:"bytes,3,opt,name=query,proto3" json:"query,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ClientGet) Reset() {
 	*x = ClientGet{}
-	mi := &file_model_proto_msgTypes[16]
+	mi := &file_model_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1639,7 +2018,7 @@ func (x *ClientGet) String() string {
 func (*ClientGet) ProtoMessage() {}
 
 func (x *ClientGet) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[16]
+	mi := &file_model_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1652,7 +2031,7 @@ func (x *ClientGet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientGet.ProtoReflect.Descriptor instead.
 func (*ClientGet) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{16}
+	return file_model_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ClientGet) GetId() string {
@@ -1678,17 +2057,20 @@ func (x *ClientGet) GetQuery() *GetQuery {
 
 // 更新主题状态请求 {set}
 type ClientSet struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Topic         string                 `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
-	Query         *SetQuery              `protobuf:"bytes,3,opt,name=query,proto3" json:"query,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// id 保存该消息字段对应的协议值。
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// topic 保存该消息字段对应的协议值。
+	Topic string `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
+	// query 保存该消息字段对应的协议值。
+	Query         *SetQuery `protobuf:"bytes,3,opt,name=query,proto3" json:"query,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ClientSet) Reset() {
 	*x = ClientSet{}
-	mi := &file_model_proto_msgTypes[17]
+	mi := &file_model_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1700,7 +2082,7 @@ func (x *ClientSet) String() string {
 func (*ClientSet) ProtoMessage() {}
 
 func (x *ClientSet) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[17]
+	mi := &file_model_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1713,7 +2095,7 @@ func (x *ClientSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientSet.ProtoReflect.Descriptor instead.
 func (*ClientSet) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{17}
+	return file_model_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ClientSet) GetId() string {
@@ -1740,9 +2122,12 @@ func (x *ClientSet) GetQuery() *SetQuery {
 // 客户端删除消息或主题请求 {del}
 type ClientDel struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Topic string                 `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
-	What  ClientDel_What         `protobuf:"varint,3,opt,name=what,proto3,enum=pbx.ClientDel_What" json:"what,omitempty"`
+	// id 保存该消息字段对应的协议值。
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// topic 保存该消息字段对应的协议值。
+	Topic string `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
+	// what 保存该消息字段对应的协议值。
+	What ClientDel_What `protobuf:"varint,3,opt,name=what,proto3,enum=pbx.ClientDel_What" json:"what,omitempty"`
 	// 按单条 ID 或 ID 范围段删除消息
 	DelSeq []*SeqRange `protobuf:"bytes,4,rep,name=del_seq,json=delSeq,proto3" json:"del_seq,omitempty"`
 	// 待删除订阅的目标用户 ID
@@ -1750,14 +2135,16 @@ type ClientDel struct {
 	// 待删除的身份凭据
 	Cred *ClientCred `protobuf:"bytes,6,opt,name=cred,proto3" json:"cred,omitempty"`
 	// 是否请求彻底物理删除消息（对所有用户生效）
-	Hard          bool `protobuf:"varint,7,opt,name=hard,proto3" json:"hard,omitempty"`
+	Hard bool `protobuf:"varint,7,opt,name=hard,proto3" json:"hard,omitempty"`
+	// what=SCHEDULED 时要取消的持久化定时消息 ID。
+	ScheduledId   string `protobuf:"bytes,8,opt,name=scheduled_id,json=scheduledId,proto3" json:"scheduled_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ClientDel) Reset() {
 	*x = ClientDel{}
-	mi := &file_model_proto_msgTypes[18]
+	mi := &file_model_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1769,7 +2156,7 @@ func (x *ClientDel) String() string {
 func (*ClientDel) ProtoMessage() {}
 
 func (x *ClientDel) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[18]
+	mi := &file_model_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1782,7 +2169,7 @@ func (x *ClientDel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientDel.ProtoReflect.Descriptor instead.
 func (*ClientDel) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{18}
+	return file_model_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ClientDel) GetId() string {
@@ -1834,10 +2221,18 @@ func (x *ClientDel) GetHard() bool {
 	return false
 }
 
+func (x *ClientDel) GetScheduledId() string {
+	if x != nil {
+		return x.ScheduledId
+	}
+	return ""
+}
+
 // 客户端生成的订阅者状态通知消息 {note}
 type ClientNote struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Topic string                 `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
+	// topic 保存该消息字段对应的协议值。
+	Topic string `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
 	// 报告的状态类型："recv"-收到消息，"read"-已读消息，"kp"-正在输入通知，"call"-音视频通话
 	What InfoNote `protobuf:"varint,2,opt,name=what,proto3,enum=pbx.InfoNote" json:"what,omitempty"`
 	// 正在报告的服务端消息 ID (seq_id)
@@ -1847,14 +2242,20 @@ type ClientNote struct {
 	// 通话事件类型
 	Event CallEvent `protobuf:"varint,5,opt,name=event,proto3,enum=pbx.CallEvent" json:"event,omitempty"`
 	// 自定义 JSON 负载（常用于视频通话信令）
-	Payload       []byte `protobuf:"bytes,6,opt,name=payload,proto3" json:"payload,omitempty"`
+	Payload []byte `protobuf:"bytes,6,opt,name=payload,proto3" json:"payload,omitempty"`
+	// 可选请求 ID；read/recv 携带时服务端返回持久化确认
+	Id string `protobuf:"bytes,7,opt,name=id,proto3" json:"id,omitempty"`
+	// REACT 事件使用的 Unicode Emoji 或自定义反应标识。
+	Reaction string `protobuf:"bytes,8,opt,name=reaction,proto3" json:"reaction,omitempty"`
+	// REACT/PIN 事件为 true 时表示移除。
+	Remove        bool `protobuf:"varint,9,opt,name=remove,proto3" json:"remove,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ClientNote) Reset() {
 	*x = ClientNote{}
-	mi := &file_model_proto_msgTypes[19]
+	mi := &file_model_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1866,7 +2267,7 @@ func (x *ClientNote) String() string {
 func (*ClientNote) ProtoMessage() {}
 
 func (x *ClientNote) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[19]
+	mi := &file_model_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1879,7 +2280,7 @@ func (x *ClientNote) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientNote.ProtoReflect.Descriptor instead.
 func (*ClientNote) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{19}
+	return file_model_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ClientNote) GetTopic() string {
@@ -1924,11 +2325,35 @@ func (x *ClientNote) GetPayload() []byte {
 	return nil
 }
 
+func (x *ClientNote) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ClientNote) GetReaction() string {
+	if x != nil {
+		return x.Reaction
+	}
+	return ""
+}
+
+func (x *ClientNote) GetRemove() bool {
+	if x != nil {
+		return x.Remove
+	}
+	return false
+}
+
+// ClientExtra 定义 ClientExtra 的 Protobuf 消息结构。
 type ClientExtra struct {
-	state       protoimpl.MessageState `protogen:"open.v1"`
-	Attachments []string               `protobuf:"bytes,1,rep,name=attachments,proto3" json:"attachments,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// attachments 保存该消息字段对应的协议值。
+	Attachments []string `protobuf:"bytes,1,rep,name=attachments,proto3" json:"attachments,omitempty"`
 	// 超级管理员（Root）可以代其他用户发送消息
-	OnBehalfOf    string    `protobuf:"bytes,2,opt,name=on_behalf_of,json=onBehalfOf,proto3" json:"on_behalf_of,omitempty"`
+	OnBehalfOf string `protobuf:"bytes,2,opt,name=on_behalf_of,json=onBehalfOf,proto3" json:"on_behalf_of,omitempty"`
+	// auth_level 保存该消息字段对应的协议值。
 	AuthLevel     AuthLevel `protobuf:"varint,3,opt,name=auth_level,json=authLevel,proto3,enum=pbx.AuthLevel" json:"auth_level,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1936,7 +2361,7 @@ type ClientExtra struct {
 
 func (x *ClientExtra) Reset() {
 	*x = ClientExtra{}
-	mi := &file_model_proto_msgTypes[20]
+	mi := &file_model_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1948,7 +2373,7 @@ func (x *ClientExtra) String() string {
 func (*ClientExtra) ProtoMessage() {}
 
 func (x *ClientExtra) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[20]
+	mi := &file_model_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1961,7 +2386,7 @@ func (x *ClientExtra) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientExtra.ProtoReflect.Descriptor instead.
 func (*ClientExtra) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{20}
+	return file_model_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ClientExtra) GetAttachments() []string {
@@ -1985,8 +2410,11 @@ func (x *ClientExtra) GetAuthLevel() AuthLevel {
 	return AuthLevel_NONE
 }
 
+// ClientMsg 定义 ClientMsg 的 Protobuf 消息结构。
 type ClientMsg struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
+	// Message 定义 Message 的 Protobuf 互斥消息载荷。
+	//
 	// Types that are valid to be assigned to Message:
 	//
 	//	*ClientMsg_Hi
@@ -2008,7 +2436,7 @@ type ClientMsg struct {
 
 func (x *ClientMsg) Reset() {
 	*x = ClientMsg{}
-	mi := &file_model_proto_msgTypes[21]
+	mi := &file_model_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2020,7 +2448,7 @@ func (x *ClientMsg) String() string {
 func (*ClientMsg) ProtoMessage() {}
 
 func (x *ClientMsg) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[21]
+	mi := &file_model_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2033,7 +2461,7 @@ func (x *ClientMsg) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientMsg.ProtoReflect.Descriptor instead.
 func (*ClientMsg) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{21}
+	return file_model_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ClientMsg) GetMessage() isClientMsg_Message {
@@ -2145,42 +2573,52 @@ type isClientMsg_Message interface {
 }
 
 type ClientMsg_Hi struct {
+	// hi 保存该消息字段对应的协议值。
 	Hi *ClientHi `protobuf:"bytes,1,opt,name=hi,proto3,oneof"`
 }
 
 type ClientMsg_Acc struct {
+	// acc 保存该消息字段对应的协议值。
 	Acc *ClientAcc `protobuf:"bytes,2,opt,name=acc,proto3,oneof"`
 }
 
 type ClientMsg_Login struct {
+	// login 保存该消息字段对应的协议值。
 	Login *ClientLogin `protobuf:"bytes,3,opt,name=login,proto3,oneof"`
 }
 
 type ClientMsg_Sub struct {
+	// sub 保存该消息字段对应的协议值。
 	Sub *ClientSub `protobuf:"bytes,4,opt,name=sub,proto3,oneof"`
 }
 
 type ClientMsg_Leave struct {
+	// leave 保存该消息字段对应的协议值。
 	Leave *ClientLeave `protobuf:"bytes,5,opt,name=leave,proto3,oneof"`
 }
 
 type ClientMsg_Pub struct {
+	// pub 保存该消息字段对应的协议值。
 	Pub *ClientPub `protobuf:"bytes,6,opt,name=pub,proto3,oneof"`
 }
 
 type ClientMsg_Get struct {
+	// get 保存该消息字段对应的协议值。
 	Get *ClientGet `protobuf:"bytes,7,opt,name=get,proto3,oneof"`
 }
 
 type ClientMsg_Set struct {
+	// set 保存该消息字段对应的协议值。
 	Set *ClientSet `protobuf:"bytes,8,opt,name=set,proto3,oneof"`
 }
 
 type ClientMsg_Del struct {
+	// del 保存该消息字段对应的协议值。
 	Del *ClientDel `protobuf:"bytes,9,opt,name=del,proto3,oneof"`
 }
 
 type ClientMsg_Note struct {
+	// note 保存该消息字段对应的协议值。
 	Note *ClientNote `protobuf:"bytes,10,opt,name=note,proto3,oneof"`
 }
 
@@ -2219,7 +2657,7 @@ type ServerCred struct {
 
 func (x *ServerCred) Reset() {
 	*x = ServerCred{}
-	mi := &file_model_proto_msgTypes[22]
+	mi := &file_model_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2231,7 +2669,7 @@ func (x *ServerCred) String() string {
 func (*ServerCred) ProtoMessage() {}
 
 func (x *ServerCred) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[22]
+	mi := &file_model_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2244,7 +2682,7 @@ func (x *ServerCred) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerCred.ProtoReflect.Descriptor instead.
 func (*ServerCred) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{22}
+	return file_model_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ServerCred) GetMethod() string {
@@ -2270,25 +2708,44 @@ func (x *ServerCred) GetDone() bool {
 
 // 主题描述结构，在 Meta 消息中由服务端发往客户端 (S2C)
 type TopicDesc struct {
-	state     protoimpl.MessageState `protogen:"open.v1"`
-	CreatedAt int64                  `protobuf:"varint,1,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt int64                  `protobuf:"varint,2,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	TouchedAt int64                  `protobuf:"varint,3,opt,name=touched_at,json=touchedAt,proto3" json:"touched_at,omitempty"`
-	Defacs    *DefaultAcsMode        `protobuf:"bytes,4,opt,name=defacs,proto3" json:"defacs,omitempty"`
-	Acs       *AccessMode            `protobuf:"bytes,5,opt,name=acs,proto3" json:"acs,omitempty"`
-	SeqId     int32                  `protobuf:"varint,6,opt,name=seq_id,json=seqId,proto3" json:"seq_id,omitempty"`
-	ReadId    int32                  `protobuf:"varint,7,opt,name=read_id,json=readId,proto3" json:"read_id,omitempty"`
-	RecvId    int32                  `protobuf:"varint,8,opt,name=recv_id,json=recvId,proto3" json:"recv_id,omitempty"`
-	DelId     int32                  `protobuf:"varint,9,opt,name=del_id,json=delId,proto3" json:"del_id,omitempty"`
-	Public    []byte                 `protobuf:"bytes,10,opt,name=public,proto3" json:"public,omitempty"`
-	Private   []byte                 `protobuf:"bytes,11,opt,name=private,proto3" json:"private,omitempty"`
-	State     string                 `protobuf:"bytes,12,opt,name=state,proto3" json:"state,omitempty"`
-	StateAt   int64                  `protobuf:"varint,13,opt,name=state_at,json=stateAt,proto3" json:"state_at,omitempty"`
-	Trusted   []byte                 `protobuf:"bytes,14,opt,name=trusted,proto3" json:"trusted,omitempty"`
-	IsChan    bool                   `protobuf:"varint,17,opt,name=is_chan,json=isChan,proto3" json:"is_chan,omitempty"` // 频道标识！
-	Online    bool                   `protobuf:"varint,18,opt,name=online,proto3" json:"online,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// created_at 保存该消息字段对应的协议值。
+	CreatedAt int64 `protobuf:"varint,1,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// updated_at 保存该消息字段对应的协议值。
+	UpdatedAt int64 `protobuf:"varint,2,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// touched_at 保存该消息字段对应的协议值。
+	TouchedAt int64 `protobuf:"varint,3,opt,name=touched_at,json=touchedAt,proto3" json:"touched_at,omitempty"`
+	// defacs 保存该消息字段对应的协议值。
+	Defacs *DefaultAcsMode `protobuf:"bytes,4,opt,name=defacs,proto3" json:"defacs,omitempty"`
+	// acs 保存该消息字段对应的协议值。
+	Acs *AccessMode `protobuf:"bytes,5,opt,name=acs,proto3" json:"acs,omitempty"`
+	// seq_id 保存该消息字段对应的协议值。
+	SeqId int32 `protobuf:"varint,6,opt,name=seq_id,json=seqId,proto3" json:"seq_id,omitempty"`
+	// read_id 保存该消息字段对应的协议值。
+	ReadId int32 `protobuf:"varint,7,opt,name=read_id,json=readId,proto3" json:"read_id,omitempty"`
+	// recv_id 保存该消息字段对应的协议值。
+	RecvId int32 `protobuf:"varint,8,opt,name=recv_id,json=recvId,proto3" json:"recv_id,omitempty"`
+	// del_id 保存该消息字段对应的协议值。
+	DelId int32 `protobuf:"varint,9,opt,name=del_id,json=delId,proto3" json:"del_id,omitempty"`
+	// public 保存该消息字段对应的协议值。
+	Public []byte `protobuf:"bytes,10,opt,name=public,proto3" json:"public,omitempty"`
+	// private 保存该消息字段对应的协议值。
+	Private []byte `protobuf:"bytes,11,opt,name=private,proto3" json:"private,omitempty"`
+	// state 保存该消息字段对应的协议值。
+	State string `protobuf:"bytes,12,opt,name=state,proto3" json:"state,omitempty"`
+	// state_at 保存该消息字段对应的协议值。
+	StateAt int64 `protobuf:"varint,13,opt,name=state_at,json=stateAt,proto3" json:"state_at,omitempty"`
+	// trusted 保存该消息字段对应的协议值。
+	Trusted []byte `protobuf:"bytes,14,opt,name=trusted,proto3" json:"trusted,omitempty"`
+	// is_chan 保存该消息字段对应的协议值。
+	IsChan bool `protobuf:"varint,17,opt,name=is_chan,json=isChan,proto3" json:"is_chan,omitempty"` // 频道标识！
+	// online 保存该消息字段对应的协议值。
+	Online bool `protobuf:"varint,18,opt,name=online,proto3" json:"online,omitempty"`
+	// 群组或频道的当前订阅者总数
+	SubCount int32 `protobuf:"varint,19,opt,name=sub_count,json=subCount,proto3" json:"sub_count,omitempty"`
 	// 仅限点对点 (P2P) 会话：对方用户的最后在线时间戳与 User Agent
-	LastSeenTime      int64  `protobuf:"varint,15,opt,name=last_seen_time,json=lastSeenTime,proto3" json:"last_seen_time,omitempty"`
+	LastSeenTime int64 `protobuf:"varint,15,opt,name=last_seen_time,json=lastSeenTime,proto3" json:"last_seen_time,omitempty"`
+	// last_seen_user_agent 保存该消息字段对应的协议值。
 	LastSeenUserAgent string `protobuf:"bytes,16,opt,name=last_seen_user_agent,json=lastSeenUserAgent,proto3" json:"last_seen_user_agent,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
@@ -2296,7 +2753,7 @@ type TopicDesc struct {
 
 func (x *TopicDesc) Reset() {
 	*x = TopicDesc{}
-	mi := &file_model_proto_msgTypes[23]
+	mi := &file_model_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2308,7 +2765,7 @@ func (x *TopicDesc) String() string {
 func (*TopicDesc) ProtoMessage() {}
 
 func (x *TopicDesc) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[23]
+	mi := &file_model_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2321,7 +2778,7 @@ func (x *TopicDesc) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TopicDesc.ProtoReflect.Descriptor instead.
 func (*TopicDesc) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{23}
+	return file_model_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *TopicDesc) GetCreatedAt() int64 {
@@ -2436,6 +2893,13 @@ func (x *TopicDesc) GetOnline() bool {
 	return false
 }
 
+func (x *TopicDesc) GetSubCount() int32 {
+	if x != nil {
+		return x.SubCount
+	}
+	return 0
+}
+
 func (x *TopicDesc) GetLastSeenTime() int64 {
 	if x != nil {
 		return x.LastSeenTime
@@ -2452,35 +2916,48 @@ func (x *TopicDesc) GetLastSeenUserAgent() string {
 
 // TopicSub：主题订阅详细信息，在 Meta 消息中发送
 type TopicSub struct {
-	state     protoimpl.MessageState `protogen:"open.v1"`
-	UpdatedAt int64                  `protobuf:"varint,1,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	DeletedAt int64                  `protobuf:"varint,2,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"`
-	Online    bool                   `protobuf:"varint,3,opt,name=online,proto3" json:"online,omitempty"`
-	Acs       *AccessMode            `protobuf:"bytes,4,opt,name=acs,proto3" json:"acs,omitempty"`
-	ReadId    int32                  `protobuf:"varint,5,opt,name=read_id,json=readId,proto3" json:"read_id,omitempty"`
-	RecvId    int32                  `protobuf:"varint,6,opt,name=recv_id,json=recvId,proto3" json:"recv_id,omitempty"`
-	Public    []byte                 `protobuf:"bytes,7,opt,name=public,proto3" json:"public,omitempty"`
-	Trusted   []byte                 `protobuf:"bytes,16,opt,name=trusted,proto3" json:"trusted,omitempty"`
-	Private   []byte                 `protobuf:"bytes,8,opt,name=private,proto3" json:"private,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// updated_at 保存该消息字段对应的协议值。
+	UpdatedAt int64 `protobuf:"varint,1,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// deleted_at 保存该消息字段对应的协议值。
+	DeletedAt int64 `protobuf:"varint,2,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"`
+	// online 保存该消息字段对应的协议值。
+	Online bool `protobuf:"varint,3,opt,name=online,proto3" json:"online,omitempty"`
+	// acs 保存该消息字段对应的协议值。
+	Acs *AccessMode `protobuf:"bytes,4,opt,name=acs,proto3" json:"acs,omitempty"`
+	// read_id 保存该消息字段对应的协议值。
+	ReadId int32 `protobuf:"varint,5,opt,name=read_id,json=readId,proto3" json:"read_id,omitempty"`
+	// recv_id 保存该消息字段对应的协议值。
+	RecvId int32 `protobuf:"varint,6,opt,name=recv_id,json=recvId,proto3" json:"recv_id,omitempty"`
+	// public 保存该消息字段对应的协议值。
+	Public []byte `protobuf:"bytes,7,opt,name=public,proto3" json:"public,omitempty"`
+	// trusted 保存该消息字段对应的协议值。
+	Trusted []byte `protobuf:"bytes,16,opt,name=trusted,proto3" json:"trusted,omitempty"`
+	// private 保存该消息字段对应的协议值。
+	Private []byte `protobuf:"bytes,8,opt,name=private,proto3" json:"private,omitempty"`
 	// 已订阅用户的 ID
 	UserId string `protobuf:"bytes,9,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	// 该订阅对应的目标主题名称
-	Topic     string `protobuf:"bytes,10,opt,name=topic,proto3" json:"topic,omitempty"`
-	TouchedAt int64  `protobuf:"varint,11,opt,name=touched_at,json=touchedAt,proto3" json:"touched_at,omitempty"`
+	Topic string `protobuf:"bytes,10,opt,name=topic,proto3" json:"topic,omitempty"`
+	// touched_at 保存该消息字段对应的协议值。
+	TouchedAt int64 `protobuf:"varint,11,opt,name=touched_at,json=touchedAt,proto3" json:"touched_at,omitempty"`
 	// 主题中最新一条 {data} 消息的 ID (seq_id)
 	SeqId int32 `protobuf:"varint,12,opt,name=seq_id,json=seqId,proto3" json:"seq_id,omitempty"`
 	// 截至此 ID 的消息已被删除
 	DelId int32 `protobuf:"varint,13,opt,name=del_id,json=delId,proto3" json:"del_id,omitempty"`
 	// 对方用户的最后在线时间戳与 User Agent
-	LastSeenTime      int64  `protobuf:"varint,14,opt,name=last_seen_time,json=lastSeenTime,proto3" json:"last_seen_time,omitempty"`
+	LastSeenTime int64 `protobuf:"varint,14,opt,name=last_seen_time,json=lastSeenTime,proto3" json:"last_seen_time,omitempty"`
+	// last_seen_user_agent 保存该消息字段对应的协议值。
 	LastSeenUserAgent string `protobuf:"bytes,15,opt,name=last_seen_user_agent,json=lastSeenUserAgent,proto3" json:"last_seen_user_agent,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// 群组或频道的当前订阅者总数
+	SubCount      int32 `protobuf:"varint,17,opt,name=sub_count,json=subCount,proto3" json:"sub_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TopicSub) Reset() {
 	*x = TopicSub{}
-	mi := &file_model_proto_msgTypes[24]
+	mi := &file_model_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2492,7 +2969,7 @@ func (x *TopicSub) String() string {
 func (*TopicSub) ProtoMessage() {}
 
 func (x *TopicSub) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[24]
+	mi := &file_model_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2505,7 +2982,7 @@ func (x *TopicSub) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TopicSub.ProtoReflect.Descriptor instead.
 func (*TopicSub) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{24}
+	return file_model_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *TopicSub) GetUpdatedAt() int64 {
@@ -2620,17 +3097,27 @@ func (x *TopicSub) GetLastSeenUserAgent() string {
 	return ""
 }
 
+func (x *TopicSub) GetSubCount() int32 {
+	if x != nil {
+		return x.SubCount
+	}
+	return 0
+}
+
+// DelValues 定义 DelValues 的 Protobuf 消息结构。
 type DelValues struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	DelId         int32                  `protobuf:"varint,1,opt,name=del_id,json=delId,proto3" json:"del_id,omitempty"`
-	DelSeq        []*SeqRange            `protobuf:"bytes,2,rep,name=del_seq,json=delSeq,proto3" json:"del_seq,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// del_id 保存该消息字段对应的协议值。
+	DelId int32 `protobuf:"varint,1,opt,name=del_id,json=delId,proto3" json:"del_id,omitempty"`
+	// del_seq 保存该消息字段对应的协议值。
+	DelSeq        []*SeqRange `protobuf:"bytes,2,rep,name=del_seq,json=delSeq,proto3" json:"del_seq,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DelValues) Reset() {
 	*x = DelValues{}
-	mi := &file_model_proto_msgTypes[25]
+	mi := &file_model_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2642,7 +3129,7 @@ func (x *DelValues) String() string {
 func (*DelValues) ProtoMessage() {}
 
 func (x *DelValues) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[25]
+	mi := &file_model_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2655,7 +3142,7 @@ func (x *DelValues) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DelValues.ProtoReflect.Descriptor instead.
 func (*DelValues) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{25}
+	return file_model_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *DelValues) GetDelId() int32 {
@@ -2672,21 +3159,99 @@ func (x *DelValues) GetDelSeq() []*SeqRange {
 	return nil
 }
 
+// SearchResult 是统一的 Peer 发现与消息全文搜索结果。
+type SearchResult struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// scope 表示本响应属于 peers 或 topic 搜索。
+	Scope string `protobuf:"bytes,1,opt,name=scope,proto3" json:"scope,omitempty"`
+	// peers 保存用户、群组和频道发现结果。
+	Peers []*TopicSub `protobuf:"bytes,2,rep,name=peers,proto3" json:"peers,omitempty"`
+	// messages 保存当前 Topic 中的消息命中结果。
+	Messages []*ServerData `protobuf:"bytes,3,rep,name=messages,proto3" json:"messages,omitempty"`
+	// next 是下一页使用的不透明游标。
+	Next          string `protobuf:"bytes,4,opt,name=next,proto3" json:"next,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SearchResult) Reset() {
+	*x = SearchResult{}
+	mi := &file_model_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchResult) ProtoMessage() {}
+
+func (x *SearchResult) ProtoReflect() protoreflect.Message {
+	mi := &file_model_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchResult.ProtoReflect.Descriptor instead.
+func (*SearchResult) Descriptor() ([]byte, []int) {
+	return file_model_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *SearchResult) GetScope() string {
+	if x != nil {
+		return x.Scope
+	}
+	return ""
+}
+
+func (x *SearchResult) GetPeers() []*TopicSub {
+	if x != nil {
+		return x.Peers
+	}
+	return nil
+}
+
+func (x *SearchResult) GetMessages() []*ServerData {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
+}
+
+func (x *SearchResult) GetNext() string {
+	if x != nil {
+		return x.Next
+	}
+	return ""
+}
+
 // {ctrl} 控制响应消息
 type ServerCtrl struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Topic         string                 `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
-	Code          int32                  `protobuf:"varint,3,opt,name=code,proto3" json:"code,omitempty"`
-	Text          string                 `protobuf:"bytes,4,opt,name=text,proto3" json:"text,omitempty"`
-	Params        map[string][]byte      `protobuf:"bytes,5,rep,name=params,proto3" json:"params,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// id 保存该消息字段对应的协议值。
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// topic 保存该消息字段对应的协议值。
+	Topic string `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
+	// code 保存该消息字段对应的协议值。
+	Code int32 `protobuf:"varint,3,opt,name=code,proto3" json:"code,omitempty"`
+	// text 保存该消息字段对应的协议值。
+	Text string `protobuf:"bytes,4,opt,name=text,proto3" json:"text,omitempty"`
+	// params 保存该消息字段对应的协议值。
+	Params        map[string][]byte `protobuf:"bytes,5,rep,name=params,proto3" json:"params,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServerCtrl) Reset() {
 	*x = ServerCtrl{}
-	mi := &file_model_proto_msgTypes[26]
+	mi := &file_model_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2698,7 +3263,7 @@ func (x *ServerCtrl) String() string {
 func (*ServerCtrl) ProtoMessage() {}
 
 func (x *ServerCtrl) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[26]
+	mi := &file_model_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2711,7 +3276,7 @@ func (x *ServerCtrl) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerCtrl.ProtoReflect.Descriptor instead.
 func (*ServerCtrl) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{26}
+	return file_model_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ServerCtrl) GetId() string {
@@ -2752,23 +3317,41 @@ func (x *ServerCtrl) GetParams() map[string][]byte {
 // {data} 聊天数据消息
 type ServerData struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Topic string                 `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
+	// topic 保存该消息字段对应的协议值。
+	Topic string `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
 	// 发送该消息（通过 {pub}）的原始用户 ID，若为系统发送则可能为空
 	FromUserId string `protobuf:"bytes,2,opt,name=from_user_id,json=fromUserId,proto3" json:"from_user_id,omitempty"`
 	// 消息发送的时间戳
 	Timestamp int64 `protobuf:"varint,7,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	// 消息删除的时间戳（自 1970/01/01 Epoch 以来的毫秒数），未删除时为 0
-	DeletedAt     int64             `protobuf:"varint,3,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"`
-	SeqId         int32             `protobuf:"varint,4,opt,name=seq_id,json=seqId,proto3" json:"seq_id,omitempty"`
-	Head          map[string][]byte `protobuf:"bytes,5,rep,name=head,proto3" json:"head,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Content       []byte            `protobuf:"bytes,6,opt,name=content,proto3" json:"content,omitempty"`
+	DeletedAt int64 `protobuf:"varint,3,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"`
+	// seq_id 保存该消息字段对应的协议值。
+	SeqId int32 `protobuf:"varint,4,opt,name=seq_id,json=seqId,proto3" json:"seq_id,omitempty"`
+	// head 保存该消息字段对应的协议值。
+	Head map[string][]byte `protobuf:"bytes,5,rep,name=head,proto3" json:"head,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// content 保存该消息字段对应的协议值。
+	Content []byte `protobuf:"bytes,6,opt,name=content,proto3" json:"content,omitempty"`
+	// 客户端发布时提供的持久化幂等键
+	ClientId string `protobuf:"bytes,8,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	// 服务端从正文推导出的可信消息类型。
+	Kind string `protobuf:"bytes,9,opt,name=kind,proto3" json:"kind,omitempty"`
+	// 当前主题内被回复消息的服务端序列号。
+	ReplyTo int32 `protobuf:"varint,10,opt,name=reply_to,json=replyTo,proto3" json:"reply_to,omitempty"`
+	// 转发消息的原始来源摘要。
+	Forwarded *ForwardedMessage `protobuf:"bytes,11,opt,name=forwarded,proto3" json:"forwarded,omitempty"`
+	// 服务端按发送者命名空间归一化后的媒体相册 ID。
+	GroupId string `protobuf:"bytes,12,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
+	// 消息反应的聚合计数，不包含用户明细。
+	Reactions []*Reaction `protobuf:"bytes,13,rep,name=reactions,proto3" json:"reactions,omitempty"`
+	// 最近一次编辑时间（Epoch 毫秒）；未编辑时为 0。
+	EditedAt      int64 `protobuf:"varint,14,opt,name=edited_at,json=editedAt,proto3" json:"edited_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServerData) Reset() {
 	*x = ServerData{}
-	mi := &file_model_proto_msgTypes[27]
+	mi := &file_model_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2780,7 +3363,7 @@ func (x *ServerData) String() string {
 func (*ServerData) ProtoMessage() {}
 
 func (x *ServerData) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[27]
+	mi := &file_model_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2793,7 +3376,7 @@ func (x *ServerData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerData.ProtoReflect.Descriptor instead.
 func (*ServerData) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{27}
+	return file_model_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ServerData) GetTopic() string {
@@ -2845,26 +3428,213 @@ func (x *ServerData) GetContent() []byte {
 	return nil
 }
 
+func (x *ServerData) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *ServerData) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *ServerData) GetReplyTo() int32 {
+	if x != nil {
+		return x.ReplyTo
+	}
+	return 0
+}
+
+func (x *ServerData) GetForwarded() *ForwardedMessage {
+	if x != nil {
+		return x.Forwarded
+	}
+	return nil
+}
+
+func (x *ServerData) GetGroupId() string {
+	if x != nil {
+		return x.GroupId
+	}
+	return ""
+}
+
+func (x *ServerData) GetReactions() []*Reaction {
+	if x != nil {
+		return x.Reactions
+	}
+	return nil
+}
+
+func (x *ServerData) GetEditedAt() int64 {
+	if x != nil {
+		return x.EditedAt
+	}
+	return 0
+}
+
+// 转发消息的原始来源；P2P 消息不返回内部主题名。
+type ForwardedMessage struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// topic 保存该消息字段对应的协议值。
+	Topic string `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
+	// seq_id 保存该消息字段对应的协议值。
+	SeqId int32 `protobuf:"varint,2,opt,name=seq_id,json=seqId,proto3" json:"seq_id,omitempty"`
+	// from_user_id 保存该消息字段对应的协议值。
+	FromUserId string `protobuf:"bytes,3,opt,name=from_user_id,json=fromUserId,proto3" json:"from_user_id,omitempty"`
+	// timestamp 保存该消息字段对应的协议值。
+	Timestamp     int64 `protobuf:"varint,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ForwardedMessage) Reset() {
+	*x = ForwardedMessage{}
+	mi := &file_model_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ForwardedMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ForwardedMessage) ProtoMessage() {}
+
+func (x *ForwardedMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_model_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ForwardedMessage.ProtoReflect.Descriptor instead.
+func (*ForwardedMessage) Descriptor() ([]byte, []int) {
+	return file_model_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *ForwardedMessage) GetTopic() string {
+	if x != nil {
+		return x.Topic
+	}
+	return ""
+}
+
+func (x *ForwardedMessage) GetSeqId() int32 {
+	if x != nil {
+		return x.SeqId
+	}
+	return 0
+}
+
+func (x *ForwardedMessage) GetFromUserId() string {
+	if x != nil {
+		return x.FromUserId
+	}
+	return ""
+}
+
+func (x *ForwardedMessage) GetTimestamp() int64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
+}
+
+// 单个反应标识及其参与用户总数。
+type Reaction struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// reaction 保存该消息字段对应的协议值。
+	Reaction string `protobuf:"bytes,1,opt,name=reaction,proto3" json:"reaction,omitempty"`
+	// count 保存该消息字段对应的协议值。
+	Count         int32 `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Reaction) Reset() {
+	*x = Reaction{}
+	mi := &file_model_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Reaction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Reaction) ProtoMessage() {}
+
+func (x *Reaction) ProtoReflect() protoreflect.Message {
+	mi := &file_model_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Reaction.ProtoReflect.Descriptor instead.
+func (*Reaction) Descriptor() ([]byte, []int) {
+	return file_model_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *Reaction) GetReaction() string {
+	if x != nil {
+		return x.Reaction
+	}
+	return ""
+}
+
+func (x *Reaction) GetCount() int32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
 // {pres} 状态在线提示消息
 type ServerPres struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Topic         string                 `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
-	Src           string                 `protobuf:"bytes,2,opt,name=src,proto3" json:"src,omitempty"`
-	What          ServerPres_What        `protobuf:"varint,3,opt,name=what,proto3,enum=pbx.ServerPres_What" json:"what,omitempty"`
-	UserAgent     string                 `protobuf:"bytes,4,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
-	SeqId         int32                  `protobuf:"varint,5,opt,name=seq_id,json=seqId,proto3" json:"seq_id,omitempty"`
-	DelId         int32                  `protobuf:"varint,6,opt,name=del_id,json=delId,proto3" json:"del_id,omitempty"`
-	DelSeq        []*SeqRange            `protobuf:"bytes,7,rep,name=del_seq,json=delSeq,proto3" json:"del_seq,omitempty"`
-	TargetUserId  string                 `protobuf:"bytes,8,opt,name=target_user_id,json=targetUserId,proto3" json:"target_user_id,omitempty"`
-	ActorUserId   string                 `protobuf:"bytes,9,opt,name=actor_user_id,json=actorUserId,proto3" json:"actor_user_id,omitempty"`
-	Acs           *AccessMode            `protobuf:"bytes,10,opt,name=acs,proto3" json:"acs,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// topic 保存该消息字段对应的协议值。
+	Topic string `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
+	// src 保存该消息字段对应的协议值。
+	Src string `protobuf:"bytes,2,opt,name=src,proto3" json:"src,omitempty"`
+	// what 保存该消息字段对应的协议值。
+	What ServerPres_What `protobuf:"varint,3,opt,name=what,proto3,enum=pbx.ServerPres_What" json:"what,omitempty"`
+	// user_agent 保存该消息字段对应的协议值。
+	UserAgent string `protobuf:"bytes,4,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
+	// seq_id 保存该消息字段对应的协议值。
+	SeqId int32 `protobuf:"varint,5,opt,name=seq_id,json=seqId,proto3" json:"seq_id,omitempty"`
+	// del_id 保存该消息字段对应的协议值。
+	DelId int32 `protobuf:"varint,6,opt,name=del_id,json=delId,proto3" json:"del_id,omitempty"`
+	// del_seq 保存该消息字段对应的协议值。
+	DelSeq []*SeqRange `protobuf:"bytes,7,rep,name=del_seq,json=delSeq,proto3" json:"del_seq,omitempty"`
+	// target_user_id 保存该消息字段对应的协议值。
+	TargetUserId string `protobuf:"bytes,8,opt,name=target_user_id,json=targetUserId,proto3" json:"target_user_id,omitempty"`
+	// actor_user_id 保存该消息字段对应的协议值。
+	ActorUserId string `protobuf:"bytes,9,opt,name=actor_user_id,json=actorUserId,proto3" json:"actor_user_id,omitempty"`
+	// acs 保存该消息字段对应的协议值。
+	Acs           *AccessMode `protobuf:"bytes,10,opt,name=acs,proto3" json:"acs,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServerPres) Reset() {
 	*x = ServerPres{}
-	mi := &file_model_proto_msgTypes[28]
+	mi := &file_model_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2876,7 +3646,7 @@ func (x *ServerPres) String() string {
 func (*ServerPres) ProtoMessage() {}
 
 func (x *ServerPres) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[28]
+	mi := &file_model_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2889,7 +3659,7 @@ func (x *ServerPres) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPres.ProtoReflect.Descriptor instead.
 func (*ServerPres) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{28}
+	return file_model_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ServerPres) GetTopic() string {
@@ -2964,22 +3734,32 @@ func (x *ServerPres) GetAcs() *AccessMode {
 
 // {meta} 元数据响应消息
 type ServerMeta struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Topic         string                 `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
-	Desc          *TopicDesc             `protobuf:"bytes,3,opt,name=desc,proto3" json:"desc,omitempty"`
-	Sub           []*TopicSub            `protobuf:"bytes,4,rep,name=sub,proto3" json:"sub,omitempty"`
-	Del           *DelValues             `protobuf:"bytes,5,opt,name=del,proto3" json:"del,omitempty"`
-	Tags          []string               `protobuf:"bytes,6,rep,name=tags,proto3" json:"tags,omitempty"`
-	Cred          []*ServerCred          `protobuf:"bytes,7,rep,name=cred,proto3" json:"cred,omitempty"`
-	Aux           map[string][]byte      `protobuf:"bytes,8,rep,name=aux,proto3" json:"aux,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// id 保存该消息字段对应的协议值。
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// topic 保存该消息字段对应的协议值。
+	Topic string `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
+	// desc 保存该消息字段对应的协议值。
+	Desc *TopicDesc `protobuf:"bytes,3,opt,name=desc,proto3" json:"desc,omitempty"`
+	// sub 保存该消息字段对应的协议值。
+	Sub []*TopicSub `protobuf:"bytes,4,rep,name=sub,proto3" json:"sub,omitempty"`
+	// del 保存该消息字段对应的协议值。
+	Del *DelValues `protobuf:"bytes,5,opt,name=del,proto3" json:"del,omitempty"`
+	// tags 保存该消息字段对应的协议值。
+	Tags []string `protobuf:"bytes,6,rep,name=tags,proto3" json:"tags,omitempty"`
+	// cred 保存该消息字段对应的协议值。
+	Cred []*ServerCred `protobuf:"bytes,7,rep,name=cred,proto3" json:"cred,omitempty"`
+	// aux 保存该消息字段对应的协议值。
+	Aux map[string][]byte `protobuf:"bytes,8,rep,name=aux,proto3" json:"aux,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// search 保存关键词发现或消息全文搜索结果。
+	Search        *SearchResult `protobuf:"bytes,9,opt,name=search,proto3" json:"search,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServerMeta) Reset() {
 	*x = ServerMeta{}
-	mi := &file_model_proto_msgTypes[29]
+	mi := &file_model_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2991,7 +3771,7 @@ func (x *ServerMeta) String() string {
 func (*ServerMeta) ProtoMessage() {}
 
 func (x *ServerMeta) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[29]
+	mi := &file_model_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3004,7 +3784,7 @@ func (x *ServerMeta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerMeta.ProtoReflect.Descriptor instead.
 func (*ServerMeta) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{29}
+	return file_model_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ServerMeta) GetId() string {
@@ -3063,23 +3843,41 @@ func (x *ServerMeta) GetAux() map[string][]byte {
 	return nil
 }
 
+func (x *ServerMeta) GetSearch() *SearchResult {
+	if x != nil {
+		return x.Search
+	}
+	return nil
+}
+
 // {info} 通知消息：ServerNote 的服务端副本，补充了 From 和可选的 Src
 type ServerInfo struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Topic         string                 `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
-	FromUserId    string                 `protobuf:"bytes,2,opt,name=from_user_id,json=fromUserId,proto3" json:"from_user_id,omitempty"`
-	What          InfoNote               `protobuf:"varint,3,opt,name=what,proto3,enum=pbx.InfoNote" json:"what,omitempty"`
-	SeqId         int32                  `protobuf:"varint,4,opt,name=seq_id,json=seqId,proto3" json:"seq_id,omitempty"`
-	Src           string                 `protobuf:"bytes,5,opt,name=src,proto3" json:"src,omitempty"`
-	Event         CallEvent              `protobuf:"varint,6,opt,name=event,proto3,enum=pbx.CallEvent" json:"event,omitempty"`
-	Payload       []byte                 `protobuf:"bytes,7,opt,name=payload,proto3" json:"payload,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// topic 保存该消息字段对应的协议值。
+	Topic string `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
+	// from_user_id 保存该消息字段对应的协议值。
+	FromUserId string `protobuf:"bytes,2,opt,name=from_user_id,json=fromUserId,proto3" json:"from_user_id,omitempty"`
+	// what 保存该消息字段对应的协议值。
+	What InfoNote `protobuf:"varint,3,opt,name=what,proto3,enum=pbx.InfoNote" json:"what,omitempty"`
+	// seq_id 保存该消息字段对应的协议值。
+	SeqId int32 `protobuf:"varint,4,opt,name=seq_id,json=seqId,proto3" json:"seq_id,omitempty"`
+	// src 保存该消息字段对应的协议值。
+	Src string `protobuf:"bytes,5,opt,name=src,proto3" json:"src,omitempty"`
+	// event 保存该消息字段对应的协议值。
+	Event CallEvent `protobuf:"varint,6,opt,name=event,proto3,enum=pbx.CallEvent" json:"event,omitempty"`
+	// payload 保存该消息字段对应的协议值。
+	Payload []byte `protobuf:"bytes,7,opt,name=payload,proto3" json:"payload,omitempty"`
+	// REACT 事件中被添加或移除的反应。
+	Reaction string `protobuf:"bytes,8,opt,name=reaction,proto3" json:"reaction,omitempty"`
+	// REACT/PIN 事件为 true 时表示移除。
+	Remove        bool `protobuf:"varint,9,opt,name=remove,proto3" json:"remove,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServerInfo) Reset() {
 	*x = ServerInfo{}
-	mi := &file_model_proto_msgTypes[30]
+	mi := &file_model_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3091,7 +3889,7 @@ func (x *ServerInfo) String() string {
 func (*ServerInfo) ProtoMessage() {}
 
 func (x *ServerInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[30]
+	mi := &file_model_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3104,7 +3902,7 @@ func (x *ServerInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerInfo.ProtoReflect.Descriptor instead.
 func (*ServerInfo) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{30}
+	return file_model_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ServerInfo) GetTopic() string {
@@ -3156,9 +3954,25 @@ func (x *ServerInfo) GetPayload() []byte {
 	return nil
 }
 
+func (x *ServerInfo) GetReaction() string {
+	if x != nil {
+		return x.Reaction
+	}
+	return ""
+}
+
+func (x *ServerInfo) GetRemove() bool {
+	if x != nil {
+		return x.Remove
+	}
+	return false
+}
+
 // 服务端汇总总包消息
 type ServerMsg struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
+	// Message 定义 Message 的 Protobuf 互斥消息载荷。
+	//
 	// Types that are valid to be assigned to Message:
 	//
 	//	*ServerMsg_Ctrl
@@ -3177,7 +3991,7 @@ type ServerMsg struct {
 
 func (x *ServerMsg) Reset() {
 	*x = ServerMsg{}
-	mi := &file_model_proto_msgTypes[31]
+	mi := &file_model_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3189,7 +4003,7 @@ func (x *ServerMsg) String() string {
 func (*ServerMsg) ProtoMessage() {}
 
 func (x *ServerMsg) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[31]
+	mi := &file_model_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3202,7 +4016,7 @@ func (x *ServerMsg) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerMsg.ProtoReflect.Descriptor instead.
 func (*ServerMsg) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{31}
+	return file_model_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ServerMsg) GetMessage() isServerMsg_Message {
@@ -3270,22 +4084,27 @@ type isServerMsg_Message interface {
 }
 
 type ServerMsg_Ctrl struct {
+	// ctrl 保存该消息字段对应的协议值。
 	Ctrl *ServerCtrl `protobuf:"bytes,1,opt,name=ctrl,proto3,oneof"`
 }
 
 type ServerMsg_Data struct {
+	// data 保存该消息字段对应的协议值。
 	Data *ServerData `protobuf:"bytes,2,opt,name=data,proto3,oneof"`
 }
 
 type ServerMsg_Pres struct {
+	// pres 保存该消息字段对应的协议值。
 	Pres *ServerPres `protobuf:"bytes,3,opt,name=pres,proto3,oneof"`
 }
 
 type ServerMsg_Meta struct {
+	// meta 保存该消息字段对应的协议值。
 	Meta *ServerMeta `protobuf:"bytes,4,opt,name=meta,proto3,oneof"`
 }
 
 type ServerMsg_Info struct {
+	// info 保存该消息字段对应的协议值。
 	Info *ServerInfo `protobuf:"bytes,5,opt,name=info,proto3,oneof"`
 }
 
@@ -3299,18 +4118,22 @@ func (*ServerMsg_Meta) isServerMsg_Message() {}
 
 func (*ServerMsg_Info) isServerMsg_Message() {}
 
+// ServerResp 定义 ServerResp 的 Protobuf 消息结构。
 type ServerResp struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Status        RespCode               `protobuf:"varint,1,opt,name=status,proto3,enum=pbx.RespCode" json:"status,omitempty"`
-	Srvmsg        *ServerMsg             `protobuf:"bytes,2,opt,name=srvmsg,proto3" json:"srvmsg,omitempty"`
-	Clmsg         *ClientMsg             `protobuf:"bytes,3,opt,name=clmsg,proto3" json:"clmsg,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// status 保存该消息字段对应的协议值。
+	Status RespCode `protobuf:"varint,1,opt,name=status,proto3,enum=pbx.RespCode" json:"status,omitempty"`
+	// srvmsg 保存该消息字段对应的协议值。
+	Srvmsg *ServerMsg `protobuf:"bytes,2,opt,name=srvmsg,proto3" json:"srvmsg,omitempty"`
+	// clmsg 保存该消息字段对应的协议值。
+	Clmsg         *ClientMsg `protobuf:"bytes,3,opt,name=clmsg,proto3" json:"clmsg,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServerResp) Reset() {
 	*x = ServerResp{}
-	mi := &file_model_proto_msgTypes[32]
+	mi := &file_model_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3322,7 +4145,7 @@ func (x *ServerResp) String() string {
 func (*ServerResp) ProtoMessage() {}
 
 func (x *ServerResp) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[32]
+	mi := &file_model_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3335,7 +4158,7 @@ func (x *ServerResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerResp.ProtoReflect.Descriptor instead.
 func (*ServerResp) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{32}
+	return file_model_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ServerResp) GetStatus() RespCode {
@@ -3361,21 +4184,28 @@ func (x *ServerResp) GetClmsg() *ClientMsg {
 
 // 会话上下文消息
 type Session struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	AuthLevel     AuthLevel              `protobuf:"varint,3,opt,name=auth_level,json=authLevel,proto3,enum=pbx.AuthLevel" json:"auth_level,omitempty"`
-	RemoteAddr    string                 `protobuf:"bytes,4,opt,name=remote_addr,json=remoteAddr,proto3" json:"remote_addr,omitempty"`
-	UserAgent     string                 `protobuf:"bytes,5,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
-	DeviceId      string                 `protobuf:"bytes,6,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
-	Language      string                 `protobuf:"bytes,7,opt,name=language,proto3" json:"language,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// session_id 保存该消息字段对应的协议值。
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// user_id 保存该消息字段对应的协议值。
+	UserId string `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// auth_level 保存该消息字段对应的协议值。
+	AuthLevel AuthLevel `protobuf:"varint,3,opt,name=auth_level,json=authLevel,proto3,enum=pbx.AuthLevel" json:"auth_level,omitempty"`
+	// remote_addr 保存该消息字段对应的协议值。
+	RemoteAddr string `protobuf:"bytes,4,opt,name=remote_addr,json=remoteAddr,proto3" json:"remote_addr,omitempty"`
+	// user_agent 保存该消息字段对应的协议值。
+	UserAgent string `protobuf:"bytes,5,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
+	// device_id 保存该消息字段对应的协议值。
+	DeviceId string `protobuf:"bytes,6,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
+	// language 保存该消息字段对应的协议值。
+	Language      string `protobuf:"bytes,7,opt,name=language,proto3" json:"language,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Session) Reset() {
 	*x = Session{}
-	mi := &file_model_proto_msgTypes[33]
+	mi := &file_model_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3387,7 +4217,7 @@ func (x *Session) String() string {
 func (*Session) ProtoMessage() {}
 
 func (x *Session) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[33]
+	mi := &file_model_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3400,7 +4230,7 @@ func (x *Session) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Session.ProtoReflect.Descriptor instead.
 func (*Session) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{33}
+	return file_model_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *Session) GetSessionId() string {
@@ -3452,17 +4282,20 @@ func (x *Session) GetLanguage() string {
 	return ""
 }
 
+// ClientReq 定义 ClientReq 的 Protobuf 消息结构。
 type ClientReq struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Msg           *ClientMsg             `protobuf:"bytes,1,opt,name=msg,proto3" json:"msg,omitempty"`
-	Sess          *Session               `protobuf:"bytes,2,opt,name=sess,proto3" json:"sess,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// msg 保存该消息字段对应的协议值。
+	Msg *ClientMsg `protobuf:"bytes,1,opt,name=msg,proto3" json:"msg,omitempty"`
+	// sess 保存该消息字段对应的协议值。
+	Sess          *Session `protobuf:"bytes,2,opt,name=sess,proto3" json:"sess,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ClientReq) Reset() {
 	*x = ClientReq{}
-	mi := &file_model_proto_msgTypes[34]
+	mi := &file_model_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3474,7 +4307,7 @@ func (x *ClientReq) String() string {
 func (*ClientReq) ProtoMessage() {}
 
 func (x *ClientReq) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[34]
+	mi := &file_model_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3487,7 +4320,7 @@ func (x *ClientReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientReq.ProtoReflect.Descriptor instead.
 func (*ClientReq) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{34}
+	return file_model_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ClientReq) GetMsg() *ClientMsg {
@@ -3505,16 +4338,18 @@ func (x *ClientReq) GetSess() *Session {
 }
 
 type SearchQuery struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Query         string                 `protobuf:"bytes,2,opt,name=query,proto3" json:"query,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// user_id 保存该消息字段对应的协议值。
+	UserId string `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// query 保存该消息字段对应的协议值。
+	Query         string `protobuf:"bytes,2,opt,name=query,proto3" json:"query,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SearchQuery) Reset() {
 	*x = SearchQuery{}
-	mi := &file_model_proto_msgTypes[35]
+	mi := &file_model_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3526,7 +4361,7 @@ func (x *SearchQuery) String() string {
 func (*SearchQuery) ProtoMessage() {}
 
 func (x *SearchQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[35]
+	mi := &file_model_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3539,7 +4374,7 @@ func (x *SearchQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchQuery.ProtoReflect.Descriptor instead.
 func (*SearchQuery) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{35}
+	return file_model_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *SearchQuery) GetUserId() string {
@@ -3556,9 +4391,11 @@ func (x *SearchQuery) GetQuery() string {
 	return ""
 }
 
+// SearchFound 定义 SearchFound 的 Protobuf 消息结构。
 type SearchFound struct {
-	state  protoimpl.MessageState `protogen:"open.v1"`
-	Status RespCode               `protobuf:"varint,1,opt,name=status,proto3,enum=pbx.RespCode" json:"status,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// status 保存该消息字段对应的协议值。
+	Status RespCode `protobuf:"varint,1,opt,name=status,proto3,enum=pbx.RespCode" json:"status,omitempty"`
 	// 若 status == REPLACE，则表示替换后的新搜索查询语句，否则未设置
 	Query string `protobuf:"bytes,2,opt,name=query,proto3" json:"query,omitempty"`
 	// 搜索结果列表
@@ -3569,7 +4406,7 @@ type SearchFound struct {
 
 func (x *SearchFound) Reset() {
 	*x = SearchFound{}
-	mi := &file_model_proto_msgTypes[36]
+	mi := &file_model_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3581,7 +4418,7 @@ func (x *SearchFound) String() string {
 func (*SearchFound) ProtoMessage() {}
 
 func (x *SearchFound) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[36]
+	mi := &file_model_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3594,7 +4431,7 @@ func (x *SearchFound) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchFound.ProtoReflect.Descriptor instead.
 func (*SearchFound) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{36}
+	return file_model_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *SearchFound) GetStatus() RespCode {
@@ -3618,18 +4455,22 @@ func (x *SearchFound) GetResult() []*TopicSub {
 	return nil
 }
 
+// TopicEvent 定义 TopicEvent 的 Protobuf 消息结构。
 type TopicEvent struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Action        Crud                   `protobuf:"varint,1,opt,name=action,proto3,enum=pbx.Crud" json:"action,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Desc          *TopicDesc             `protobuf:"bytes,3,opt,name=desc,proto3" json:"desc,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// action 保存该消息字段对应的协议值。
+	Action Crud `protobuf:"varint,1,opt,name=action,proto3,enum=pbx.Crud" json:"action,omitempty"`
+	// name 保存该消息字段对应的协议值。
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// desc 保存该消息字段对应的协议值。
+	Desc          *TopicDesc `protobuf:"bytes,3,opt,name=desc,proto3" json:"desc,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TopicEvent) Reset() {
 	*x = TopicEvent{}
-	mi := &file_model_proto_msgTypes[37]
+	mi := &file_model_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3641,7 +4482,7 @@ func (x *TopicEvent) String() string {
 func (*TopicEvent) ProtoMessage() {}
 
 func (x *TopicEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[37]
+	mi := &file_model_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3654,7 +4495,7 @@ func (x *TopicEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TopicEvent.ProtoReflect.Descriptor instead.
 func (*TopicEvent) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{37}
+	return file_model_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *TopicEvent) GetAction() Crud {
@@ -3678,12 +4519,17 @@ func (x *TopicEvent) GetDesc() *TopicDesc {
 	return nil
 }
 
+// AccountEvent 定义 AccountEvent 的 Protobuf 消息结构。
 type AccountEvent struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	Action     Crud                   `protobuf:"varint,1,opt,name=action,proto3,enum=pbx.Crud" json:"action,omitempty"`
-	UserId     string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	DefaultAcs *DefaultAcsMode        `protobuf:"bytes,3,opt,name=default_acs,json=defaultAcs,proto3" json:"default_acs,omitempty"`
-	Public     []byte                 `protobuf:"bytes,4,opt,name=public,proto3" json:"public,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// action 保存该消息字段对应的协议值。
+	Action Crud `protobuf:"varint,1,opt,name=action,proto3,enum=pbx.Crud" json:"action,omitempty"`
+	// user_id 保存该消息字段对应的协议值。
+	UserId string `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// default_acs 保存该消息字段对应的协议值。
+	DefaultAcs *DefaultAcsMode `protobuf:"bytes,3,opt,name=default_acs,json=defaultAcs,proto3" json:"default_acs,omitempty"`
+	// public 保存该消息字段对应的协议值。
+	Public []byte `protobuf:"bytes,4,opt,name=public,proto3" json:"public,omitempty"`
 	// 用于用户发现的可索引标签
 	Tags          []string `protobuf:"bytes,8,rep,name=tags,proto3" json:"tags,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -3692,7 +4538,7 @@ type AccountEvent struct {
 
 func (x *AccountEvent) Reset() {
 	*x = AccountEvent{}
-	mi := &file_model_proto_msgTypes[38]
+	mi := &file_model_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3704,7 +4550,7 @@ func (x *AccountEvent) String() string {
 func (*AccountEvent) ProtoMessage() {}
 
 func (x *AccountEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[38]
+	mi := &file_model_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3717,7 +4563,7 @@ func (x *AccountEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AccountEvent.ProtoReflect.Descriptor instead.
 func (*AccountEvent) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{38}
+	return file_model_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *AccountEvent) GetAction() Crud {
@@ -3755,23 +4601,32 @@ func (x *AccountEvent) GetTags() []string {
 	return nil
 }
 
+// SubscriptionEvent 定义 SubscriptionEvent 的 Protobuf 消息结构。
 type SubscriptionEvent struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Action        Crud                   `protobuf:"varint,1,opt,name=action,proto3,enum=pbx.Crud" json:"action,omitempty"`
-	Topic         string                 `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
-	UserId        string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	DelId         int32                  `protobuf:"varint,4,opt,name=del_id,json=delId,proto3" json:"del_id,omitempty"`
-	ReadId        int32                  `protobuf:"varint,5,opt,name=read_id,json=readId,proto3" json:"read_id,omitempty"`
-	RecvId        int32                  `protobuf:"varint,6,opt,name=recv_id,json=recvId,proto3" json:"recv_id,omitempty"`
-	Mode          *AccessMode            `protobuf:"bytes,7,opt,name=mode,proto3" json:"mode,omitempty"`
-	Private       []byte                 `protobuf:"bytes,8,opt,name=private,proto3" json:"private,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// action 保存该消息字段对应的协议值。
+	Action Crud `protobuf:"varint,1,opt,name=action,proto3,enum=pbx.Crud" json:"action,omitempty"`
+	// topic 保存该消息字段对应的协议值。
+	Topic string `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
+	// user_id 保存该消息字段对应的协议值。
+	UserId string `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// del_id 保存该消息字段对应的协议值。
+	DelId int32 `protobuf:"varint,4,opt,name=del_id,json=delId,proto3" json:"del_id,omitempty"`
+	// read_id 保存该消息字段对应的协议值。
+	ReadId int32 `protobuf:"varint,5,opt,name=read_id,json=readId,proto3" json:"read_id,omitempty"`
+	// recv_id 保存该消息字段对应的协议值。
+	RecvId int32 `protobuf:"varint,6,opt,name=recv_id,json=recvId,proto3" json:"recv_id,omitempty"`
+	// mode 保存该消息字段对应的协议值。
+	Mode *AccessMode `protobuf:"bytes,7,opt,name=mode,proto3" json:"mode,omitempty"`
+	// private 保存该消息字段对应的协议值。
+	Private       []byte `protobuf:"bytes,8,opt,name=private,proto3" json:"private,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SubscriptionEvent) Reset() {
 	*x = SubscriptionEvent{}
-	mi := &file_model_proto_msgTypes[39]
+	mi := &file_model_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3783,7 +4638,7 @@ func (x *SubscriptionEvent) String() string {
 func (*SubscriptionEvent) ProtoMessage() {}
 
 func (x *SubscriptionEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[39]
+	mi := &file_model_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3796,7 +4651,7 @@ func (x *SubscriptionEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscriptionEvent.ProtoReflect.Descriptor instead.
 func (*SubscriptionEvent) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{39}
+	return file_model_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *SubscriptionEvent) GetAction() Crud {
@@ -3855,17 +4710,20 @@ func (x *SubscriptionEvent) GetPrivate() []byte {
 	return nil
 }
 
+// MessageEvent 定义 MessageEvent 的 Protobuf 消息结构。
 type MessageEvent struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Action        Crud                   `protobuf:"varint,1,opt,name=action,proto3,enum=pbx.Crud" json:"action,omitempty"`
-	Msg           *ServerData            `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// action 保存该消息字段对应的协议值。
+	Action Crud `protobuf:"varint,1,opt,name=action,proto3,enum=pbx.Crud" json:"action,omitempty"`
+	// msg 保存该消息字段对应的协议值。
+	Msg           *ServerData `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *MessageEvent) Reset() {
 	*x = MessageEvent{}
-	mi := &file_model_proto_msgTypes[40]
+	mi := &file_model_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3877,7 +4735,7 @@ func (x *MessageEvent) String() string {
 func (*MessageEvent) ProtoMessage() {}
 
 func (x *MessageEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[40]
+	mi := &file_model_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3890,7 +4748,7 @@ func (x *MessageEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MessageEvent.ProtoReflect.Descriptor instead.
 func (*MessageEvent) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{40}
+	return file_model_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *MessageEvent) GetAction() Crud {
@@ -3908,16 +4766,18 @@ func (x *MessageEvent) GetMsg() *ServerData {
 }
 
 type Auth struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Scheme        string                 `protobuf:"bytes,1,opt,name=scheme,proto3" json:"scheme,omitempty"`
-	Secret        string                 `protobuf:"bytes,2,opt,name=secret,proto3" json:"secret,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// scheme 保存该消息字段对应的协议值。
+	Scheme string `protobuf:"bytes,1,opt,name=scheme,proto3" json:"scheme,omitempty"`
+	// secret 保存该消息字段对应的协议值。
+	Secret        string `protobuf:"bytes,2,opt,name=secret,proto3" json:"secret,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Auth) Reset() {
 	*x = Auth{}
-	mi := &file_model_proto_msgTypes[41]
+	mi := &file_model_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3929,7 +4789,7 @@ func (x *Auth) String() string {
 func (*Auth) ProtoMessage() {}
 
 func (x *Auth) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[41]
+	mi := &file_model_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3942,7 +4802,7 @@ func (x *Auth) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Auth.ProtoReflect.Descriptor instead.
 func (*Auth) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{41}
+	return file_model_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *Auth) GetScheme() string {
@@ -3961,18 +4821,22 @@ func (x *Auth) GetSecret() string {
 
 // 文件元数据描述
 type FileMeta struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	MimeType      string                 `protobuf:"bytes,2,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
-	Etag          string                 `protobuf:"bytes,3,opt,name=etag,proto3" json:"etag,omitempty"`
-	Size          int64                  `protobuf:"varint,4,opt,name=size,proto3" json:"size,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// name 保存该消息字段对应的协议值。
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// mime_type 保存该消息字段对应的协议值。
+	MimeType string `protobuf:"bytes,2,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
+	// etag 保存该消息字段对应的协议值。
+	Etag string `protobuf:"bytes,3,opt,name=etag,proto3" json:"etag,omitempty"`
+	// size 保存该消息字段对应的协议值。
+	Size          int64 `protobuf:"varint,4,opt,name=size,proto3" json:"size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *FileMeta) Reset() {
 	*x = FileMeta{}
-	mi := &file_model_proto_msgTypes[42]
+	mi := &file_model_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3984,7 +4848,7 @@ func (x *FileMeta) String() string {
 func (*FileMeta) ProtoMessage() {}
 
 func (x *FileMeta) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[42]
+	mi := &file_model_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3997,7 +4861,7 @@ func (x *FileMeta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileMeta.ProtoReflect.Descriptor instead.
 func (*FileMeta) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{42}
+	return file_model_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *FileMeta) GetName() string {
@@ -4047,7 +4911,7 @@ type FileUpReq struct {
 
 func (x *FileUpReq) Reset() {
 	*x = FileUpReq{}
-	mi := &file_model_proto_msgTypes[43]
+	mi := &file_model_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4059,7 +4923,7 @@ func (x *FileUpReq) String() string {
 func (*FileUpReq) ProtoMessage() {}
 
 func (x *FileUpReq) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[43]
+	mi := &file_model_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4072,7 +4936,7 @@ func (x *FileUpReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileUpReq.ProtoReflect.Descriptor instead.
 func (*FileUpReq) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{43}
+	return file_model_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *FileUpReq) GetId() string {
@@ -4118,7 +4982,8 @@ type FileUpResp struct {
 	// 响应状态码
 	Code int32 `protobuf:"varint,2,opt,name=code,proto3" json:"code,omitempty"`
 	// 响应文本消息
-	Text string    `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
+	Text string `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
+	// meta 保存该消息字段对应的协议值。
 	Meta *FileMeta `protobuf:"bytes,4,opt,name=meta,proto3" json:"meta,omitempty"`
 	// 新上传重定向 URL 位置
 	RedirUrl      string `protobuf:"bytes,5,opt,name=redir_url,json=redirUrl,proto3" json:"redir_url,omitempty"`
@@ -4128,7 +4993,7 @@ type FileUpResp struct {
 
 func (x *FileUpResp) Reset() {
 	*x = FileUpResp{}
-	mi := &file_model_proto_msgTypes[44]
+	mi := &file_model_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4140,7 +5005,7 @@ func (x *FileUpResp) String() string {
 func (*FileUpResp) ProtoMessage() {}
 
 func (x *FileUpResp) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[44]
+	mi := &file_model_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4153,7 +5018,7 @@ func (x *FileUpResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileUpResp.ProtoReflect.Descriptor instead.
 func (*FileUpResp) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{44}
+	return file_model_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *FileUpResp) GetId() string {
@@ -4208,7 +5073,7 @@ type FileDownReq struct {
 
 func (x *FileDownReq) Reset() {
 	*x = FileDownReq{}
-	mi := &file_model_proto_msgTypes[45]
+	mi := &file_model_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4220,7 +5085,7 @@ func (x *FileDownReq) String() string {
 func (*FileDownReq) ProtoMessage() {}
 
 func (x *FileDownReq) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[45]
+	mi := &file_model_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4233,7 +5098,7 @@ func (x *FileDownReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileDownReq.ProtoReflect.Descriptor instead.
 func (*FileDownReq) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{45}
+	return file_model_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *FileDownReq) GetId() string {
@@ -4272,7 +5137,8 @@ type FileDownResp struct {
 	// 响应状态码
 	Code int32 `protobuf:"varint,2,opt,name=code,proto3" json:"code,omitempty"`
 	// 响应文本消息
-	Text string    `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
+	Text string `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
+	// meta 保存该消息字段对应的协议值。
 	Meta *FileMeta `protobuf:"bytes,4,opt,name=meta,proto3" json:"meta,omitempty"`
 	// 重定向文件位置
 	RedirUrl string `protobuf:"bytes,5,opt,name=redir_url,json=redirUrl,proto3" json:"redir_url,omitempty"`
@@ -4284,7 +5150,7 @@ type FileDownResp struct {
 
 func (x *FileDownResp) Reset() {
 	*x = FileDownResp{}
-	mi := &file_model_proto_msgTypes[46]
+	mi := &file_model_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4296,7 +5162,7 @@ func (x *FileDownResp) String() string {
 func (*FileDownResp) ProtoMessage() {}
 
 func (x *FileDownResp) ProtoReflect() protoreflect.Message {
-	mi := &file_model_proto_msgTypes[46]
+	mi := &file_model_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4309,7 +5175,7 @@ func (x *FileDownResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileDownResp.ProtoReflect.Descriptor instead.
 func (*FileDownResp) Descriptor() ([]byte, []int) {
-	return file_model_proto_rawDescGZIP(), []int{46}
+	return file_model_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *FileDownResp) GetId() string {
@@ -4362,14 +5228,16 @@ const file_model_proto_rawDesc = "" +
 	"\x06Unused\"8\n" +
 	"\x0eDefaultAcsMode\x12\x12\n" +
 	"\x04auth\x18\x01 \x01(\tR\x04auth\x12\x12\n" +
-	"\x04anon\x18\x02 \x01(\tR\x04anon\"6\n" +
+	"\x04anon\x18\x02 \x01(\tR\x04anon\"J\n" +
 	"\n" +
 	"AccessMode\x12\x12\n" +
 	"\x04want\x18\x01 \x01(\tR\x04want\x12\x14\n" +
-	"\x05given\x18\x02 \x01(\tR\x05given\"5\n" +
+	"\x05given\x18\x02 \x01(\tR\x05given\x12\x12\n" +
+	"\x04role\x18\x03 \x01(\tR\x04role\"I\n" +
 	"\x06SetSub\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
-	"\x04mode\x18\x02 \x01(\tR\x04mode\"\xc6\x01\n" +
+	"\x04mode\x18\x02 \x01(\tR\x04mode\x12\x12\n" +
+	"\x04role\x18\x03 \x01(\tR\x04role\"\xc6\x01\n" +
 	"\n" +
 	"ClientCred\x12\x16\n" +
 	"\x06method\x18\x01 \x01(\tR\x06method\x12\x14\n" +
@@ -4387,7 +5255,7 @@ const file_model_proto_rawDesc = "" +
 	"\atrusted\x18\x04 \x01(\fR\atrusted\",\n" +
 	"\bSeqRange\x12\x10\n" +
 	"\x03low\x18\x01 \x01(\x05R\x03low\x12\x0e\n" +
-	"\x02hi\x18\x02 \x01(\x05R\x02hi\"\xd4\x01\n" +
+	"\x02hi\x18\x02 \x01(\x05R\x02hi\"\xee\x01\n" +
 	"\aGetOpts\x12*\n" +
 	"\x11if_modified_since\x18\x01 \x01(\x03R\x0fifModifiedSince\x12\x12\n" +
 	"\x04user\x18\x02 \x01(\tR\x04user\x12\x14\n" +
@@ -4395,12 +5263,26 @@ const file_model_proto_rawDesc = "" +
 	"\bsince_id\x18\x04 \x01(\x05R\asinceId\x12\x1b\n" +
 	"\tbefore_id\x18\x05 \x01(\x05R\bbeforeId\x12\x14\n" +
 	"\x05limit\x18\x06 \x01(\x05R\x05limit\x12%\n" +
-	"\x06ranges\x18\a \x03(\v2\r.pbx.SeqRangeR\x06ranges\"\x82\x01\n" +
+	"\x06ranges\x18\a \x03(\v2\r.pbx.SeqRangeR\x06ranges\x12\x18\n" +
+	"\aforward\x18\b \x01(\bR\aforward\"\xd4\x01\n" +
+	"\n" +
+	"SearchOpts\x12\x14\n" +
+	"\x05query\x18\x01 \x01(\tR\x05query\x12\x14\n" +
+	"\x05scope\x18\x02 \x01(\tR\x05scope\x12 \n" +
+	"\ffrom_user_id\x18\x03 \x01(\tR\n" +
+	"fromUserId\x12\x14\n" +
+	"\x05kinds\x18\x04 \x03(\tR\x05kinds\x12\x19\n" +
+	"\bmin_date\x18\x05 \x01(\x03R\aminDate\x12\x19\n" +
+	"\bmax_date\x18\x06 \x01(\x03R\amaxDate\x12\x16\n" +
+	"\x06cursor\x18\a \x01(\tR\x06cursor\x12\x14\n" +
+	"\x05limit\x18\b \x01(\x05R\x05limit\"\xcb\x01\n" +
 	"\bGetQuery\x12\x12\n" +
 	"\x04what\x18\x01 \x01(\tR\x04what\x12 \n" +
 	"\x04desc\x18\x02 \x01(\v2\f.pbx.GetOptsR\x04desc\x12\x1e\n" +
 	"\x03sub\x18\x03 \x01(\v2\f.pbx.GetOptsR\x03sub\x12 \n" +
-	"\x04data\x18\x04 \x01(\v2\f.pbx.GetOptsR\x04data\"\xe6\x01\n" +
+	"\x04data\x18\x04 \x01(\v2\f.pbx.GetOptsR\x04data\x12\x1e\n" +
+	"\x03del\x18\x05 \x01(\v2\f.pbx.GetOptsR\x03del\x12'\n" +
+	"\x06search\x18\x06 \x01(\v2\x0f.pbx.SearchOptsR\x06search\"\xe6\x01\n" +
 	"\bSetQuery\x12 \n" +
 	"\x04desc\x18\x01 \x01(\v2\f.pbx.SetDescR\x04desc\x12\x1d\n" +
 	"\x03sub\x18\x02 \x01(\v2\v.pbx.SetSubR\x03sub\x12\x12\n" +
@@ -4452,13 +5334,27 @@ const file_model_proto_rawDesc = "" +
 	"\vClientLeave\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05topic\x18\x02 \x01(\tR\x05topic\x12\x14\n" +
-	"\x05unsub\x18\x03 \x01(\bR\x05unsub\"\xcb\x01\n" +
+	"\x05unsub\x18\x03 \x01(\bR\x05unsub\"9\n" +
+	"\n" +
+	"MessageRef\x12\x14\n" +
+	"\x05topic\x18\x01 \x01(\tR\x05topic\x12\x15\n" +
+	"\x06seq_id\x18\x02 \x01(\x05R\x05seqId\"\x9f\x03\n" +
 	"\tClientPub\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05topic\x18\x02 \x01(\tR\x05topic\x12\x17\n" +
 	"\ano_echo\x18\x03 \x01(\bR\x06noEcho\x12,\n" +
 	"\x04head\x18\x04 \x03(\v2\x18.pbx.ClientPub.HeadEntryR\x04head\x12\x18\n" +
-	"\acontent\x18\x05 \x01(\fR\acontent\x1a7\n" +
+	"\acontent\x18\x05 \x01(\fR\acontent\x12\x1b\n" +
+	"\tclient_id\x18\x06 \x01(\tR\bclientId\x12\x12\n" +
+	"\x04kind\x18\a \x01(\tR\x04kind\x12\x19\n" +
+	"\breply_to\x18\b \x01(\x05R\areplyTo\x12\x1f\n" +
+	"\vreplace_seq\x18\t \x01(\x05R\n" +
+	"replaceSeq\x12)\n" +
+	"\aforward\x18\n" +
+	" \x01(\v2\x0f.pbx.MessageRefR\aforward\x12\x19\n" +
+	"\bgroup_id\x18\v \x01(\tR\agroupId\x12\x1f\n" +
+	"\vschedule_at\x18\f \x01(\x03R\n" +
+	"scheduleAt\x1a7\n" +
 	"\tHeadEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\fR\x05value:\x028\x01\"V\n" +
@@ -4469,7 +5365,7 @@ const file_model_proto_rawDesc = "" +
 	"\tClientSet\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05topic\x18\x02 \x01(\tR\x05topic\x12#\n" +
-	"\x05query\x18\x03 \x01(\v2\r.pbx.SetQueryR\x05query\"\x95\x02\n" +
+	"\x05query\x18\x03 \x01(\v2\r.pbx.SetQueryR\x05query\"\xc7\x02\n" +
 	"\tClientDel\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05topic\x18\x02 \x01(\tR\x05topic\x12'\n" +
@@ -4477,14 +5373,16 @@ const file_model_proto_rawDesc = "" +
 	"\adel_seq\x18\x04 \x03(\v2\r.pbx.SeqRangeR\x06delSeq\x12\x17\n" +
 	"\auser_id\x18\x05 \x01(\tR\x06userId\x12#\n" +
 	"\x04cred\x18\x06 \x01(\v2\x0f.pbx.ClientCredR\x04cred\x12\x12\n" +
-	"\x04hard\x18\a \x01(\bR\x04hard\"?\n" +
+	"\x04hard\x18\a \x01(\bR\x04hard\x12!\n" +
+	"\fscheduled_id\x18\b \x01(\tR\vscheduledId\"N\n" +
 	"\x04What\x12\x06\n" +
 	"\x02X0\x10\x00\x12\a\n" +
 	"\x03MSG\x10\x01\x12\t\n" +
 	"\x05TOPIC\x10\x02\x12\a\n" +
 	"\x03SUB\x10\x03\x12\b\n" +
 	"\x04USER\x10\x04\x12\b\n" +
-	"\x04CRED\x10\x05\"\xb4\x01\n" +
+	"\x04CRED\x10\x05\x12\r\n" +
+	"\tSCHEDULED\x10\x06\"\xf8\x01\n" +
 	"\n" +
 	"ClientNote\x12\x14\n" +
 	"\x05topic\x18\x01 \x01(\tR\x05topic\x12!\n" +
@@ -4492,7 +5390,10 @@ const file_model_proto_rawDesc = "" +
 	"\x06seq_id\x18\x03 \x01(\x05R\x05seqId\x12\x16\n" +
 	"\x06unread\x18\x04 \x01(\x05R\x06unread\x12$\n" +
 	"\x05event\x18\x05 \x01(\x0e2\x0e.pbx.CallEventR\x05event\x12\x18\n" +
-	"\apayload\x18\x06 \x01(\fR\apayload\"\x80\x01\n" +
+	"\apayload\x18\x06 \x01(\fR\apayload\x12\x0e\n" +
+	"\x02id\x18\a \x01(\tR\x02id\x12\x1a\n" +
+	"\breaction\x18\b \x01(\tR\breaction\x12\x16\n" +
+	"\x06remove\x18\t \x01(\bR\x06remove\"\x80\x01\n" +
 	"\vClientExtra\x12 \n" +
 	"\vattachments\x18\x01 \x03(\tR\vattachments\x12 \n" +
 	"\fon_behalf_of\x18\x02 \x01(\tR\n" +
@@ -4517,7 +5418,7 @@ const file_model_proto_rawDesc = "" +
 	"ServerCred\x12\x16\n" +
 	"\x06method\x18\x01 \x01(\tR\x06method\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\x12\x12\n" +
-	"\x04done\x18\x03 \x01(\bR\x04done\"\x9d\x04\n" +
+	"\x04done\x18\x03 \x01(\bR\x04done\"\xba\x04\n" +
 	"\tTopicDesc\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\x03R\tcreatedAt\x12\x1d\n" +
@@ -4538,9 +5439,10 @@ const file_model_proto_rawDesc = "" +
 	"\bstate_at\x18\r \x01(\x03R\astateAt\x12\x18\n" +
 	"\atrusted\x18\x0e \x01(\fR\atrusted\x12\x17\n" +
 	"\ais_chan\x18\x11 \x01(\bR\x06isChan\x12\x16\n" +
-	"\x06online\x18\x12 \x01(\bR\x06online\x12$\n" +
+	"\x06online\x18\x12 \x01(\bR\x06online\x12\x1b\n" +
+	"\tsub_count\x18\x13 \x01(\x05R\bsubCount\x12$\n" +
 	"\x0elast_seen_time\x18\x0f \x01(\x03R\flastSeenTime\x12/\n" +
-	"\x14last_seen_user_agent\x18\x10 \x01(\tR\x11lastSeenUserAgent\"\xd4\x03\n" +
+	"\x14last_seen_user_agent\x18\x10 \x01(\tR\x11lastSeenUserAgent\"\xf1\x03\n" +
 	"\bTopicSub\x12\x1d\n" +
 	"\n" +
 	"updated_at\x18\x01 \x01(\x03R\tupdatedAt\x12\x1d\n" +
@@ -4561,10 +5463,16 @@ const file_model_proto_rawDesc = "" +
 	"\x06seq_id\x18\f \x01(\x05R\x05seqId\x12\x15\n" +
 	"\x06del_id\x18\r \x01(\x05R\x05delId\x12$\n" +
 	"\x0elast_seen_time\x18\x0e \x01(\x03R\flastSeenTime\x12/\n" +
-	"\x14last_seen_user_agent\x18\x0f \x01(\tR\x11lastSeenUserAgent\"J\n" +
+	"\x14last_seen_user_agent\x18\x0f \x01(\tR\x11lastSeenUserAgent\x12\x1b\n" +
+	"\tsub_count\x18\x11 \x01(\x05R\bsubCount\"J\n" +
 	"\tDelValues\x12\x15\n" +
 	"\x06del_id\x18\x01 \x01(\x05R\x05delId\x12&\n" +
-	"\adel_seq\x18\x02 \x03(\v2\r.pbx.SeqRangeR\x06delSeq\"\xca\x01\n" +
+	"\adel_seq\x18\x02 \x03(\v2\r.pbx.SeqRangeR\x06delSeq\"\x8a\x01\n" +
+	"\fSearchResult\x12\x14\n" +
+	"\x05scope\x18\x01 \x01(\tR\x05scope\x12#\n" +
+	"\x05peers\x18\x02 \x03(\v2\r.pbx.TopicSubR\x05peers\x12+\n" +
+	"\bmessages\x18\x03 \x03(\v2\x0f.pbx.ServerDataR\bmessages\x12\x12\n" +
+	"\x04next\x18\x04 \x01(\tR\x04next\"\xca\x01\n" +
 	"\n" +
 	"ServerCtrl\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
@@ -4574,7 +5482,7 @@ const file_model_proto_rawDesc = "" +
 	"\x06params\x18\x05 \x03(\v2\x1b.pbx.ServerCtrl.ParamsEntryR\x06params\x1a9\n" +
 	"\vParamsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\fR\x05value:\x028\x01\"\x9a\x02\n" +
+	"\x05value\x18\x02 \x01(\fR\x05value:\x028\x01\"\x80\x04\n" +
 	"\n" +
 	"ServerData\x12\x14\n" +
 	"\x05topic\x18\x01 \x01(\tR\x05topic\x12 \n" +
@@ -4585,10 +5493,27 @@ const file_model_proto_rawDesc = "" +
 	"deleted_at\x18\x03 \x01(\x03R\tdeletedAt\x12\x15\n" +
 	"\x06seq_id\x18\x04 \x01(\x05R\x05seqId\x12-\n" +
 	"\x04head\x18\x05 \x03(\v2\x19.pbx.ServerData.HeadEntryR\x04head\x12\x18\n" +
-	"\acontent\x18\x06 \x01(\fR\acontent\x1a7\n" +
+	"\acontent\x18\x06 \x01(\fR\acontent\x12\x1b\n" +
+	"\tclient_id\x18\b \x01(\tR\bclientId\x12\x12\n" +
+	"\x04kind\x18\t \x01(\tR\x04kind\x12\x19\n" +
+	"\breply_to\x18\n" +
+	" \x01(\x05R\areplyTo\x123\n" +
+	"\tforwarded\x18\v \x01(\v2\x15.pbx.ForwardedMessageR\tforwarded\x12\x19\n" +
+	"\bgroup_id\x18\f \x01(\tR\agroupId\x12+\n" +
+	"\treactions\x18\r \x03(\v2\r.pbx.ReactionR\treactions\x12\x1b\n" +
+	"\tedited_at\x18\x0e \x01(\x03R\beditedAt\x1a7\n" +
 	"\tHeadEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\fR\x05value:\x028\x01\"\xc9\x03\n" +
+	"\x05value\x18\x02 \x01(\fR\x05value:\x028\x01\"\x7f\n" +
+	"\x10ForwardedMessage\x12\x14\n" +
+	"\x05topic\x18\x01 \x01(\tR\x05topic\x12\x15\n" +
+	"\x06seq_id\x18\x02 \x01(\x05R\x05seqId\x12 \n" +
+	"\ffrom_user_id\x18\x03 \x01(\tR\n" +
+	"fromUserId\x12\x1c\n" +
+	"\ttimestamp\x18\x04 \x01(\x03R\ttimestamp\"<\n" +
+	"\bReaction\x12\x1a\n" +
+	"\breaction\x18\x01 \x01(\tR\breaction\x12\x14\n" +
+	"\x05count\x18\x02 \x01(\x05R\x05count\"\xc9\x03\n" +
 	"\n" +
 	"ServerPres\x12\x14\n" +
 	"\x05topic\x18\x01 \x01(\tR\x05topic\x12\x10\n" +
@@ -4618,7 +5543,7 @@ const file_model_proto_rawDesc = "" +
 	"\x12\a\n" +
 	"\x03DEL\x10\v\x12\b\n" +
 	"\x04TAGS\x10\f\x12\a\n" +
-	"\x03AUX\x10\r\"\xb6\x02\n" +
+	"\x03AUX\x10\r\"\xe1\x02\n" +
 	"\n" +
 	"ServerMeta\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
@@ -4628,10 +5553,11 @@ const file_model_proto_rawDesc = "" +
 	"\x03del\x18\x05 \x01(\v2\x0e.pbx.DelValuesR\x03del\x12\x12\n" +
 	"\x04tags\x18\x06 \x03(\tR\x04tags\x12#\n" +
 	"\x04cred\x18\a \x03(\v2\x0f.pbx.ServerCredR\x04cred\x12*\n" +
-	"\x03aux\x18\b \x03(\v2\x18.pbx.ServerMeta.AuxEntryR\x03aux\x1a6\n" +
+	"\x03aux\x18\b \x03(\v2\x18.pbx.ServerMeta.AuxEntryR\x03aux\x12)\n" +
+	"\x06search\x18\t \x01(\v2\x11.pbx.SearchResultR\x06search\x1a6\n" +
 	"\bAuxEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\fR\x05value:\x028\x01\"\xd0\x01\n" +
+	"\x05value\x18\x02 \x01(\fR\x05value:\x028\x01\"\x84\x02\n" +
 	"\n" +
 	"ServerInfo\x12\x14\n" +
 	"\x05topic\x18\x01 \x01(\tR\x05topic\x12 \n" +
@@ -4641,7 +5567,9 @@ const file_model_proto_rawDesc = "" +
 	"\x06seq_id\x18\x04 \x01(\x05R\x05seqId\x12\x10\n" +
 	"\x03src\x18\x05 \x01(\tR\x03src\x12$\n" +
 	"\x05event\x18\x06 \x01(\x0e2\x0e.pbx.CallEventR\x05event\x12\x18\n" +
-	"\apayload\x18\a \x01(\fR\apayload\"\xf3\x01\n" +
+	"\apayload\x18\a \x01(\fR\apayload\x12\x1a\n" +
+	"\breaction\x18\b \x01(\tR\breaction\x12\x16\n" +
+	"\x06remove\x18\t \x01(\bR\x06remove\"\xf3\x01\n" +
 	"\tServerMsg\x12%\n" +
 	"\x04ctrl\x18\x01 \x01(\v2\x0f.pbx.ServerCtrlH\x00R\x04ctrl\x12%\n" +
 	"\x04data\x18\x02 \x01(\v2\x0f.pbx.ServerDataH\x00R\x04data\x12%\n" +
@@ -4740,13 +5668,17 @@ const file_model_proto_rawDesc = "" +
 	"\x04ANON\x10\n" +
 	"\x12\b\n" +
 	"\x04AUTH\x10\x14\x12\b\n" +
-	"\x04ROOT\x10\x1e*8\n" +
+	"\x04ROOT\x10\x1e*^\n" +
 	"\bInfoNote\x12\x06\n" +
 	"\x02X1\x10\x00\x12\b\n" +
 	"\x04READ\x10\x01\x12\b\n" +
 	"\x04RECV\x10\x02\x12\x06\n" +
 	"\x02KP\x10\x03\x12\b\n" +
-	"\x04CALL\x10\x04*o\n" +
+	"\x04CALL\x10\x04\x12\a\n" +
+	"\x03KPA\x10\x05\x12\a\n" +
+	"\x03KPV\x10\x06\x12\t\n" +
+	"\x05REACT\x10\a\x12\a\n" +
+	"\x03PIN\x10\b*\x91\x01\n" +
 	"\tCallEvent\x12\x06\n" +
 	"\x02X2\x10\x00\x12\n" +
 	"\n" +
@@ -4758,7 +5690,11 @@ const file_model_proto_rawDesc = "" +
 	"\n" +
 	"\x06INVITE\x10\x05\x12\t\n" +
 	"\x05OFFER\x10\x06\x12\v\n" +
-	"\aRINGING\x10\a*<\n" +
+	"\aRINGING\x10\a\x12\b\n" +
+	"\x04JOIN\x10\b\x12\t\n" +
+	"\x05LEAVE\x10\t\x12\v\n" +
+	"\aREFRESH\x10\n" +
+	"*<\n" +
 	"\bRespCode\x12\f\n" +
 	"\bCONTINUE\x10\x00\x12\b\n" +
 	"\x04DROP\x10\x01\x12\v\n" +
@@ -4797,7 +5733,7 @@ func file_model_proto_rawDescGZIP() []byte {
 }
 
 var file_model_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
-var file_model_proto_msgTypes = make([]protoimpl.MessageInfo, 53)
+var file_model_proto_msgTypes = make([]protoimpl.MessageInfo, 58)
 var file_model_proto_goTypes = []any{
 	(AuthLevel)(0),            // 0: pbx.AuthLevel
 	(InfoNote)(0),             // 1: pbx.InfoNote
@@ -4814,154 +5750,167 @@ var file_model_proto_goTypes = []any{
 	(*SetDesc)(nil),           // 12: pbx.SetDesc
 	(*SeqRange)(nil),          // 13: pbx.SeqRange
 	(*GetOpts)(nil),           // 14: pbx.GetOpts
-	(*GetQuery)(nil),          // 15: pbx.GetQuery
-	(*SetQuery)(nil),          // 16: pbx.SetQuery
-	(*ClientHi)(nil),          // 17: pbx.ClientHi
-	(*ClientAcc)(nil),         // 18: pbx.ClientAcc
-	(*ClientLogin)(nil),       // 19: pbx.ClientLogin
-	(*ClientSub)(nil),         // 20: pbx.ClientSub
-	(*ClientLeave)(nil),       // 21: pbx.ClientLeave
-	(*ClientPub)(nil),         // 22: pbx.ClientPub
-	(*ClientGet)(nil),         // 23: pbx.ClientGet
-	(*ClientSet)(nil),         // 24: pbx.ClientSet
-	(*ClientDel)(nil),         // 25: pbx.ClientDel
-	(*ClientNote)(nil),        // 26: pbx.ClientNote
-	(*ClientExtra)(nil),       // 27: pbx.ClientExtra
-	(*ClientMsg)(nil),         // 28: pbx.ClientMsg
-	(*ServerCred)(nil),        // 29: pbx.ServerCred
-	(*TopicDesc)(nil),         // 30: pbx.TopicDesc
-	(*TopicSub)(nil),          // 31: pbx.TopicSub
-	(*DelValues)(nil),         // 32: pbx.DelValues
-	(*ServerCtrl)(nil),        // 33: pbx.ServerCtrl
-	(*ServerData)(nil),        // 34: pbx.ServerData
-	(*ServerPres)(nil),        // 35: pbx.ServerPres
-	(*ServerMeta)(nil),        // 36: pbx.ServerMeta
-	(*ServerInfo)(nil),        // 37: pbx.ServerInfo
-	(*ServerMsg)(nil),         // 38: pbx.ServerMsg
-	(*ServerResp)(nil),        // 39: pbx.ServerResp
-	(*Session)(nil),           // 40: pbx.Session
-	(*ClientReq)(nil),         // 41: pbx.ClientReq
-	(*SearchQuery)(nil),       // 42: pbx.SearchQuery
-	(*SearchFound)(nil),       // 43: pbx.SearchFound
-	(*TopicEvent)(nil),        // 44: pbx.TopicEvent
-	(*AccountEvent)(nil),      // 45: pbx.AccountEvent
-	(*SubscriptionEvent)(nil), // 46: pbx.SubscriptionEvent
-	(*MessageEvent)(nil),      // 47: pbx.MessageEvent
-	(*Auth)(nil),              // 48: pbx.Auth
-	(*FileMeta)(nil),          // 49: pbx.FileMeta
-	(*FileUpReq)(nil),         // 50: pbx.FileUpReq
-	(*FileUpResp)(nil),        // 51: pbx.FileUpResp
-	(*FileDownReq)(nil),       // 52: pbx.FileDownReq
-	(*FileDownResp)(nil),      // 53: pbx.FileDownResp
-	nil,                       // 54: pbx.ClientCred.ParamsEntry
-	nil,                       // 55: pbx.SetQuery.AuxEntry
-	nil,                       // 56: pbx.ClientPub.HeadEntry
-	nil,                       // 57: pbx.ServerCtrl.ParamsEntry
-	nil,                       // 58: pbx.ServerData.HeadEntry
-	nil,                       // 59: pbx.ServerMeta.AuxEntry
+	(*SearchOpts)(nil),        // 15: pbx.SearchOpts
+	(*GetQuery)(nil),          // 16: pbx.GetQuery
+	(*SetQuery)(nil),          // 17: pbx.SetQuery
+	(*ClientHi)(nil),          // 18: pbx.ClientHi
+	(*ClientAcc)(nil),         // 19: pbx.ClientAcc
+	(*ClientLogin)(nil),       // 20: pbx.ClientLogin
+	(*ClientSub)(nil),         // 21: pbx.ClientSub
+	(*ClientLeave)(nil),       // 22: pbx.ClientLeave
+	(*MessageRef)(nil),        // 23: pbx.MessageRef
+	(*ClientPub)(nil),         // 24: pbx.ClientPub
+	(*ClientGet)(nil),         // 25: pbx.ClientGet
+	(*ClientSet)(nil),         // 26: pbx.ClientSet
+	(*ClientDel)(nil),         // 27: pbx.ClientDel
+	(*ClientNote)(nil),        // 28: pbx.ClientNote
+	(*ClientExtra)(nil),       // 29: pbx.ClientExtra
+	(*ClientMsg)(nil),         // 30: pbx.ClientMsg
+	(*ServerCred)(nil),        // 31: pbx.ServerCred
+	(*TopicDesc)(nil),         // 32: pbx.TopicDesc
+	(*TopicSub)(nil),          // 33: pbx.TopicSub
+	(*DelValues)(nil),         // 34: pbx.DelValues
+	(*SearchResult)(nil),      // 35: pbx.SearchResult
+	(*ServerCtrl)(nil),        // 36: pbx.ServerCtrl
+	(*ServerData)(nil),        // 37: pbx.ServerData
+	(*ForwardedMessage)(nil),  // 38: pbx.ForwardedMessage
+	(*Reaction)(nil),          // 39: pbx.Reaction
+	(*ServerPres)(nil),        // 40: pbx.ServerPres
+	(*ServerMeta)(nil),        // 41: pbx.ServerMeta
+	(*ServerInfo)(nil),        // 42: pbx.ServerInfo
+	(*ServerMsg)(nil),         // 43: pbx.ServerMsg
+	(*ServerResp)(nil),        // 44: pbx.ServerResp
+	(*Session)(nil),           // 45: pbx.Session
+	(*ClientReq)(nil),         // 46: pbx.ClientReq
+	(*SearchQuery)(nil),       // 47: pbx.SearchQuery
+	(*SearchFound)(nil),       // 48: pbx.SearchFound
+	(*TopicEvent)(nil),        // 49: pbx.TopicEvent
+	(*AccountEvent)(nil),      // 50: pbx.AccountEvent
+	(*SubscriptionEvent)(nil), // 51: pbx.SubscriptionEvent
+	(*MessageEvent)(nil),      // 52: pbx.MessageEvent
+	(*Auth)(nil),              // 53: pbx.Auth
+	(*FileMeta)(nil),          // 54: pbx.FileMeta
+	(*FileUpReq)(nil),         // 55: pbx.FileUpReq
+	(*FileUpResp)(nil),        // 56: pbx.FileUpResp
+	(*FileDownReq)(nil),       // 57: pbx.FileDownReq
+	(*FileDownResp)(nil),      // 58: pbx.FileDownResp
+	nil,                       // 59: pbx.ClientCred.ParamsEntry
+	nil,                       // 60: pbx.SetQuery.AuxEntry
+	nil,                       // 61: pbx.ClientPub.HeadEntry
+	nil,                       // 62: pbx.ServerCtrl.ParamsEntry
+	nil,                       // 63: pbx.ServerData.HeadEntry
+	nil,                       // 64: pbx.ServerMeta.AuxEntry
 }
 var file_model_proto_depIdxs = []int32{
-	54, // 0: pbx.ClientCred.params:type_name -> pbx.ClientCred.ParamsEntry
+	59, // 0: pbx.ClientCred.params:type_name -> pbx.ClientCred.ParamsEntry
 	8,  // 1: pbx.SetDesc.default_acs:type_name -> pbx.DefaultAcsMode
 	13, // 2: pbx.GetOpts.ranges:type_name -> pbx.SeqRange
 	14, // 3: pbx.GetQuery.desc:type_name -> pbx.GetOpts
 	14, // 4: pbx.GetQuery.sub:type_name -> pbx.GetOpts
 	14, // 5: pbx.GetQuery.data:type_name -> pbx.GetOpts
-	12, // 6: pbx.SetQuery.desc:type_name -> pbx.SetDesc
-	10, // 7: pbx.SetQuery.sub:type_name -> pbx.SetSub
-	11, // 8: pbx.SetQuery.cred:type_name -> pbx.ClientCred
-	55, // 9: pbx.SetQuery.aux:type_name -> pbx.SetQuery.AuxEntry
-	12, // 10: pbx.ClientAcc.desc:type_name -> pbx.SetDesc
-	11, // 11: pbx.ClientAcc.cred:type_name -> pbx.ClientCred
-	0,  // 12: pbx.ClientAcc.auth_level:type_name -> pbx.AuthLevel
-	11, // 13: pbx.ClientLogin.cred:type_name -> pbx.ClientCred
-	16, // 14: pbx.ClientSub.set_query:type_name -> pbx.SetQuery
-	15, // 15: pbx.ClientSub.get_query:type_name -> pbx.GetQuery
-	56, // 16: pbx.ClientPub.head:type_name -> pbx.ClientPub.HeadEntry
-	15, // 17: pbx.ClientGet.query:type_name -> pbx.GetQuery
-	16, // 18: pbx.ClientSet.query:type_name -> pbx.SetQuery
-	5,  // 19: pbx.ClientDel.what:type_name -> pbx.ClientDel.What
-	13, // 20: pbx.ClientDel.del_seq:type_name -> pbx.SeqRange
-	11, // 21: pbx.ClientDel.cred:type_name -> pbx.ClientCred
-	1,  // 22: pbx.ClientNote.what:type_name -> pbx.InfoNote
-	2,  // 23: pbx.ClientNote.event:type_name -> pbx.CallEvent
-	0,  // 24: pbx.ClientExtra.auth_level:type_name -> pbx.AuthLevel
-	17, // 25: pbx.ClientMsg.hi:type_name -> pbx.ClientHi
-	18, // 26: pbx.ClientMsg.acc:type_name -> pbx.ClientAcc
-	19, // 27: pbx.ClientMsg.login:type_name -> pbx.ClientLogin
-	20, // 28: pbx.ClientMsg.sub:type_name -> pbx.ClientSub
-	21, // 29: pbx.ClientMsg.leave:type_name -> pbx.ClientLeave
-	22, // 30: pbx.ClientMsg.pub:type_name -> pbx.ClientPub
-	23, // 31: pbx.ClientMsg.get:type_name -> pbx.ClientGet
-	24, // 32: pbx.ClientMsg.set:type_name -> pbx.ClientSet
-	25, // 33: pbx.ClientMsg.del:type_name -> pbx.ClientDel
-	26, // 34: pbx.ClientMsg.note:type_name -> pbx.ClientNote
-	27, // 35: pbx.ClientMsg.extra:type_name -> pbx.ClientExtra
-	8,  // 36: pbx.TopicDesc.defacs:type_name -> pbx.DefaultAcsMode
-	9,  // 37: pbx.TopicDesc.acs:type_name -> pbx.AccessMode
-	9,  // 38: pbx.TopicSub.acs:type_name -> pbx.AccessMode
-	13, // 39: pbx.DelValues.del_seq:type_name -> pbx.SeqRange
-	57, // 40: pbx.ServerCtrl.params:type_name -> pbx.ServerCtrl.ParamsEntry
-	58, // 41: pbx.ServerData.head:type_name -> pbx.ServerData.HeadEntry
-	6,  // 42: pbx.ServerPres.what:type_name -> pbx.ServerPres.What
-	13, // 43: pbx.ServerPres.del_seq:type_name -> pbx.SeqRange
-	9,  // 44: pbx.ServerPres.acs:type_name -> pbx.AccessMode
-	30, // 45: pbx.ServerMeta.desc:type_name -> pbx.TopicDesc
-	31, // 46: pbx.ServerMeta.sub:type_name -> pbx.TopicSub
-	32, // 47: pbx.ServerMeta.del:type_name -> pbx.DelValues
-	29, // 48: pbx.ServerMeta.cred:type_name -> pbx.ServerCred
-	59, // 49: pbx.ServerMeta.aux:type_name -> pbx.ServerMeta.AuxEntry
-	1,  // 50: pbx.ServerInfo.what:type_name -> pbx.InfoNote
-	2,  // 51: pbx.ServerInfo.event:type_name -> pbx.CallEvent
-	33, // 52: pbx.ServerMsg.ctrl:type_name -> pbx.ServerCtrl
-	34, // 53: pbx.ServerMsg.data:type_name -> pbx.ServerData
-	35, // 54: pbx.ServerMsg.pres:type_name -> pbx.ServerPres
-	36, // 55: pbx.ServerMsg.meta:type_name -> pbx.ServerMeta
-	37, // 56: pbx.ServerMsg.info:type_name -> pbx.ServerInfo
-	3,  // 57: pbx.ServerResp.status:type_name -> pbx.RespCode
-	38, // 58: pbx.ServerResp.srvmsg:type_name -> pbx.ServerMsg
-	28, // 59: pbx.ServerResp.clmsg:type_name -> pbx.ClientMsg
-	0,  // 60: pbx.Session.auth_level:type_name -> pbx.AuthLevel
-	28, // 61: pbx.ClientReq.msg:type_name -> pbx.ClientMsg
-	40, // 62: pbx.ClientReq.sess:type_name -> pbx.Session
-	3,  // 63: pbx.SearchFound.status:type_name -> pbx.RespCode
-	31, // 64: pbx.SearchFound.result:type_name -> pbx.TopicSub
-	4,  // 65: pbx.TopicEvent.action:type_name -> pbx.Crud
-	30, // 66: pbx.TopicEvent.desc:type_name -> pbx.TopicDesc
-	4,  // 67: pbx.AccountEvent.action:type_name -> pbx.Crud
-	8,  // 68: pbx.AccountEvent.default_acs:type_name -> pbx.DefaultAcsMode
-	4,  // 69: pbx.SubscriptionEvent.action:type_name -> pbx.Crud
-	9,  // 70: pbx.SubscriptionEvent.mode:type_name -> pbx.AccessMode
-	4,  // 71: pbx.MessageEvent.action:type_name -> pbx.Crud
-	34, // 72: pbx.MessageEvent.msg:type_name -> pbx.ServerData
-	48, // 73: pbx.FileUpReq.auth:type_name -> pbx.Auth
-	49, // 74: pbx.FileUpReq.meta:type_name -> pbx.FileMeta
-	49, // 75: pbx.FileUpResp.meta:type_name -> pbx.FileMeta
-	48, // 76: pbx.FileDownReq.auth:type_name -> pbx.Auth
-	49, // 77: pbx.FileDownResp.meta:type_name -> pbx.FileMeta
-	28, // 78: pbx.Node.MessageLoop:input_type -> pbx.ClientMsg
-	50, // 79: pbx.Node.LargeFileReceive:input_type -> pbx.FileUpReq
-	52, // 80: pbx.Node.LargeFileServe:input_type -> pbx.FileDownReq
-	41, // 81: pbx.Plugin.FireHose:input_type -> pbx.ClientReq
-	42, // 82: pbx.Plugin.Find:input_type -> pbx.SearchQuery
-	45, // 83: pbx.Plugin.Account:input_type -> pbx.AccountEvent
-	44, // 84: pbx.Plugin.Topic:input_type -> pbx.TopicEvent
-	46, // 85: pbx.Plugin.Subscription:input_type -> pbx.SubscriptionEvent
-	47, // 86: pbx.Plugin.Message:input_type -> pbx.MessageEvent
-	38, // 87: pbx.Node.MessageLoop:output_type -> pbx.ServerMsg
-	51, // 88: pbx.Node.LargeFileReceive:output_type -> pbx.FileUpResp
-	53, // 89: pbx.Node.LargeFileServe:output_type -> pbx.FileDownResp
-	39, // 90: pbx.Plugin.FireHose:output_type -> pbx.ServerResp
-	43, // 91: pbx.Plugin.Find:output_type -> pbx.SearchFound
-	7,  // 92: pbx.Plugin.Account:output_type -> pbx.Unused
-	7,  // 93: pbx.Plugin.Topic:output_type -> pbx.Unused
-	7,  // 94: pbx.Plugin.Subscription:output_type -> pbx.Unused
-	7,  // 95: pbx.Plugin.Message:output_type -> pbx.Unused
-	87, // [87:96] is the sub-list for method output_type
-	78, // [78:87] is the sub-list for method input_type
-	78, // [78:78] is the sub-list for extension type_name
-	78, // [78:78] is the sub-list for extension extendee
-	0,  // [0:78] is the sub-list for field type_name
+	14, // 6: pbx.GetQuery.del:type_name -> pbx.GetOpts
+	15, // 7: pbx.GetQuery.search:type_name -> pbx.SearchOpts
+	12, // 8: pbx.SetQuery.desc:type_name -> pbx.SetDesc
+	10, // 9: pbx.SetQuery.sub:type_name -> pbx.SetSub
+	11, // 10: pbx.SetQuery.cred:type_name -> pbx.ClientCred
+	60, // 11: pbx.SetQuery.aux:type_name -> pbx.SetQuery.AuxEntry
+	12, // 12: pbx.ClientAcc.desc:type_name -> pbx.SetDesc
+	11, // 13: pbx.ClientAcc.cred:type_name -> pbx.ClientCred
+	0,  // 14: pbx.ClientAcc.auth_level:type_name -> pbx.AuthLevel
+	11, // 15: pbx.ClientLogin.cred:type_name -> pbx.ClientCred
+	17, // 16: pbx.ClientSub.set_query:type_name -> pbx.SetQuery
+	16, // 17: pbx.ClientSub.get_query:type_name -> pbx.GetQuery
+	61, // 18: pbx.ClientPub.head:type_name -> pbx.ClientPub.HeadEntry
+	23, // 19: pbx.ClientPub.forward:type_name -> pbx.MessageRef
+	16, // 20: pbx.ClientGet.query:type_name -> pbx.GetQuery
+	17, // 21: pbx.ClientSet.query:type_name -> pbx.SetQuery
+	5,  // 22: pbx.ClientDel.what:type_name -> pbx.ClientDel.What
+	13, // 23: pbx.ClientDel.del_seq:type_name -> pbx.SeqRange
+	11, // 24: pbx.ClientDel.cred:type_name -> pbx.ClientCred
+	1,  // 25: pbx.ClientNote.what:type_name -> pbx.InfoNote
+	2,  // 26: pbx.ClientNote.event:type_name -> pbx.CallEvent
+	0,  // 27: pbx.ClientExtra.auth_level:type_name -> pbx.AuthLevel
+	18, // 28: pbx.ClientMsg.hi:type_name -> pbx.ClientHi
+	19, // 29: pbx.ClientMsg.acc:type_name -> pbx.ClientAcc
+	20, // 30: pbx.ClientMsg.login:type_name -> pbx.ClientLogin
+	21, // 31: pbx.ClientMsg.sub:type_name -> pbx.ClientSub
+	22, // 32: pbx.ClientMsg.leave:type_name -> pbx.ClientLeave
+	24, // 33: pbx.ClientMsg.pub:type_name -> pbx.ClientPub
+	25, // 34: pbx.ClientMsg.get:type_name -> pbx.ClientGet
+	26, // 35: pbx.ClientMsg.set:type_name -> pbx.ClientSet
+	27, // 36: pbx.ClientMsg.del:type_name -> pbx.ClientDel
+	28, // 37: pbx.ClientMsg.note:type_name -> pbx.ClientNote
+	29, // 38: pbx.ClientMsg.extra:type_name -> pbx.ClientExtra
+	8,  // 39: pbx.TopicDesc.defacs:type_name -> pbx.DefaultAcsMode
+	9,  // 40: pbx.TopicDesc.acs:type_name -> pbx.AccessMode
+	9,  // 41: pbx.TopicSub.acs:type_name -> pbx.AccessMode
+	13, // 42: pbx.DelValues.del_seq:type_name -> pbx.SeqRange
+	33, // 43: pbx.SearchResult.peers:type_name -> pbx.TopicSub
+	37, // 44: pbx.SearchResult.messages:type_name -> pbx.ServerData
+	62, // 45: pbx.ServerCtrl.params:type_name -> pbx.ServerCtrl.ParamsEntry
+	63, // 46: pbx.ServerData.head:type_name -> pbx.ServerData.HeadEntry
+	38, // 47: pbx.ServerData.forwarded:type_name -> pbx.ForwardedMessage
+	39, // 48: pbx.ServerData.reactions:type_name -> pbx.Reaction
+	6,  // 49: pbx.ServerPres.what:type_name -> pbx.ServerPres.What
+	13, // 50: pbx.ServerPres.del_seq:type_name -> pbx.SeqRange
+	9,  // 51: pbx.ServerPres.acs:type_name -> pbx.AccessMode
+	32, // 52: pbx.ServerMeta.desc:type_name -> pbx.TopicDesc
+	33, // 53: pbx.ServerMeta.sub:type_name -> pbx.TopicSub
+	34, // 54: pbx.ServerMeta.del:type_name -> pbx.DelValues
+	31, // 55: pbx.ServerMeta.cred:type_name -> pbx.ServerCred
+	64, // 56: pbx.ServerMeta.aux:type_name -> pbx.ServerMeta.AuxEntry
+	35, // 57: pbx.ServerMeta.search:type_name -> pbx.SearchResult
+	1,  // 58: pbx.ServerInfo.what:type_name -> pbx.InfoNote
+	2,  // 59: pbx.ServerInfo.event:type_name -> pbx.CallEvent
+	36, // 60: pbx.ServerMsg.ctrl:type_name -> pbx.ServerCtrl
+	37, // 61: pbx.ServerMsg.data:type_name -> pbx.ServerData
+	40, // 62: pbx.ServerMsg.pres:type_name -> pbx.ServerPres
+	41, // 63: pbx.ServerMsg.meta:type_name -> pbx.ServerMeta
+	42, // 64: pbx.ServerMsg.info:type_name -> pbx.ServerInfo
+	3,  // 65: pbx.ServerResp.status:type_name -> pbx.RespCode
+	43, // 66: pbx.ServerResp.srvmsg:type_name -> pbx.ServerMsg
+	30, // 67: pbx.ServerResp.clmsg:type_name -> pbx.ClientMsg
+	0,  // 68: pbx.Session.auth_level:type_name -> pbx.AuthLevel
+	30, // 69: pbx.ClientReq.msg:type_name -> pbx.ClientMsg
+	45, // 70: pbx.ClientReq.sess:type_name -> pbx.Session
+	3,  // 71: pbx.SearchFound.status:type_name -> pbx.RespCode
+	33, // 72: pbx.SearchFound.result:type_name -> pbx.TopicSub
+	4,  // 73: pbx.TopicEvent.action:type_name -> pbx.Crud
+	32, // 74: pbx.TopicEvent.desc:type_name -> pbx.TopicDesc
+	4,  // 75: pbx.AccountEvent.action:type_name -> pbx.Crud
+	8,  // 76: pbx.AccountEvent.default_acs:type_name -> pbx.DefaultAcsMode
+	4,  // 77: pbx.SubscriptionEvent.action:type_name -> pbx.Crud
+	9,  // 78: pbx.SubscriptionEvent.mode:type_name -> pbx.AccessMode
+	4,  // 79: pbx.MessageEvent.action:type_name -> pbx.Crud
+	37, // 80: pbx.MessageEvent.msg:type_name -> pbx.ServerData
+	53, // 81: pbx.FileUpReq.auth:type_name -> pbx.Auth
+	54, // 82: pbx.FileUpReq.meta:type_name -> pbx.FileMeta
+	54, // 83: pbx.FileUpResp.meta:type_name -> pbx.FileMeta
+	53, // 84: pbx.FileDownReq.auth:type_name -> pbx.Auth
+	54, // 85: pbx.FileDownResp.meta:type_name -> pbx.FileMeta
+	30, // 86: pbx.Node.MessageLoop:input_type -> pbx.ClientMsg
+	55, // 87: pbx.Node.LargeFileReceive:input_type -> pbx.FileUpReq
+	57, // 88: pbx.Node.LargeFileServe:input_type -> pbx.FileDownReq
+	46, // 89: pbx.Plugin.FireHose:input_type -> pbx.ClientReq
+	47, // 90: pbx.Plugin.Find:input_type -> pbx.SearchQuery
+	50, // 91: pbx.Plugin.Account:input_type -> pbx.AccountEvent
+	49, // 92: pbx.Plugin.Topic:input_type -> pbx.TopicEvent
+	51, // 93: pbx.Plugin.Subscription:input_type -> pbx.SubscriptionEvent
+	52, // 94: pbx.Plugin.Message:input_type -> pbx.MessageEvent
+	43, // 95: pbx.Node.MessageLoop:output_type -> pbx.ServerMsg
+	56, // 96: pbx.Node.LargeFileReceive:output_type -> pbx.FileUpResp
+	58, // 97: pbx.Node.LargeFileServe:output_type -> pbx.FileDownResp
+	44, // 98: pbx.Plugin.FireHose:output_type -> pbx.ServerResp
+	48, // 99: pbx.Plugin.Find:output_type -> pbx.SearchFound
+	7,  // 100: pbx.Plugin.Account:output_type -> pbx.Unused
+	7,  // 101: pbx.Plugin.Topic:output_type -> pbx.Unused
+	7,  // 102: pbx.Plugin.Subscription:output_type -> pbx.Unused
+	7,  // 103: pbx.Plugin.Message:output_type -> pbx.Unused
+	95, // [95:104] is the sub-list for method output_type
+	86, // [86:95] is the sub-list for method input_type
+	86, // [86:86] is the sub-list for extension type_name
+	86, // [86:86] is the sub-list for extension extendee
+	0,  // [0:86] is the sub-list for field type_name
 }
 
 func init() { file_model_proto_init() }
@@ -4969,7 +5918,7 @@ func file_model_proto_init() {
 	if File_model_proto != nil {
 		return
 	}
-	file_model_proto_msgTypes[21].OneofWrappers = []any{
+	file_model_proto_msgTypes[23].OneofWrappers = []any{
 		(*ClientMsg_Hi)(nil),
 		(*ClientMsg_Acc)(nil),
 		(*ClientMsg_Login)(nil),
@@ -4981,7 +5930,7 @@ func file_model_proto_init() {
 		(*ClientMsg_Del)(nil),
 		(*ClientMsg_Note)(nil),
 	}
-	file_model_proto_msgTypes[31].OneofWrappers = []any{
+	file_model_proto_msgTypes[36].OneofWrappers = []any{
 		(*ServerMsg_Ctrl)(nil),
 		(*ServerMsg_Data)(nil),
 		(*ServerMsg_Pres)(nil),
@@ -4994,7 +5943,7 @@ func file_model_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_model_proto_rawDesc), len(file_model_proto_rawDesc)),
 			NumEnums:      7,
-			NumMessages:   53,
+			NumMessages:   58,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

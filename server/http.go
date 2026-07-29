@@ -6,6 +6,7 @@
  *
  *****************************************************************************/
 
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -28,6 +29,7 @@ import (
 	"chat/server/store/types"
 )
 
+// listenAndServe 完成listenAndServe所需的内部处理。
 func listenAndServe(addr string, mux *http.ServeMux, tlfConf *tls.Config, stop <-chan bool) error {
 	globals.shuttingDown = false
 
@@ -151,6 +153,7 @@ Loop:
 	return nil
 }
 
+// signalHandler 完成signal处理器所需的内部处理。
 func signalHandler() <-chan bool {
 	stop := make(chan bool)
 
@@ -172,10 +175,13 @@ func signalHandler() <-chan bool {
 // errorResponseWriter 是 http.ResponseWriter 的包装器，检测状态码 400+ 并替换
 // 默认错误消息为自定义消息。
 type errorResponseWriter struct {
+	// status 保存状态。
 	status int
+	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
 	http.ResponseWriter
 }
 
+// WriteHeader 保存 Write Header 对应的数据。
 func (w *errorResponseWriter) WriteHeader(status int) {
 	if status >= http.StatusBadRequest {
 		// charset=utf-8 是默认值，无需显式设置
@@ -186,6 +192,7 @@ func (w *errorResponseWriter) WriteHeader(status int) {
 	w.ResponseWriter.WriteHeader(status)
 }
 
+// Write 保存 Write 对应的数据。
 func (w *errorResponseWriter) Write(p []byte) (n int, err error) {
 	if w.status >= http.StatusBadRequest {
 		p, _ = json.Marshal(
@@ -257,6 +264,7 @@ func tlsRedirect(toPort string) http.HandlerFunc {
 	}
 }
 
+// base64URLToStdReplacer 保存base64URLToStdReplacer的共享实例或运行状态。
 var base64URLToStdReplacer = strings.NewReplacer("-", "+", "_", "/")
 
 // 可选 HTTP 头部包装器：
@@ -376,41 +384,63 @@ func getRemoteAddr(req *http.Request) string {
 
 // debugSession 是 Session 调试信息。
 type debugSession struct {
-	RemoteAddr string   `json:"remote_addr,omitempty"`
-	Ua         string   `json:"ua,omitempty"`
-	Uid        string   `json:"uid,omitempty"`
-	Sid        string   `json:"sid,omitempty"`
-	Clnode     string   `json:"clnode,omitempty"`
-	Subs       []string `json:"subs,omitempty"`
+	// RemoteAddr 保存RemoteAddr。
+	RemoteAddr string `json:"remote_addr,omitempty"`
+	// Ua 保存Ua。
+	Ua string `json:"ua,omitempty"`
+	// Uid 保存用户标识。
+	Uid string `json:"uid,omitempty"`
+	// Sid 保存Sid。
+	Sid string `json:"sid,omitempty"`
+	// Clnode 保存Clnode。
+	Clnode string `json:"clnode,omitempty"`
+	// Subs 保存Subs列表。
+	Subs []string `json:"subs,omitempty"`
 }
 
 // debugTopic 是 Topic 调试信息。
 type debugTopic struct {
-	Topic    string   `json:"topic,omitempty"`
-	Xorig    string   `json:"xorig,omitempty"`
-	IsProxy  bool     `json:"is_proxy,omitempty"`
-	PerUser  []string `json:"per_user,omitempty"`
-	PerSubs  []string `json:"per_subs,omitempty"`
+	// Topic 保存Topic。
+	Topic string `json:"topic,omitempty"`
+	// Xorig 保存Xorig。
+	Xorig string `json:"xorig,omitempty"`
+	// IsProxy 指示是否启用或满足Is代理。
+	IsProxy bool `json:"is_proxy,omitempty"`
+	// PerUser 保存Per用户列表。
+	PerUser []string `json:"per_user,omitempty"`
+	// PerSubs 保存PerSubs列表。
+	PerSubs []string `json:"per_subs,omitempty"`
+	// Sessions 保存Sessions列表。
 	Sessions []string `json:"sessions,omitempty"`
 }
 
 // debugCachedUser 是用户缓存条目调试信息。
 type debugCachedUser struct {
-	Uid    string `json:"uid,omitempty"`
-	Unread int    `json:"unread,omitempty"`
-	Topics int    `json:"topics,omitempty"`
+	// Uid 保存用户标识。
+	Uid string `json:"uid,omitempty"`
+	// Unread 保存Unread。
+	Unread int `json:"unread,omitempty"`
+	// Topics 保存Topics。
+	Topics int `json:"topics,omitempty"`
 }
 
 // debugDump 是服务器内部状态调试信息。
 type debugDump struct {
-	Version   string            `json:"server_version,omitempty"`
-	Build     string            `json:"build_id,omitempty"`
-	Timestamp time.Time         `json:"ts,omitempty"`
-	Sessions  []debugSession    `json:"sessions,omitempty"`
-	Topics    []debugTopic      `json:"topics,omitempty"`
+	// Version 保存版本。
+	Version string `json:"server_version,omitempty"`
+	// Build 保存Build。
+	Build string `json:"build_id,omitempty"`
+	// Timestamp 保存Timestamp。
+	Timestamp time.Time `json:"ts,omitempty"`
+	// Sessions 保存Sessions列表。
+	Sessions []debugSession `json:"sessions,omitempty"`
+	// Topics 保存Topics列表。
+	Topics []debugTopic `json:"topics,omitempty"`
+	// UserCache 指示是否启用或满足用户缓存。
 	UserCache []debugCachedUser `json:"user_cache,omitempty"`
 }
 
+// serveStatus 处理状态消息或事件。
 func serveStatus(wrt http.ResponseWriter, req *http.Request) {
 	wrt.Header().Set("Content-Type", "application/json")
 

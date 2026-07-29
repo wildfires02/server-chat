@@ -6,6 +6,7 @@
  *
  *****************************************************************************/
 
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 //go:generate protoc --go_out=../pbx --go_opt=paths=source_relative --go-grpc_out=../pbx --go-grpc_opt=paths=source_relative ../pbx/model.proto
@@ -64,7 +65,7 @@ import (
 
 const (
 	// currentVersion 是当前 API/协议版本
-	currentVersion = "0.25"
+	currentVersion = "0.29"
 	// minSupportedVersion 是支持的最小 API 版本
 	minSupportedVersion = "0.20"
 
@@ -132,9 +133,11 @@ var buildstamp = "undef"
 type credValidator struct {
 	// 需要此验证器的认证级别
 	requiredAuthLvl []auth.Level
-	addToTags       bool
+	// addToTags 保存addToTags。
+	addToTags bool
 }
 
+// globals 保存globals的共享实例或运行状态。
 var globals struct {
 	// Topic 缓存和处理
 	hub *Hub
@@ -205,6 +208,9 @@ var globals struct {
 	// ICE 服务器配置（视频通话）
 	iceServers []iceServer
 
+	// Agora 群组语音和视频通话服务端配置；nil 表示未启用。
+	agora *agoraProvider
+
 	// 是否启用 WebSocket 每消息压缩协商
 	wsCompression bool
 
@@ -231,6 +237,7 @@ type validatorConfig struct {
 
 // 未验证用户账号垃圾回收配置。
 type accountGcConfig struct {
+	// Enabled 指示是否启用或满足Enabled。
 	Enabled bool `json:"enabled"`
 	// 运行 GC 的频率（秒）
 	GcPeriod int `json:"gc_period"`
@@ -322,18 +329,28 @@ type configType struct {
 	MsgDeleteAge int `json:"msg_delete_age"`
 
 	// 子系统配置
-	Cluster   json.RawMessage             `json:"cluster_config"`
-	Plugin    json.RawMessage             `json:"plugins"`
-	Store     json.RawMessage             `json:"store_config"`
-	Push      json.RawMessage             `json:"push"`
-	TLS       json.RawMessage             `json:"tls"`
-	Auth      map[string]json.RawMessage  `json:"auth_config"`
+	Cluster json.RawMessage `json:"cluster_config"`
+	// Plugin 保存Plugin。
+	Plugin json.RawMessage `json:"plugins"`
+	// Store 保存存储。
+	Store json.RawMessage `json:"store_config"`
+	// Push 保存Push。
+	Push json.RawMessage `json:"push"`
+	// TLS 保存TLS。
+	TLS json.RawMessage `json:"tls"`
+	// Auth 按键索引认证。
+	Auth map[string]json.RawMessage `json:"auth_config"`
+	// Validator 按键索引校验器。
 	Validator map[string]*validatorConfig `json:"acc_validation"`
-	AccountGC *accountGcConfig            `json:"acc_gc_config"`
-	Media     *mediaConfig                `json:"media"`
-	WebRTC    json.RawMessage             `json:"webrtc"`
+	// AccountGC 保存AccountGC。
+	AccountGC *accountGcConfig `json:"acc_gc_config"`
+	// Media 保存媒体。
+	Media *mediaConfig `json:"media"`
+	// WebRTC 保存WebRTC。
+	WebRTC json.RawMessage `json:"webrtc"`
 }
 
+// main 解析启动参数、初始化依赖并运行当前服务或命令。
 func main() {
 	executable, _ := os.Executable()
 
@@ -674,6 +691,12 @@ func main() {
 	globals.sessionStore = NewSessionStore(idleSessionTimeout + 15*time.Second)
 	// Hub（主消息路由器）
 	globals.hub = newHub()
+	// Hub 就绪后启动定时队列扫描；进程退出时显式停止后台 goroutine。
+	stopScheduledMessages := scheduledMessagesRun()
+	defer func() {
+		stopScheduledMessages <- true
+		logs.Info.Println("Stopped scheduled messages dispatcher")
+	}()
 
 	// 开始接受集群流量
 	if globals.cluster != nil {
@@ -821,6 +844,7 @@ func main() {
 	}
 }
 
+// stripJSONComments 完成stripJSONComments所需的内部处理。
 func stripJSONComments(data []byte) []byte {
 	var buf bytes.Buffer
 	inString := false

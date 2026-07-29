@@ -1,3 +1,4 @@
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -11,19 +12,26 @@ import (
 
 // presParams 定义创建在线通知的参数
 type presParams struct {
+	// userAgent 指示是否启用或满足用户Agent。
 	userAgent string
-	seqID     int
-	delID     int
-	delSeq    []MsgRange
+	// seqID 保存序列号标识。
+	seqID int
+	// delID 保存del标识。
+	delID int
+	// delSeq 保存del序列号列表。
+	delSeq []MsgRange
 
 	// 执行操作的用户 Uid
 	actor string
 	// 操作目标
 	target string
-	dWant  string
+	// dWant 保存dWant。
+	dWant string
+	// dGiven 保存dGiven。
 	dGiven string
 }
 
+// presFilters 保存presFilters的数据和运行状态。
 type presFilters struct {
 	// 仅向具有此访问模式非零的用户发送消息
 	filterIn types.AccessMode
@@ -35,6 +43,7 @@ type presFilters struct {
 	excludeUser string
 }
 
+// packAcs 完成packAcs所需的内部处理。
 func (p *presParams) packAcs() *MsgAccessMode {
 	if p.dWant != "" || p.dGiven != "" {
 		return &MsgAccessMode{Want: p.dWant, Given: p.dGiven}

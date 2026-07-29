@@ -1,3 +1,4 @@
+// Package main 实现服务端命令行客户端。
 package main
 
 import (
@@ -17,24 +18,41 @@ import (
 	"google.golang.org/grpc"
 )
 
+// Client 保存客户端的数据和运行状态。
 type Client struct {
-	Conn         *grpc.ClientConn
-	Stream       pbx.Node_MessageLoopClient
-	MsgID        int64
-	DefaultUser  string
+	// Conn 保存连接。
+	Conn *grpc.ClientConn
+	// Stream 保存数据流。
+	Stream pbx.Node_MessageLoopClient
+	// MsgID 保存Msg标识。
+	MsgID int64
+	// DefaultUser 保存默认用户。
+	DefaultUser string
+	// DefaultTopic 保存默认Topic。
 	DefaultTopic string
-	Variables    map[string]interface{}
-	WaitingFor   *ParsedCmd
-	WaitingChan  chan *pbx.ServerCtrl
-	Verbose      bool
-	Interactive  bool
-	SaveCookie   bool
-	CookieFile   string
-	ApiKey       string
-	AuthToken    string
-	mu           sync.Mutex
+	// Variables 按键索引Variables。
+	Variables map[string]interface{}
+	// WaitingFor 保存WaitingFor。
+	WaitingFor *ParsedCmd
+	// WaitingChan 传递WaitingChan相关的异步事件。
+	WaitingChan chan *pbx.ServerCtrl
+	// Verbose 保存Verbose。
+	Verbose bool
+	// Interactive 保存Interactive。
+	Interactive bool
+	// SaveCookie 保存SaveCookie。
+	SaveCookie bool
+	// CookieFile 保存Cookie文件。
+	CookieFile string
+	// ApiKey 保存API键。
+	ApiKey string
+	// AuthToken 保存认证令牌。
+	AuthToken string
+	// mu 保护客户端的并发读写。
+	mu sync.Mutex
 }
 
+// NewClient 创建并初始化 Client。
 func NewClient(conn *grpc.ClientConn, stream pbx.Node_MessageLoopClient, verbose, interactive, saveCookie bool, cookieFile, apiKey string) *Client {
 	return &Client{
 		Conn:         conn,
@@ -51,10 +69,12 @@ func NewClient(conn *grpc.ClientConn, stream pbx.Node_MessageLoopClient, verbose
 	}
 }
 
+// NextID 完成Next标识所需的内部处理。
 func (c *Client) NextID() int64 {
 	return atomic.AddInt64(&c.MsgID, 1)
 }
 
+// Run 启动并运行Run处理流程。
 func (c *Client) Run(ctx context.Context, initialLoginMsg *pbx.ClientMsg) error {
 	// Send Hi message
 	hiMsg := &pbx.ClientMsg{
@@ -62,7 +82,7 @@ func (c *Client) Run(ctx context.Context, initialLoginMsg *pbx.ClientMsg) error 
 			Hi: &pbx.ClientHi{
 				Id:         fmt.Sprintf("%d", c.NextID()),
 				UserAgent:  "cli-go/3.1.0",
-				Ver:        "0.22.0",
+				Ver:        "0.29",
 				Lang:       "EN",
 				Background: !c.Interactive,
 			},
@@ -118,6 +138,7 @@ func (c *Client) Run(ctx context.Context, initialLoginMsg *pbx.ClientMsg) error 
 	return <-errChan
 }
 
+// processLine 处理Line消息或事件。
 func (c *Client) processLine(line string) error {
 	cmd, err := ParseCommandLine(line, c.NextID(), c.DefaultUser, c.DefaultTopic, c.ApiKey)
 	if err != nil {
@@ -152,6 +173,7 @@ func (c *Client) processLine(line string) error {
 	return nil
 }
 
+// executeLocalCommand 完成executeLocal命令所需的内部处理。
 func (c *Client) executeLocalCommand(cmd *ParsedCmd) {
 	if cmd.SleepMs > 0 {
 		time.Sleep(time.Duration(cmd.SleepMs) * time.Millisecond)
@@ -169,6 +191,7 @@ func (c *Client) executeLocalCommand(cmd *ParsedCmd) {
 	}
 }
 
+// sendServerMessage 处理服务端消息消息或事件。
 func (c *Client) sendServerMessage(cmd *ParsedCmd) error {
 	if c.Verbose {
 		fmt.Printf("=> %s\n", PrettyJSON(cmd.Msg))
@@ -208,6 +231,7 @@ func (c *Client) sendServerMessage(cmd *ParsedCmd) error {
 	return nil
 }
 
+// receiveLoop 持续运行receiveLoop，直到输入通道关闭或收到停止信号。
 func (c *Client) receiveLoop() error {
 	for {
 		msg, err := c.Stream.Recv()
@@ -237,6 +261,7 @@ func (c *Client) receiveLoop() error {
 	}
 }
 
+// handleCtrl 处理Ctrl消息或事件。
 func (c *Client) handleCtrl(ctrl *pbx.ServerCtrl) {
 	topicStr := ""
 	if ctrl.Topic != "" {
@@ -276,6 +301,7 @@ func (c *Client) handleCtrl(ctrl *pbx.ServerCtrl) {
 	c.mu.Unlock()
 }
 
+// handleMeta 处理元数据消息或事件。
 func (c *Client) handleMeta(meta *pbx.ServerMeta) {
 	var what []string
 	if len(meta.Sub) > 0 {
@@ -298,6 +324,7 @@ func (c *Client) handleMeta(meta *pbx.ServerMeta) {
 	}
 }
 
+// handleData 处理数据消息或事件。
 func (c *Client) handleData(data *pbx.ServerData) {
 	fmt.Printf("\n\rFrom: %s\n", data.FromUserId)
 	fmt.Printf("Topic: %s\n", data.Topic)
@@ -311,10 +338,12 @@ func (c *Client) handleData(data *pbx.ServerData) {
 	fmt.Printf("Content: %s\n", string(data.Content))
 }
 
+// handlePres 处理Pres消息或事件。
 func (c *Client) handlePres(pres *pbx.ServerPres) {
 	fmt.Printf("\r<= pres %s %s\n", pres.What.String(), pres.Topic)
 }
 
+// handleInfo 处理通知消息或事件。
 func (c *Client) handleInfo(info *pbx.ServerInfo) {
 	fmt.Printf("\r<= info %s by %s in topic %s\n", info.What.String(), info.FromUserId, info.Topic)
 }

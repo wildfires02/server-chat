@@ -1,3 +1,4 @@
+// Package common 提供消息推送实现。
 package common
 
 import (
@@ -14,41 +15,60 @@ import (
 // 针对特定通知类型要发送的载荷。
 type Payload struct {
 	// APNS 和 Android 通用
-	Body         string   `json:"body,omitempty"`
-	Title        string   `json:"title,omitempty"`
-	TitleLocKey  string   `json:"title_loc_key,omitempty"`
+	Body string `json:"body,omitempty"`
+	// Title 保存Title。
+	Title string `json:"title,omitempty"`
+	// TitleLocKey 保护载荷的并发读写。
+	TitleLocKey string `json:"title_loc_key,omitempty"`
+	// TitleLocArgs 保存TitleLocArgs列表。
 	TitleLocArgs []string `json:"title_loc_args,omitempty"`
 
 	// Android 专用
-	BodyLocKey  string   `json:"body_loc_key,omitempty"`
+	BodyLocKey string `json:"body_loc_key,omitempty"`
+	// BodyLocArgs 保存BodyLocArgs列表。
 	BodyLocArgs []string `json:"body_loc_args,omitempty"`
-	Icon        string   `json:"icon,omitempty"`
-	Color       string   `json:"color,omitempty"`
-	ClickAction string   `json:"click_action,omitempty"`
-	Sound       string   `json:"sound,omitempty"`
-	Image       string   `json:"image,omitempty"`
+	// Icon 保存Icon。
+	Icon string `json:"icon,omitempty"`
+	// Color 保存Color。
+	Color string `json:"color,omitempty"`
+	// ClickAction 保存ClickAction。
+	ClickAction string `json:"click_action,omitempty"`
+	// Sound 保存Sound。
+	Sound string `json:"sound,omitempty"`
+	// Image 保存Image。
+	Image string `json:"image,omitempty"`
 
 	// APNS 专用
-	Action          string   `json:"action,omitempty"`
-	ActionLocKey    string   `json:"action_loc_key,omitempty"`
-	LaunchImage     string   `json:"launch_image,omitempty"`
-	LocArgs         []string `json:"loc_args,omitempty"`
-	LocKey          string   `json:"loc_key,omitempty"`
-	Subtitle        string   `json:"subtitle,omitempty"`
-	SummaryArg      string   `json:"summary_arg,omitempty"`
-	SummaryArgCount int      `json:"summary_arg_count,omitempty"`
+	Action string `json:"action,omitempty"`
+	// ActionLocKey 保护载荷的并发读写。
+	ActionLocKey string `json:"action_loc_key,omitempty"`
+	// LaunchImage 保存LaunchImage。
+	LaunchImage string `json:"launch_image,omitempty"`
+	// LocArgs 保存LocArgs列表。
+	LocArgs []string `json:"loc_args,omitempty"`
+	// LocKey 保护载荷的并发读写。
+	LocKey string `json:"loc_key,omitempty"`
+	// Subtitle 保存Subtitle。
+	Subtitle string `json:"subtitle,omitempty"`
+	// SummaryArg 保存SummaryArg。
+	SummaryArg string `json:"summary_arg,omitempty"`
+	// SummaryArgCount 保存SummaryArg数量。
+	SummaryArgCount int `json:"summary_arg_count,omitempty"`
 }
 
 // Config 是通知载荷的配置。
 type Config struct {
+	// Enabled 指示是否启用或满足Enabled。
 	Enabled bool `json:"enabled,omitempty"`
 	// 所有推送类型的通用默认值。
 	Payload
 	// 各推送类型的专属配置。
 	Msg Payload `json:"msg,omitempty"`
+	// Sub 保存订阅。
 	Sub Payload `json:"sub,omitempty"`
 }
 
+// getStringAttr 查询并返回StringAttr。
 func (cp Payload) getStringAttr(field string) string {
 	val := reflect.ValueOf(cp).FieldByName(field)
 	if !val.IsValid() {
@@ -60,6 +80,7 @@ func (cp Payload) getStringAttr(field string) string {
 	return ""
 }
 
+// getIntAttr 查询并返回IntAttr。
 func (cp Payload) getIntAttr(field string) int {
 	val := reflect.ValueOf(cp).FieldByName(field)
 	if !val.IsValid() {
@@ -71,6 +92,7 @@ func (cp Payload) getIntAttr(field string) int {
 	return 0
 }
 
+// GetStringField 返回 String Field。
 func (cc *Config) GetStringField(what, field string) string {
 	var val string
 	switch what {
@@ -85,6 +107,7 @@ func (cc *Config) GetStringField(what, field string) string {
 	return val
 }
 
+// GetIntField 返回 Int Field。
 func (cc *Config) GetIntField(what, field string) int {
 	var val int
 	switch what {
@@ -226,6 +249,7 @@ const (
 	HeaderApnsPushType = "apns-push-type"
 )
 
+// ApnsPushTypeType 表示ApnsPushTypeType领域值。
 type ApnsPushTypeType string
 
 const (
@@ -262,32 +286,54 @@ const (
 // Aps 是 APNS 载荷。说明请参见：
 // https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification#2943363
 type Aps struct {
-	Alert             *ApsAlert             `json:"alert,omitempty"`
-	Badge             int                   `json:"badge,omitempty"`
-	Category          string                `json:"category,omitempty"`
-	ContentAvailable  int                   `json:"content-available,omitempty"`
+	// Alert 保存Alert。
+	Alert *ApsAlert `json:"alert,omitempty"`
+	// Badge 保存Badge。
+	Badge int `json:"badge,omitempty"`
+	// Category 保存Category。
+	Category string `json:"category,omitempty"`
+	// ContentAvailable 保存正文Available。
+	ContentAvailable int `json:"content-available,omitempty"`
+	// InterruptionLevel 保存InterruptionLevel。
 	InterruptionLevel InterruptionLevelType `json:"interruption-level,omitempty"`
-	MutableContent    int                   `json:"mutable-content,omitempty"`
-	RelevanceScore    any                   `json:"relevance-score,omitempty"`
-	Sound             any                   `json:"sound,omitempty"`
-	ThreadID          string                `json:"thread-id,omitempty"`
-	URLArgs           []string              `json:"url-args,omitempty"`
+	// MutableContent 保存Mutable正文。
+	MutableContent int `json:"mutable-content,omitempty"`
+	// RelevanceScore 保存RelevanceScore。
+	RelevanceScore any `json:"relevance-score,omitempty"`
+	// Sound 保存Sound。
+	Sound any `json:"sound,omitempty"`
+	// ThreadID 保存Thread标识。
+	ThreadID string `json:"thread-id,omitempty"`
+	// URLArgs 保存URLArgs列表。
+	URLArgs []string `json:"url-args,omitempty"`
 }
 
 // ApsAlert 是 aps.Alert 字段的内容。
 type ApsAlert struct {
-	Action          string   `json:"action,omitempty"`
-	ActionLocKey    string   `json:"action-loc-key,omitempty"`
-	Body            string   `json:"body,omitempty"`
-	LaunchImage     string   `json:"launch-image,omitempty"`
-	LocArgs         []string `json:"loc-args,omitempty"`
-	LocKey          string   `json:"loc-key,omitempty"`
-	Title           string   `json:"title,omitempty"`
-	Subtitle        string   `json:"subtitle,omitempty"`
-	TitleLocArgs    []string `json:"title-loc-args,omitempty"`
-	TitleLocKey     string   `json:"title-loc-key,omitempty"`
-	SummaryArg      string   `json:"summary-arg,omitempty"`
-	SummaryArgCount int      `json:"summary-arg-count,omitempty"`
+	// Action 保存Action。
+	Action string `json:"action,omitempty"`
+	// ActionLocKey 保护ApsAlert的并发读写。
+	ActionLocKey string `json:"action-loc-key,omitempty"`
+	// Body 保存Body。
+	Body string `json:"body,omitempty"`
+	// LaunchImage 保存LaunchImage。
+	LaunchImage string `json:"launch-image,omitempty"`
+	// LocArgs 保存LocArgs列表。
+	LocArgs []string `json:"loc-args,omitempty"`
+	// LocKey 保护ApsAlert的并发读写。
+	LocKey string `json:"loc-key,omitempty"`
+	// Title 保存Title。
+	Title string `json:"title,omitempty"`
+	// Subtitle 保存Subtitle。
+	Subtitle string `json:"subtitle,omitempty"`
+	// TitleLocArgs 保存TitleLocArgs列表。
+	TitleLocArgs []string `json:"title-loc-args,omitempty"`
+	// TitleLocKey 保护ApsAlert的并发读写。
+	TitleLocKey string `json:"title-loc-key,omitempty"`
+	// SummaryArg 保存SummaryArg。
+	SummaryArg string `json:"summary-arg,omitempty"`
+	// SummaryArgCount 保存SummaryArg数量。
+	SummaryArgCount int `json:"summary-arg-count,omitempty"`
 }
 
 // FCM 错误码
@@ -460,6 +506,7 @@ const (
 
 // GApiError 存储 Google API 调用返回的错误的简化表示。
 type GApiError struct {
+	// HttpCode 保存HTTPCode。
 	HttpCode int
 	// 此字段信息量不大，但可以记录供用户参考。
 	ErrMessage string

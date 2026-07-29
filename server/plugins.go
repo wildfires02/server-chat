@@ -15,66 +15,103 @@ import (
 )
 
 const (
+	// plgHi 指定plgHi。
 	plgHi = 1 << iota
+	// plgAcc 指定plgAcc。
 	plgAcc
+	// plgLogin 指定plg登录。
 	plgLogin
+	// plgSub 指定plg订阅。
 	plgSub
+	// plgLeave 指定plgLeave。
 	plgLeave
+	// plgPub 指定plgPub。
 	plgPub
+	// plgGet 指定plgGet。
 	plgGet
+	// plgSet 指定plgSet。
 	plgSet
+	// plgDel 指定plgDel。
 	plgDel
+	// plgNote 指定plg事件通知。
 	plgNote
+	// plgData 指定plg数据。
 	plgData
+	// plgMeta 指定plg元数据。
 	plgMeta
+	// plgPres 指定plgPres。
 	plgPres
+	// plgInfo 指定plg通知。
 	plgInfo
 
+	// plgClientMask 指定plg客户端Mask。
 	plgClientMask = plgHi | plgAcc | plgLogin | plgSub | plgLeave | plgPub | plgGet | plgSet | plgDel | plgNote
+	// plgServerMask 指定plg服务端Mask。
 	plgServerMask = plgData | plgMeta | plgPres | plgInfo
 )
 
 const (
+	// plgActCreate 指定plgActCreate。
 	plgActCreate = 1 << iota
+	// plgActUpd 指定plgActUpd。
 	plgActUpd
+	// plgActDel 指定plgActDel。
 	plgActDel
 
+	// plgActMask 指定plgActMask。
 	plgActMask = plgActCreate | plgActUpd | plgActDel
 )
 
 const (
+	// plgTopicMe 指定plgTopicMe。
 	plgTopicMe = 1 << iota
+	// plgTopicFnd 指定plgTopicFnd。
 	plgTopicFnd
+	// plgTopicP2P 指定plgTopicP2P。
 	plgTopicP2P
+	// plgTopicGrp 指定plgTopicGrp。
 	plgTopicGrp
+	// plgTopicSys 指定plgTopicSys。
 	plgTopicSys
+	// plgTopicSlf 指定plgTopicSlf。
 	plgTopicSlf
+	// plgTopicNew 指定plgTopicNew。
 	plgTopicNew
+	// plgTopicNch 指定plgTopicNch。
 	plgTopicNch
 
+	// plgTopicCatMask 指定plgTopicCatMask。
 	plgTopicCatMask = plgTopicMe | plgTopicFnd | plgTopicP2P | plgTopicGrp | plgTopicSys | plgTopicSlf
 )
 
 const (
+	// plgFilterByTopicType 指定plg过滤条件ByTopicType。
 	plgFilterByTopicType = 1 << iota
+	// plgFilterByPacket 指定plg过滤条件ByPacket。
 	plgFilterByPacket
+	// plgFilterByAction 指定plg过滤条件ByAction。
 	plgFilterByAction
 )
 
 var (
+	// plgPacketNames 保存plgPacketNames的共享实例或运行状态。
 	plgPacketNames = []string{
 		"hi", "acc", "login", "sub", "leave", "pub", "get", "set", "del", "note",
 		"data", "meta", "pres", "info",
 	}
 
+	// plgTopicCatNames 保存plgTopicCatNames的共享实例或运行状态。
 	plgTopicCatNames = []string{"me", "fnd", "p2p", "grp", "sys", "slf", "new", "nch"}
 )
 
 // PluginFilter 是定义过滤类型的枚举。
 type PluginFilter struct {
-	byPacket    int
+	// byPacket 保存byPacket。
+	byPacket int
+	// byTopicType 保存byTopicType。
 	byTopicType int
-	byAction    int
+	// byAction 保存byAction。
+	byAction int
 }
 
 // ParsePluginFilter 解析过滤器配置字符串。
@@ -199,7 +236,9 @@ type pluginRPCFilterConfig struct {
 	Find bool
 }
 
+// pluginConfig 保存plugin配置的数据和运行状态。
 type pluginConfig struct {
+	// Enabled 指示是否启用或满足Enabled。
 	Enabled bool `json:"enabled"`
 	// 唯一的服务名称
 	Name string `json:"name"`
@@ -217,24 +256,38 @@ type pluginConfig struct {
 
 // Plugin 定义 gRPC 插件的客户端参数。
 type Plugin struct {
-	name    string
+	// name 保存名称。
+	name string
+	// timeout 保存超时时间。
 	timeout time.Duration
 	// 各方法的过滤器
-	filterFireHose     *PluginFilter
-	filterAccount      *PluginFilter
-	filterTopic        *PluginFilter
+	filterFireHose *PluginFilter
+	// filterAccount 保存过滤条件Account。
+	filterAccount *PluginFilter
+	// filterTopic 保存过滤条件Topic。
+	filterTopic *PluginFilter
+	// filterSubscription 保存过滤条件订阅。
 	filterSubscription *PluginFilter
-	filterMessage      *PluginFilter
-	filterFind         bool
-	failureCode        int
-	failureText        string
-	network            string
-	addr               string
+	// filterMessage 保存过滤条件消息。
+	filterMessage *PluginFilter
+	// filterFind 保存过滤条件Find。
+	filterFind bool
+	// failureCode 保存failureCode。
+	failureCode int
+	// failureText 保存failureText。
+	failureText string
+	// network 保存network。
+	network string
+	// addr 保存addr。
+	addr string
 
-	conn   *grpc.ClientConn
+	// conn 保存连接。
+	conn *grpc.ClientConn
+	// client 保存客户端。
 	client pbx.PluginClient
 }
 
+// pluginsInit 完成pluginsInit所需的内部处理。
 func pluginsInit(configString json.RawMessage) {
 	// 检查是否定义了任何插件
 	if len(configString) == 0 {
@@ -321,6 +374,7 @@ func pluginsInit(configString json.RawMessage) {
 	}
 }
 
+// pluginsShutdown 完成pluginsShutdown所需的内部处理。
 func pluginsShutdown() {
 	if globals.plugins == nil {
 		return
@@ -331,6 +385,7 @@ func pluginsShutdown() {
 	}
 }
 
+// pluginGenerateClientReq 完成pluginGenerate客户端Req所需的内部处理。
 func pluginGenerateClientReq(sess *Session, msg *ClientComMessage) *pbx.ClientReq {
 	cmsg := pbCliSerialize(msg)
 	if cmsg == nil {
@@ -350,6 +405,7 @@ func pluginGenerateClientReq(sess *Session, msg *ClientComMessage) *pbx.ClientRe
 	}
 }
 
+// pluginFireHose 完成pluginFireHose所需的内部处理。
 func pluginFireHose(sess *Session, msg *ClientComMessage) (*ClientComMessage, *ServerComMessage) {
 	if globals.plugins == nil {
 		// 返回原始消息以继续处理，不做修改
@@ -473,6 +529,7 @@ func pluginFind(user types.Uid, query string) (string, []types.Subscription, err
 	return query, nil, nil
 }
 
+// pluginAccount 完成pluginAccount所需的内部处理。
 func pluginAccount(user *types.User, action int) {
 	if globals.plugins == nil {
 		return
@@ -513,6 +570,7 @@ func pluginAccount(user *types.User, action int) {
 	}
 }
 
+// pluginTopic 完成pluginTopic所需的内部处理。
 func pluginTopic(topic *Topic, action int) {
 	if globals.plugins == nil {
 		return
@@ -548,6 +606,7 @@ func pluginTopic(topic *Topic, action int) {
 	}
 }
 
+// pluginSubscription 完成plugin订阅所需的内部处理。
 func pluginSubscription(sub *types.Subscription, action int) {
 	if globals.plugins == nil {
 		return
@@ -703,6 +762,7 @@ func pluginDoFiltering(filter *PluginFilter, msg *ClientComMessage) bool {
 	return false
 }
 
+// pluginActionToCrud 完成pluginActionToCrud所需的内部处理。
 func pluginActionToCrud(action int) pbx.Crud {
 	switch action {
 	case plgActCreate:

@@ -15,15 +15,24 @@ import (
 // Hash 是本包使用的哈希函数签名。
 type Hash func(data []byte) uint32
 
+// elem 保存elem的数据和运行状态。
 type elem struct {
-	key  string
+	// key 保存键。
+	key string
+	// hash 指示是否启用或满足哈希。
 	hash uint32
 }
 
+// sortable 表示sortable领域值。
 type sortable []elem
 
-func (k sortable) Len() int      { return len(k) }
+// Len 返回集合中的元素数量。
+func (k sortable) Len() int { return len(k) }
+
+// Swap 交换排序集合中两个位置的元素。
 func (k sortable) Swap(i, j int) { k[i], k[j] = k[j], k[i] }
+
+// Less 报告排序位置 i 的元素是否应位于位置 j 之前。
 func (k sortable) Less(i, j int) bool {
 	// 弱哈希函数可能导致冲突。
 	if k[i].hash < k[j].hash {
@@ -39,9 +48,12 @@ func (k sortable) Less(i, j int) bool {
 type Ring struct {
 	keys []elem // 排序后的键列表。
 
+	// signature 保存signature。
 	signature string
-	replicas  int
-	hashfunc  Hash
+	// replicas 保存replicas。
+	replicas int
+	// hashfunc 指示是否启用或满足hashfunc。
+	hashfunc Hash
 }
 
 // New 初始化一个空的环哈希，给定副本数量和哈希函数。
@@ -126,6 +138,7 @@ func (ring *Ring) Signature() string {
 	return ring.signature
 }
 
+// dump 完成dump所需的内部处理。
 func (ring *Ring) dump() {
 	for _, e := range ring.keys {
 		logs.Info.Printf("key: '%s', hash=%d", e.key, e.hash)

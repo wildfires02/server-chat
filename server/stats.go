@@ -3,6 +3,7 @@
 // 状态更新在单独的 goroutine 中运行，以避免
 // 阻塞主逻辑流程。
 
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -24,12 +25,17 @@ import (
 //	[Bounds[i-1], Bounds[i]) for 0 < i < length
 //	[Bounds[i-1], +inf) for i = length
 type histogram struct {
-	Count          int64     `json:"count"`
-	Sum            float64   `json:"sum"`
-	CountPerBucket []int64   `json:"count_per_bucket"`
-	Bounds         []float64 `json:"bounds"`
+	// Count 保存数量。
+	Count int64 `json:"count"`
+	// Sum 保存Sum。
+	Sum float64 `json:"sum"`
+	// CountPerBucket 保存数量PerBucket列表。
+	CountPerBucket []int64 `json:"count_per_bucket"`
+	// Bounds 保存Bounds列表。
+	Bounds []float64 `json:"bounds"`
 }
 
+// addSample 向当前集合添加Sample。
 func (h *histogram) addSample(v float64) {
 	h.Count++
 	h.Sum += v
@@ -37,6 +43,7 @@ func (h *histogram) addSample(v float64) {
 	h.CountPerBucket[idx]++
 }
 
+// String 返回当前值的可读字符串表示。
 func (h *histogram) String() string {
 	if r, err := json.Marshal(h); err == nil {
 		return string(r)
@@ -44,6 +51,7 @@ func (h *histogram) String() string {
 	return ""
 }
 
+// varUpdate 保存varUpdate的数据和运行状态。
 type varUpdate struct {
 	// 待更新的变量名称
 	varname string
@@ -75,6 +83,7 @@ func statsInit(mux *http.ServeMux, path string) {
 	logs.Info.Printf("stats: variables exposed at '%s'", path)
 }
 
+// statsRegisterDbStats 完成statsRegister数据库Stats所需的内部处理。
 func statsRegisterDbStats() {
 	if f := store.Store.DbStats(); f != nil {
 		expvar.Publish("DbStats", expvar.Func(f))
@@ -87,7 +96,7 @@ func statsRegisterInt(name string) {
 }
 
 // 注册直方图变量。`bounds` 指定直方图桶/区间
-//（参见 `histogram` 结构体定义旁的注释）
+// （参见 `histogram` 结构体定义旁的注释）
 func statsRegisterHistogram(name string, bounds []float64) {
 	numBuckets := len(bounds) + 1
 	expvar.Publish(name, &histogram{

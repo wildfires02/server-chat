@@ -22,6 +22,7 @@ import (
 	"google.golang.org/api/option"
 )
 
+// handler 保存处理器的共享实例或运行状态。
 var handler Handler
 
 const (
@@ -37,25 +38,41 @@ const (
 
 // Handler FCM 推送处理器，实现 push.Handler 接口。
 type Handler struct {
-	input     chan *push.Receipt
-	channel   chan *push.ChannelReq
-	stop      chan bool
+	// input 传递input相关的异步事件。
+	input chan *push.Receipt
+	// channel 传递通道相关的异步事件。
+	channel chan *push.ChannelReq
+	// stop 传递stop相关的异步事件。
+	stop chan bool
+	// projectID 保存project标识。
 	projectID string
 
+	// client 保存客户端。
 	client *legacy.Client
-	v1     *fcmv1.Service
+	// v1 保存v1。
+	v1 *fcmv1.Service
 }
 
+// configType 保存配置Type的数据和运行状态。
 type configType struct {
-	Enabled         bool            `json:"enabled"`
-	DryRun          bool            `json:"dry_run"`
-	Credentials     json.RawMessage `json:"credentials"`
-	CredentialsFile string          `json:"credentials_file"`
-	TimeToLive      int             `json:"time_to_live,omitempty"`
-	ApnsBundleID    string          `json:"apns_bundle_id,omitempty"`
-	Android         *common.Config  `json:"android,omitempty"`
-	Apns            *common.Config  `json:"apns,omitempty"`
-	Webpush         *common.Config  `json:"webpush,omitempty"`
+	// Enabled 指示是否启用或满足Enabled。
+	Enabled bool `json:"enabled"`
+	// DryRun 保存DryRun。
+	DryRun bool `json:"dry_run"`
+	// Credentials 保存Credentials。
+	Credentials json.RawMessage `json:"credentials"`
+	// CredentialsFile 保存Credentials文件。
+	CredentialsFile string `json:"credentials_file"`
+	// TimeToLive 保存TimeToLive。
+	TimeToLive int `json:"time_to_live,omitempty"`
+	// ApnsBundleID 保存ApnsBundle标识。
+	ApnsBundleID string `json:"apns_bundle_id,omitempty"`
+	// Android 保存Android。
+	Android *common.Config `json:"android,omitempty"`
+	// Apns 保存Apns。
+	Apns *common.Config `json:"apns,omitempty"`
+	// Webpush 保存Webpush。
+	Webpush *common.Config `json:"webpush,omitempty"`
 }
 
 // Init 初始化 FCM 推送处理器，读取凭据并构造 FCM v1 客户端服务。
@@ -259,6 +276,7 @@ func (Handler) Stop() {
 	handler.stop <- true
 }
 
+// init 注册当前包提供的实现并初始化包级状态。
 func init() {
 	push.Register("fcm", &handler)
 }

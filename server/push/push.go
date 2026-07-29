@@ -87,7 +87,8 @@ type Payload struct {
 	// 订阅变更通知字段：
 
 	// 订阅状态变更通知时的最新权限模式
-	ModeWant  t.AccessMode `json:"want,omitempty"`
+	ModeWant t.AccessMode `json:"want,omitempty"`
+	// ModeGiven 保存访问模式Given。
 	ModeGiven t.AccessMode `json:"given,omitempty"`
 }
 
@@ -109,11 +110,15 @@ type Handler interface {
 	Stop()
 }
 
+// configType 保存配置Type的数据和运行状态。
 type configType struct {
-	Name   string          `json:"name"`
+	// Name 保存名称。
+	Name string `json:"name"`
+	// Config 保存配置。
 	Config json.RawMessage `json:"config"`
 }
 
+// handlers 保存handlers的共享实例或运行状态。
 var handlers map[string]Handler
 
 // Register 注册推送处理器

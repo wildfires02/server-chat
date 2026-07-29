@@ -6,6 +6,7 @@
  *
  *****************************************************************************/
 
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -14,15 +15,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"chat/pbx"
 	"chat/server/logs"
 	"chat/server/store"
 	"chat/server/store/types"
+	"github.com/gorilla/websocket"
 )
 
 // SessionStore 表示活动会话在内存中的全局集中存储和索引结构。
 type SessionStore struct {
+	// lock 保护会话存储的并发读写。
 	lock sync.Mutex
 
 	// 存放长轮询 Session 的双向链表，按最后活跃时间升序排列（最旧的在链表尾部），用于 LRU 超时淘汰。

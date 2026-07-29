@@ -1,3 +1,4 @@
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -6,6 +7,19 @@ import (
 	"chat/server/store/types"
 )
 
+// removeScheduled 在定时消息已投递或确定无法重试时删除队列记录。
+// 临时存储或 Hub 错误不会调用它，记录将保留到下一次扫描。
+func (t *Topic) removeScheduled(msg *ClientComMessage, reason string) {
+	if msg.scheduled == nil {
+		return
+	}
+	asUid := types.ParseUserId(msg.AsUser)
+	if err := store.Messages.DeleteScheduled(msg.scheduled.Id, t.name, asUid); err != nil {
+		logs.Warn.Printf("topic[%s]: 删除%s定时消息失败: %v", t.name, reason, err)
+	}
+}
+
+// prepareBroadcastableMessage 完成prepareBroadcastable消息所需的内部处理。
 func (t *Topic) prepareBroadcastableMessage(msg *ServerComMessage, uid types.Uid, isChanSub bool) {
 	// 仅处理广播类型的消息
 	if msg.Data == nil && msg.Pres == nil && msg.Info == nil {
@@ -37,13 +51,17 @@ func (t *Topic) prepareBroadcastableMessage(msg *ServerComMessage, uid types.Uid
 	}
 }
 
+// saveAndBroadcastMessage 保存AndBroadcast消息。
 func (t *Topic) saveAndBroadcastMessage(msg *ClientComMessage, asUid types.Uid, noEcho bool, attachments []string, head map[string]any, content any) error {
 	pud, userFound := t.perUser[asUid]
 	// 任何人都允许向 'sys' Topic 发送消息
 	if t.cat != types.TopicCatSys {
 		// 非 'sys' Topic 校验写权限
-		if !(pud.modeWant & pud.modeGiven).IsWriter() {
-			msg.sess.queueOut(ErrPermissionDenied(msg.Id, t.original(asUid), msg.Timestamp))
+		// 频道读者即使因旧数据或误配置携带 W，也必须保持只读。
+		if pud.isChan || !(pud.modeWant & pud.modeGiven).IsWriter() {
+			if msg.sess != nil {
+				msg.sess.queueOut(ErrPermissionDenied(msg.Id, t.original(asUid), msg.Timestamp))
+			}
 			return types.ErrPermissionDenied
 		}
 	}
@@ -59,18 +77,59 @@ func (t *Topic) saveAndBroadcastMessage(msg *ClientComMessage, asUid types.Uid, 
 		delete(head, "sender")
 	}
 
+	clientID := ""
+	if msg.Pub != nil {
+		clientID = msg.Pub.ClientId
+	}
+	ackDuplicate := func(existing *types.Message) {
+		if msg.Id != "" && msg.sess != nil {
+			msg.sess.queueOut(NoErrDeliveredParams(msg.Id, t.original(asUid), msg.Timestamp,
+				map[string]any{
+					"seq":       existing.SeqId,
+					"cid":       existing.ClientId,
+					"duplicate": true,
+				}))
+		}
+	}
+	if clientID != "" {
+		existing, err := store.Messages.GetByClientId(t.name, asUid, clientID)
+		if err != nil {
+			logs.Warn.Printf("topic[%s]: 查询消息幂等键失败: %v", t.name, err)
+			if msg.sess != nil {
+				msg.sess.queueOut(ErrUnknown(msg.Id, t.original(asUid), msg.Timestamp))
+			}
+			return err
+		}
+		if existing != nil {
+			ackDuplicate(existing)
+			return nil
+		}
+	}
+
+	stored := &types.Message{
+		ObjHeader: types.ObjHeader{CreatedAt: msg.Timestamp},
+		SeqId:     t.lastID + 1,
+		Topic:     t.name,
+		From:      asUid.String(),
+		ClientId:  clientID,
+		ClientKey: types.MessageClientKey(asUid, clientID),
+		Head:      head,
+		Content:   content,
+	}
 	markedReadBySender := false
 	if err, unreadUpdated := store.Messages.Save(
-		&types.Message{
-			ObjHeader: types.ObjHeader{CreatedAt: msg.Timestamp},
-			SeqId:     t.lastID + 1,
-			Topic:     t.name,
-			From:      asUid.String(),
-			Head:      head,
-			Content:   content,
-		}, attachments, (pud.modeGiven & pud.modeWant).IsReader()); err != nil {
+		stored, attachments, (pud.modeGiven & pud.modeWant).IsReader()); err != nil {
+		// 多节点竞争时唯一索引可能先于本节点的预查询命中。重新读取并按成功重试确认。
+		if clientID != "" {
+			if existing, lookupErr := store.Messages.GetByClientId(t.name, asUid, clientID); lookupErr == nil && existing != nil {
+				ackDuplicate(existing)
+				return nil
+			}
+		}
 		logs.Warn.Printf("topic[%s]: 保存消息失败: %v", t.name, err)
-		msg.sess.queueOut(ErrUnknown(msg.Id, t.original(asUid), msg.Timestamp))
+		if msg.sess != nil {
+			msg.sess.queueOut(ErrUnknown(msg.Id, t.original(asUid), msg.Timestamp))
+		}
 
 		return err
 	} else {
@@ -88,19 +147,16 @@ func (t *Topic) saveAndBroadcastMessage(msg *ClientComMessage, asUid types.Uid, 
 
 	if msg.Id != "" && msg.sess != nil {
 		reply := NoErrAccepted(msg.Id, t.original(asUid), msg.Timestamp)
-		reply.Ctrl.Params = map[string]any{"seq": t.lastID}
+		params := map[string]any{"seq": t.lastID}
+		if clientID != "" {
+			params["cid"] = clientID
+		}
+		reply.Ctrl.Params = params
 		msg.sess.queueOut(reply)
 	}
 
 	data := &ServerComMessage{
-		Data: &MsgServerData{
-			Topic:     msg.Original,
-			From:      msg.AsUser,
-			Timestamp: msg.Timestamp,
-			SeqId:     t.lastID,
-			Head:      head,
-			Content:   content,
-		},
+		Data: serverDataFromStored(msg.Original, msg.AsUser, stored),
 		// 内部保留字段
 		Id:        msg.Id,
 		RcptTo:    msg.RcptTo,
@@ -108,7 +164,7 @@ func (t *Topic) saveAndBroadcastMessage(msg *ClientComMessage, asUid types.Uid, 
 		Timestamp: msg.Timestamp,
 		sess:      msg.sess,
 	}
-	if noEcho {
+	if noEcho && msg.sess != nil {
 		data.SkipSid = msg.sess.sid
 	}
 
@@ -134,22 +190,45 @@ func (t *Topic) handlePubBroadcast(msg *ClientComMessage) {
 	asUid := types.ParseUserId(msg.AsUser)
 	if t.isInactive() {
 		// 忽略广播 - Topic 已暂停或正在被删除
-		msg.sess.queueOut(ErrLocked(msg.Id, t.original(asUid), msg.Timestamp))
+		if msg.sess != nil {
+			msg.sess.queueOut(ErrLocked(msg.Id, t.original(asUid), msg.Timestamp))
+		}
+		if t.isDeleted() {
+			t.removeScheduled(msg, "已取消")
+		}
 		return
 	}
 
 	if t.isReadOnly() {
-		msg.sess.queueOut(ErrPermissionDenied(msg.Id, t.original(asUid), msg.Timestamp))
+		if msg.sess != nil {
+			msg.sess.queueOut(ErrPermissionDenied(msg.Id, t.original(asUid), msg.Timestamp))
+		}
+		t.removeScheduled(msg, "已取消")
 		return
 	}
 
 	isCall := msg.Pub.Head != nil && msg.Pub.Head["webrtc"] != nil
 	if isCall {
-		if len(globals.iceServers) == 0 {
-			msg.sess.queueOut(ErrNotImplementedReply(msg, types.TimeNow()))
+		// 呼叫邀请同样必须遵守 Topic 写权限，避免群组只读成员利用
+		// 特殊的通话消息路径绕过普通消息 ACL。
+		userData, userFound := t.perUser[asUid]
+		if !userFound || userData.isChan ||
+			!(userData.modeGiven & userData.modeWant).IsWriter() {
+			msg.sess.queueOut(ErrPermissionDeniedReply(msg, types.TimeNow()))
 			return
 		}
-		if t.cat != types.TopicCatP2P {
+		switch t.cat {
+		case types.TopicCatP2P:
+			if len(globals.iceServers) == 0 {
+				msg.sess.queueOut(ErrNotImplementedReply(msg, types.TimeNow()))
+				return
+			}
+		case types.TopicCatGrp:
+			if globals.agora == nil {
+				msg.sess.queueOut(ErrNotImplementedReply(msg, types.TimeNow()))
+				return
+			}
+		default:
 			msg.sess.queueOut(ErrPermissionDeniedReply(msg, types.TimeNow()))
 			return
 		}
@@ -159,15 +238,76 @@ func (t *Topic) handlePubBroadcast(msg *ClientComMessage) {
 		}
 	}
 
-	// 保存到主 Topic 的数据库
-	var attachments []string
-	if msg.Extra != nil && len(msg.Extra.Attachments) > 0 {
-		attachments = msg.Extra.Attachments
+	if msg.Pub.ReplaceSeq > 0 {
+		if err := t.editMessage(msg, asUid); err != nil {
+			if msg.sess != nil {
+				msg.sess.queueOut(decodeStoreErrorExplicitTs(err, msg.Id, t.original(asUid),
+					types.TimeNow(), msg.Timestamp, map[string]any{"what": "edit"}))
+			}
+		}
+		return
 	}
 
-	if err := t.saveAndBroadcastMessage(msg, asUid, msg.Pub.NoEcho, attachments, msg.Pub.Head, msg.Pub.Content); err != nil {
-		logs.Err.Printf("topic[%s]: 保存消息失败 - %s", t.name, err)
+	var head map[string]any
+	var content any
+	var attachments []string
+	var err error
+	if msg.scheduled != nil {
+		// 定时消息已在入队时完成内容校验，直接使用持久化快照。
+		head = msg.scheduled.Head
+		content = msg.scheduled.Content
+		attachments = msg.scheduled.AttachmentURLs
+	} else if isCall {
+		head = stripServerMessageHead(msg.Pub.Head)
+		if head == nil {
+			head = make(map[string]any)
+		}
+		if t.cat == types.TopicCatGrp {
+			// 服务端决定群组通话提供方，忽略客户端伪造的 provider。
+			head["call-provider"] = constCallProviderAgora
+		} else {
+			head["call-provider"] = constCallProviderWebRTC
+		}
+		content = msg.Pub.Content
+		if msg.Extra != nil {
+			attachments = msg.Extra.Attachments
+		}
+	} else {
+		head, content, attachments, err = t.prepareMessagePublication(msg, asUid)
+		if err != nil {
+			if msg.sess != nil {
+				msg.sess.queueOut(decodeStoreErrorExplicitTs(err, msg.Id, t.original(asUid),
+					types.TimeNow(), msg.Timestamp, map[string]any{"what": "pub"}))
+			}
+			return
+		}
+	}
+
+	if msg.scheduled == nil && msg.Pub.ScheduleAt != nil &&
+		msg.Pub.ScheduleAt.After(msg.Timestamp.Add(minScheduleDelay)) {
+		// 距离当前时间足够远的消息进入持久化队列；近时刻请求立即投递。
+		if err := t.scheduleMessage(msg, asUid, head, content, attachments); err != nil && msg.sess != nil {
+			msg.sess.queueOut(decodeStoreErrorExplicitTs(err, msg.Id, t.original(asUid),
+				types.TimeNow(), msg.Timestamp, map[string]any{"what": "schedule"}))
+		}
 		return
+	}
+
+	if err := t.saveAndBroadcastMessage(msg, asUid, msg.Pub.NoEcho, attachments, head, content); err != nil {
+		logs.Err.Printf("topic[%s]: 保存消息失败 - %s", t.name, err)
+		switch err {
+		case types.ErrPermissionDenied, types.ErrMalformed, types.ErrPolicy,
+			types.ErrNotFound, types.ErrTopicNotFound, types.ErrUserNotFound:
+			t.removeScheduled(msg, "无法投递")
+		}
+		return
+	}
+	if msg.scheduled != nil {
+		// 普通消息和 Topic 游标已经原子提交，此时才安全清理队列快照。
+		t.removeScheduled(msg, "已投递")
+		if len(t.sessions) == 0 && t.killTimer != nil {
+			t.killTimer.Reset(idleMasterTopicTimeout)
+		}
 	}
 
 	if isCall {
@@ -179,17 +319,26 @@ func (t *Topic) handlePubBroadcast(msg *ClientComMessage) {
 func (t *Topic) handleNoteBroadcast(msg *ClientComMessage) {
 	if t.isInactive() {
 		// 忽略广播 - Topic 已暂停或正在被删除
+		if msg.Id != "" {
+			msg.sess.queueOut(ErrLockedReply(msg, types.TimeNow()))
+		}
 		return
 	}
 
 	if msg.Note.SeqId > t.lastID {
 		// 丢弃伪造的已读通知
+		if msg.Id != "" {
+			msg.sess.queueOut(ErrMalformedReply(msg, types.TimeNow()))
+		}
 		return
 	}
 
 	asChan, err := t.verifyChannelAccess(msg.Original)
 	if err != nil {
 		// 静默丢弃无效通知
+		if msg.Id != "" {
+			msg.sess.queueOut(ErrNotFoundReply(msg, types.TimeNow()))
+		}
 		return
 	}
 
@@ -203,14 +352,41 @@ func (t *Topic) handleNoteBroadcast(msg *ClientComMessage) {
 	switch msg.Note.What {
 	case "kp", "kpa", "kpv":
 		// 过滤掉无 'W' (写) 权限用户的 "kp*" 通知
-		if !mode.IsWriter() || t.isReadOnly() {
+		if asChan || pud.isChan || !mode.IsWriter() || t.isReadOnly() {
 			return
 		}
 	case "read", "recv":
 		// 过滤掉无 'R' (读) 权限用户的 "read/recv" 通知
 		if !mode.IsReader() {
+			if msg.Id != "" {
+				msg.sess.queueOut(ErrPermissionDeniedReply(msg, types.TimeNow()))
+			}
 			return
 		}
+	case "react":
+		if !mode.IsReader() {
+			if msg.Id != "" {
+				msg.sess.queueOut(ErrPermissionDeniedReply(msg, types.TimeNow()))
+			}
+			return
+		}
+		if err := t.reactToMessage(msg, asUid); err != nil && msg.Id != "" {
+			msg.sess.queueOut(decodeStoreErrorExplicitTs(err, msg.Id, msg.Original,
+				types.TimeNow(), msg.Timestamp, map[string]any{"what": "react"}))
+		}
+		return
+	case "pin":
+		if !mode.IsReader() {
+			if msg.Id != "" {
+				msg.sess.queueOut(ErrPermissionDeniedReply(msg, types.TimeNow()))
+			}
+			return
+		}
+		if err := t.pinMessage(msg, asUid); err != nil && msg.Id != "" {
+			msg.sess.queueOut(decodeStoreErrorExplicitTs(err, msg.Id, msg.Original,
+				types.TimeNow(), msg.Timestamp, map[string]any{"what": "pin"}))
+		}
+		return
 	case "call":
 		// 单独处理通话事件
 		t.handleCallEvent(msg)
@@ -223,6 +399,10 @@ func (t *Topic) handleNoteBroadcast(msg *ClientComMessage) {
 	case "read":
 		if msg.Note.SeqId <= pud.readID {
 			// 无需汇报陈旧或重复的已读状态
+			if msg.Id != "" {
+				msg.sess.queueOut(NoErrDeliveredParams(msg.Id, msg.Original, msg.Timestamp,
+					map[string]any{"what": "read", "seq": pud.readID, "duplicate": true}))
+			}
 			return
 		}
 
@@ -237,6 +417,10 @@ func (t *Topic) handleNoteBroadcast(msg *ClientComMessage) {
 	case "recv":
 		if msg.Note.SeqId <= pud.recvID {
 			// 陈旧的已接收状态
+			if msg.Id != "" {
+				msg.sess.queueOut(NoErrDeliveredParams(msg.Id, msg.Original, msg.Timestamp,
+					map[string]any{"what": "recv", "seq": pud.recvID, "duplicate": true}))
+			}
 			return
 		}
 
@@ -263,6 +447,9 @@ func (t *Topic) handleNoteBroadcast(msg *ClientComMessage) {
 		}
 		if err := store.Subs.Update(topicName, asUid, upd); err != nil {
 			logs.Warn.Printf("topic[%s]: 更新 SeqRead/Recv 计数器失败: %v", t.name, err)
+			if msg.Id != "" {
+				msg.sess.queueOut(ErrUnknownReply(msg, msg.Timestamp))
+			}
 			return
 		}
 
@@ -277,6 +464,11 @@ func (t *Topic) handleNoteBroadcast(msg *ClientComMessage) {
 		// 更新未读消息缓存计数（不追踪 Channel 未读消息）
 		if !asChan {
 			usersUpdateUnread(asUid, unread, true)
+		}
+
+		if msg.Id != "" {
+			msg.sess.queueOut(NoErrParamsReply(msg, msg.Timestamp,
+				map[string]any{"what": msg.Note.What, "seq": seq}))
 		}
 	}
 

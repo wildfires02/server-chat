@@ -1,5 +1,6 @@
 // 在 protobuf 结构体和 Go 数据包表示之间转换
 
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -11,6 +12,7 @@ import (
 	"chat/server/store/types"
 )
 
+// pbServCtrlSerializeBasic 完成pbServCtrlSerializeBasic所需的内部处理。
 func pbServCtrlSerializeBasic(ctrl *MsgServerCtrl) *pbx.ServerCtrl {
 	var params map[string][]byte
 	if ctrl.Params != nil {
@@ -28,26 +30,53 @@ func pbServCtrlSerializeBasic(ctrl *MsgServerCtrl) *pbx.ServerCtrl {
 	}
 }
 
+// pbServCtrlSerialize 完成pbServCtrlSerialize所需的内部处理。
 func pbServCtrlSerialize(ctrl *MsgServerCtrl) *pbx.ServerMsg_Ctrl {
 	return &pbx.ServerMsg_Ctrl{
 		Ctrl: pbServCtrlSerializeBasic(ctrl),
 	}
 }
 
+// pbServDataSerialize 将包含回复、转发、相册、编辑和反应元数据的 data 包编码为 Protobuf。
 func pbServDataSerialize(data *MsgServerData) *pbx.ServerMsg_Data {
+	var forwarded *pbx.ForwardedMessage
+	if data.Forwarded != nil {
+		forwarded = &pbx.ForwardedMessage{
+			Topic:      data.Forwarded.Topic,
+			SeqId:      int32(data.Forwarded.SeqId),
+			FromUserId: data.Forwarded.From,
+			Timestamp:  timeToInt64(&data.Forwarded.Timestamp),
+		}
+	}
+	// Protobuf 只承载反应标识和聚合计数，不传输服务端用户明细。
+	reactions := make([]*pbx.Reaction, 0, len(data.Reactions))
+	for _, reaction := range data.Reactions {
+		reactions = append(reactions, &pbx.Reaction{
+			Reaction: reaction.Reaction,
+			Count:    int32(reaction.Count),
+		})
+	}
 	return &pbx.ServerMsg_Data{
 		Data: &pbx.ServerData{
 			Topic:      data.Topic,
 			FromUserId: data.From,
 			Timestamp:  timeToInt64(&data.Timestamp),
+			EditedAt:   timeToInt64(data.EditedAt),
 			DeletedAt:  timeToInt64(data.DeletedAt),
 			SeqId:      int32(data.SeqId),
 			Head:       interfaceMapToByteMap(data.Head),
 			Content:    interfaceToBytes(data.Content),
+			ClientId:   data.ClientId,
+			Kind:       data.Kind,
+			ReplyTo:    int32(data.ReplyTo),
+			Forwarded:  forwarded,
+			GroupId:    data.GroupId,
+			Reactions:  reactions,
 		},
 	}
 }
 
+// pbServPresSerialize 完成pbServPresSerialize所需的内部处理。
 func pbServPresSerialize(pres *MsgServerPres) *pbx.ServerMsg_Pres {
 	var what pbx.ServerPres_What
 	switch pres.What {
@@ -96,6 +125,7 @@ func pbServPresSerialize(pres *MsgServerPres) *pbx.ServerMsg_Pres {
 	}
 }
 
+// pbServInfoSerialize 完成pbServ通知Serialize所需的内部处理。
 func pbServInfoSerialize(info *MsgServerInfo) *pbx.ServerMsg_Info {
 	return &pbx.ServerMsg_Info{
 		Info: &pbx.ServerInfo{
@@ -106,23 +136,69 @@ func pbServInfoSerialize(info *MsgServerInfo) *pbx.ServerMsg_Info {
 			SeqId:      int32(info.SeqId),
 			Event:      pbCallEventSerialize(info.Event),
 			Payload:    info.Payload,
+			Reaction:   info.Reaction,
+			Remove:     info.Remove,
 		},
 	}
 }
 
+// pbServMetaSerialize 完成pbServ元数据Serialize所需的内部处理。
 func pbServMetaSerialize(meta *MsgServerMeta) *pbx.ServerMsg_Meta {
 	return &pbx.ServerMsg_Meta{
 		Meta: &pbx.ServerMeta{
-			Id:    meta.Id,
-			Topic: meta.Topic,
-			Desc:  pbTopicDescSerialize(meta.Desc),
-			Sub:   pbTopicSubSliceSerialize(meta.Sub),
-			Del:   pbDelValuesSerialize(meta.Del),
-			Tags:  meta.Tags,
-			Cred:  pbServerCredsSerialize(meta.Cred),
-			Aux:   interfaceMapToByteMap(meta.Aux),
+			Id:     meta.Id,
+			Topic:  meta.Topic,
+			Desc:   pbTopicDescSerialize(meta.Desc),
+			Sub:    pbTopicSubSliceSerialize(meta.Sub),
+			Del:    pbDelValuesSerialize(meta.Del),
+			Tags:   meta.Tags,
+			Cred:   pbServerCredsSerialize(meta.Cred),
+			Aux:    interfaceMapToByteMap(meta.Aux),
+			Search: pbSearchResultSerialize(meta.Search),
 		},
 	}
+}
+
+// pbSearchResultSerialize 将统一搜索结果转换为 Protobuf。
+func pbSearchResultSerialize(result *MsgSearchResult) *pbx.SearchResult {
+	if result == nil {
+		return nil
+	}
+	out := &pbx.SearchResult{
+		Scope: result.Scope,
+		Peers: pbTopicSubSliceSerialize(result.Peers),
+		Next:  result.Next,
+	}
+	for _, message := range result.Messages {
+		if message != nil {
+			out.Messages = append(out.Messages, pbServDataSerialize(message).Data)
+		}
+	}
+	return out
+}
+
+// pbSearchResultDeserialize 将 Protobuf 搜索结果还原为内部协议结构。
+func pbSearchResultDeserialize(result *pbx.SearchResult) *MsgSearchResult {
+	if result == nil {
+		return nil
+	}
+	out := &MsgSearchResult{
+		Scope: result.GetScope(),
+		Peers: pbTopicSubSliceDeserialize(result.GetPeers()),
+		Next:  result.GetNext(),
+	}
+	for _, message := range result.GetMessages() {
+		if message == nil {
+			continue
+		}
+		decoded := pbServDeserialize(&pbx.ServerMsg{
+			Message: &pbx.ServerMsg_Data{Data: message},
+		})
+		if decoded != nil && decoded.Data != nil {
+			out.Messages = append(out.Messages, decoded.Data)
+		}
+	}
+	return out
 }
 
 // 将 ServerComMessage 转换为 pbx.ServerMsg
@@ -145,6 +221,7 @@ func pbServSerialize(msg *ServerComMessage) *pbx.ServerMsg {
 	return &pkt
 }
 
+// pbServDeserialize 将集群或 gRPC 收到的 Protobuf 服务端包还原为内部消息。
 func pbServDeserialize(pkt *pbx.ServerMsg) *ServerComMessage {
 	var msg ServerComMessage
 	if ctrl := pkt.GetCtrl(); ctrl != nil {
@@ -160,14 +237,41 @@ func pbServDeserialize(pkt *pbx.ServerMsg) *ServerComMessage {
 		if tsptr == nil {
 			tsptr = &time.Time{}
 		}
+		var forwarded *MsgForwardedMessage
+		if fwd := data.GetForwarded(); fwd != nil {
+			fwdTs := int64ToTime(fwd.GetTimestamp())
+			if fwdTs == nil {
+				fwdTs = &time.Time{}
+			}
+			forwarded = &MsgForwardedMessage{
+				Topic:     fwd.GetTopic(),
+				SeqId:     int(fwd.GetSeqId()),
+				From:      fwd.GetFromUserId(),
+				Timestamp: *fwdTs,
+			}
+		}
+		reactions := make([]MsgReaction, 0, len(data.GetReactions()))
+		for _, reaction := range data.GetReactions() {
+			reactions = append(reactions, MsgReaction{
+				Reaction: reaction.GetReaction(),
+				Count:    int(reaction.GetCount()),
+			})
+		}
 		msg.Data = &MsgServerData{
 			Topic:     data.GetTopic(),
 			From:      data.GetFromUserId(),
 			Timestamp: *tsptr,
+			EditedAt:  int64ToTime(data.GetEditedAt()),
 			DeletedAt: int64ToTime(data.GetDeletedAt()),
 			SeqId:     int(data.GetSeqId()),
 			Head:      byteMapToInterfaceMap(data.GetHead()),
-			Content:   data.GetContent(),
+			Content:   bytesToInterface(data.GetContent()),
+			ClientId:  data.GetClientId(),
+			Kind:      data.GetKind(),
+			ReplyTo:   int(data.GetReplyTo()),
+			Forwarded: forwarded,
+			GroupId:   data.GetGroupId(),
+			Reactions: reactions,
 		}
 	} else if pres := pkt.GetPres(); pres != nil {
 		var what string
@@ -213,30 +317,33 @@ func pbServDeserialize(pkt *pbx.ServerMsg) *ServerComMessage {
 		}
 	} else if info := pkt.GetInfo(); info != nil {
 		msg.Info = &MsgServerInfo{
-			Topic:   info.GetTopic(),
-			Src:     info.GetSrc(),
-			From:    info.GetFromUserId(),
-			What:    pbInfoNoteWhatDeserialize(info.GetWhat()),
-			SeqId:   int(info.GetSeqId()),
-			Event:   pbCallEventDeserialize(info.GetEvent()),
-			Payload: info.GetPayload(),
+			Topic:    info.GetTopic(),
+			Src:      info.GetSrc(),
+			From:     info.GetFromUserId(),
+			What:     pbInfoNoteWhatDeserialize(info.GetWhat()),
+			SeqId:    int(info.GetSeqId()),
+			Event:    pbCallEventDeserialize(info.GetEvent()),
+			Payload:  info.GetPayload(),
+			Reaction: info.GetReaction(),
+			Remove:   info.GetRemove(),
 		}
 	} else if meta := pkt.GetMeta(); meta != nil {
 		msg.Meta = &MsgServerMeta{
-			Id:    meta.GetId(),
-			Topic: meta.GetTopic(),
-			Desc:  pbTopicDescDeserialize(meta.GetDesc()),
-			Sub:   pbTopicSubSliceDeserialize(meta.GetSub()),
-			Del:   pbDelValuesDeserialize(meta.GetDel()),
-			Tags:  meta.GetTags(),
-			Cred:  pbServerCredsDeserialize(meta.GetCred()),
-			Aux:   byteMapToInterfaceMap(meta.GetAux()),
+			Id:     meta.GetId(),
+			Topic:  meta.GetTopic(),
+			Desc:   pbTopicDescDeserialize(meta.GetDesc()),
+			Sub:    pbTopicSubSliceDeserialize(meta.GetSub()),
+			Del:    pbDelValuesDeserialize(meta.GetDel()),
+			Tags:   meta.GetTags(),
+			Cred:   pbServerCredsDeserialize(meta.GetCred()),
+			Aux:    byteMapToInterfaceMap(meta.GetAux()),
+			Search: pbSearchResultDeserialize(meta.GetSearch()),
 		}
 	}
 	return &msg
 }
 
-// 将 ClientComMessage 转换为 pbx.ClientMsg
+// pbCliSerialize 将客户端消息及新增消息语义完整转换为 pbx.ClientMsg。
 func pbCliSerialize(msg *ClientComMessage) *pbx.ClientMsg {
 	var pkt pbx.ClientMsg
 
@@ -309,13 +416,27 @@ func pbCliSerialize(msg *ClientComMessage) *pbx.ClientMsg {
 			},
 		}
 	case msg.Pub != nil:
+		var forward *pbx.MessageRef
+		if msg.Pub.Forward != nil {
+			forward = &pbx.MessageRef{
+				Topic: msg.Pub.Forward.Topic,
+				SeqId: int32(msg.Pub.Forward.SeqId),
+			}
+		}
 		pkt.Message = &pbx.ClientMsg_Pub{
 			Pub: &pbx.ClientPub{
-				Id:      msg.Pub.Id,
-				Topic:   msg.Pub.Topic,
-				NoEcho:  msg.Pub.NoEcho,
-				Head:    interfaceMapToByteMap(msg.Pub.Head),
-				Content: interfaceToBytes(msg.Pub.Content),
+				Id:         msg.Pub.Id,
+				Topic:      msg.Pub.Topic,
+				ClientId:   msg.Pub.ClientId,
+				NoEcho:     msg.Pub.NoEcho,
+				Kind:       msg.Pub.Kind,
+				ReplyTo:    int32(msg.Pub.ReplyTo),
+				ReplaceSeq: int32(msg.Pub.ReplaceSeq),
+				Forward:    forward,
+				GroupId:    msg.Pub.GroupId,
+				ScheduleAt: timeToInt64(msg.Pub.ScheduleAt),
+				Head:       interfaceMapToByteMap(msg.Pub.Head),
+				Content:    interfaceToBytes(msg.Pub.Content),
 			},
 		}
 	case msg.Get != nil:
@@ -347,27 +468,33 @@ func pbCliSerialize(msg *ClientComMessage) *pbx.ClientMsg {
 			what = pbx.ClientDel_USER
 		case "cred":
 			what = pbx.ClientDel_CRED
+		case "sched":
+			what = pbx.ClientDel_SCHEDULED
 		}
 		pkt.Message = &pbx.ClientMsg_Del{
 			Del: &pbx.ClientDel{
-				Id:     msg.Del.Id,
-				Topic:  msg.Del.Topic,
-				What:   what,
-				DelSeq: pbDelQuerySerialize(msg.Del.DelSeq),
-				UserId: msg.Del.User,
-				Cred:   pbClientCredSerialize(msg.Del.Cred),
-				Hard:   msg.Del.Hard,
+				Id:          msg.Del.Id,
+				Topic:       msg.Del.Topic,
+				What:        what,
+				DelSeq:      pbDelQuerySerialize(msg.Del.DelSeq),
+				UserId:      msg.Del.User,
+				Cred:        pbClientCredSerialize(msg.Del.Cred),
+				Hard:        msg.Del.Hard,
+				ScheduledId: msg.Del.ScheduledId,
 			},
 		}
 	case msg.Note != nil:
 		pkt.Message = &pbx.ClientMsg_Note{
 			Note: &pbx.ClientNote{
-				Topic:   msg.Note.Topic,
-				What:    pbInfoNoteWhatSerialize(msg.Note.What),
-				SeqId:   int32(msg.Note.SeqId),
-				Unread:  int32(msg.Note.Unread),
-				Event:   pbCallEventSerialize(msg.Note.Event),
-				Payload: msg.Note.Payload,
+				Id:       msg.Note.Id,
+				Topic:    msg.Note.Topic,
+				What:     pbInfoNoteWhatSerialize(msg.Note.What),
+				SeqId:    int32(msg.Note.SeqId),
+				Unread:   int32(msg.Note.Unread),
+				Event:    pbCallEventSerialize(msg.Note.Event),
+				Payload:  msg.Note.Payload,
+				Reaction: msg.Note.Reaction,
+				Remove:   msg.Note.Remove,
 			},
 		}
 	}
@@ -387,7 +514,7 @@ func pbCliSerialize(msg *ClientComMessage) *pbx.ClientMsg {
 	return &pkt
 }
 
-// 将 pbx.ClientMsg 转换为 ClientComMessage
+// pbCliDeserialize 将 pbx.ClientMsg 还原为与 JSON/WebSocket 入口一致的内部消息。
 func pbCliDeserialize(pkt *pbx.ClientMsg) *ClientComMessage {
 	var msg ClientComMessage
 	if hi := pkt.GetHi(); hi != nil {
@@ -436,12 +563,23 @@ func pbCliDeserialize(pkt *pbx.ClientMsg) *ClientComMessage {
 			Unsub: leave.GetUnsub(),
 		}
 	} else if pub := pkt.GetPub(); pub != nil {
+		var forward *MsgMessageRef
+		if fwd := pub.GetForward(); fwd != nil {
+			forward = &MsgMessageRef{Topic: fwd.GetTopic(), SeqId: int(fwd.GetSeqId())}
+		}
 		msg.Pub = &MsgClientPub{
-			Id:      pub.GetId(),
-			Topic:   pub.GetTopic(),
-			NoEcho:  pub.GetNoEcho(),
-			Head:    byteMapToInterfaceMap(pub.GetHead()),
-			Content: bytesToInterface(pub.GetContent()),
+			Id:         pub.GetId(),
+			Topic:      pub.GetTopic(),
+			ClientId:   pub.GetClientId(),
+			NoEcho:     pub.GetNoEcho(),
+			Kind:       pub.GetKind(),
+			ReplyTo:    int(pub.GetReplyTo()),
+			ReplaceSeq: int(pub.GetReplaceSeq()),
+			Forward:    forward,
+			GroupId:    pub.GetGroupId(),
+			ScheduleAt: int64ToTime(pub.GetScheduleAt()),
+			Head:       byteMapToInterfaceMap(pub.GetHead()),
+			Content:    bytesToInterface(pub.GetContent()),
 		}
 	} else if get := pkt.GetGet(); get != nil {
 		msg.Get = &MsgClientGet{
@@ -461,12 +599,13 @@ func pbCliDeserialize(pkt *pbx.ClientMsg) *ClientComMessage {
 		}
 	} else if del := pkt.GetDel(); del != nil {
 		msg.Del = &MsgClientDel{
-			Id:     del.GetId(),
-			Topic:  del.GetTopic(),
-			DelSeq: pbDelQueryDeserialize(del.GetDelSeq()),
-			User:   del.GetUserId(),
-			Cred:   pbClientCredDeserialize(del.GetCred()),
-			Hard:   del.GetHard(),
+			Id:          del.GetId(),
+			Topic:       del.GetTopic(),
+			DelSeq:      pbDelQueryDeserialize(del.GetDelSeq()),
+			User:        del.GetUserId(),
+			Cred:        pbClientCredDeserialize(del.GetCred()),
+			Hard:        del.GetHard(),
+			ScheduledId: del.GetScheduledId(),
 		}
 		switch del.GetWhat() {
 		case pbx.ClientDel_MSG:
@@ -479,15 +618,20 @@ func pbCliDeserialize(pkt *pbx.ClientMsg) *ClientComMessage {
 			msg.Del.What = "user"
 		case pbx.ClientDel_CRED:
 			msg.Del.What = "cred"
+		case pbx.ClientDel_SCHEDULED:
+			msg.Del.What = "sched"
 		}
 	} else if note := pkt.GetNote(); note != nil {
 		msg.Note = &MsgClientNote{
-			Topic:   note.GetTopic(),
-			SeqId:   int(note.GetSeqId()),
-			What:    pbInfoNoteWhatDeserialize(note.GetWhat()),
-			Unread:  int(note.GetUnread()),
-			Event:   pbCallEventDeserialize(note.GetEvent()),
-			Payload: note.GetPayload(),
+			Id:       note.GetId(),
+			Topic:    note.GetTopic(),
+			SeqId:    int(note.GetSeqId()),
+			What:     pbInfoNoteWhatDeserialize(note.GetWhat()),
+			Unread:   int(note.GetUnread()),
+			Event:    pbCallEventDeserialize(note.GetEvent()),
+			Payload:  note.GetPayload(),
+			Reaction: note.GetReaction(),
+			Remove:   note.GetRemove(),
 		}
 	}
 
@@ -502,6 +646,7 @@ func pbCliDeserialize(pkt *pbx.ClientMsg) *ClientComMessage {
 	return &msg
 }
 
+// interfaceMapToByteMap 完成interface映射ToByte映射所需的内部处理。
 func interfaceMapToByteMap(in map[string]any) map[string][]byte {
 	out := make(map[string][]byte, len(in))
 	for key, val := range in {
@@ -512,6 +657,7 @@ func interfaceMapToByteMap(in map[string]any) map[string][]byte {
 	return out
 }
 
+// byteMapToInterfaceMap 完成byte映射ToInterface映射所需的内部处理。
 func byteMapToInterfaceMap(in map[string][]byte) map[string]any {
 	out := make(map[string]any, len(in))
 	for key, raw := range in {
@@ -522,6 +668,7 @@ func byteMapToInterfaceMap(in map[string][]byte) map[string]any {
 	return out
 }
 
+// interfaceToBytes 完成interfaceToBytes所需的内部处理。
 func interfaceToBytes(in any) []byte {
 	if in != nil {
 		out, _ := json.Marshal(in)
@@ -530,6 +677,7 @@ func interfaceToBytes(in any) []byte {
 	return nil
 }
 
+// bytesToInterface 完成bytesToInterface所需的内部处理。
 func bytesToInterface(in []byte) any {
 	var out any
 	if len(in) > 0 {
@@ -541,6 +689,7 @@ func bytesToInterface(in []byte) any {
 	return out
 }
 
+// timeToInt64 将时间统一编码为 Epoch 毫秒；nil 编码为协议约定的 0。
 func timeToInt64(ts *time.Time) int64 {
 	if ts != nil {
 		return ts.UnixNano() / int64(time.Millisecond)
@@ -548,14 +697,16 @@ func timeToInt64(ts *time.Time) int64 {
 	return 0
 }
 
+// int64ToTime 从 Epoch 毫秒解码 UTC 时间；0 表示字段未设置。
 func int64ToTime(ts int64) *time.Time {
 	if ts > 0 {
-		res := time.Unix(ts/1000, ts%1000).UTC()
+		res := time.UnixMilli(ts).UTC()
 		return &res
 	}
 	return nil
 }
 
+// pbGetQuerySerialize 完成pbGet查询Serialize所需的内部处理。
 func pbGetQuerySerialize(in *MsgGetQuery) *pbx.GetQuery {
 	if in == nil {
 		return nil
@@ -571,6 +722,7 @@ func pbGetQuerySerialize(in *MsgGetQuery) *pbx.GetQuery {
 			User:            in.Desc.User,
 			Topic:           in.Desc.Topic,
 			Limit:           int32(in.Desc.Limit),
+			Forward:         in.Desc.Forward,
 		}
 	}
 	if in.Sub != nil {
@@ -579,6 +731,7 @@ func pbGetQuerySerialize(in *MsgGetQuery) *pbx.GetQuery {
 			User:            in.Sub.User,
 			Topic:           in.Sub.Topic,
 			Limit:           int32(in.Sub.Limit),
+			Forward:         in.Sub.Forward,
 		}
 	}
 	if in.Data != nil {
@@ -586,6 +739,7 @@ func pbGetQuerySerialize(in *MsgGetQuery) *pbx.GetQuery {
 			BeforeId: int32(in.Data.BeforeId),
 			SinceId:  int32(in.Data.SinceId),
 			Limit:    int32(in.Data.Limit),
+			Forward:  in.Data.Forward,
 		}
 
 		if len(in.Data.IdRanges) > 0 {
@@ -595,9 +749,36 @@ func pbGetQuerySerialize(in *MsgGetQuery) *pbx.GetQuery {
 			}
 		}
 	}
+	if in.Del != nil {
+		out.Del = &pbx.GetOpts{
+			BeforeId: int32(in.Del.BeforeId),
+			SinceId:  int32(in.Del.SinceId),
+			Limit:    int32(in.Del.Limit),
+			Forward:  in.Del.Forward,
+		}
+		if len(in.Del.IdRanges) > 0 {
+			out.Del.Ranges = make([]*pbx.SeqRange, len(in.Del.IdRanges))
+			for i, dq := range in.Del.IdRanges {
+				out.Del.Ranges[i] = &pbx.SeqRange{Low: int32(dq.LowId), Hi: int32(dq.HiId)}
+			}
+		}
+	}
+	if in.Search != nil {
+		out.Search = &pbx.SearchOpts{
+			Query:      in.Search.Query,
+			Scope:      in.Search.Scope,
+			FromUserId: in.Search.From,
+			Kinds:      in.Search.Kinds,
+			MinDate:    timeToInt64(in.Search.MinDate),
+			MaxDate:    timeToInt64(in.Search.MaxDate),
+			Cursor:     in.Search.Cursor,
+			Limit:      int32(in.Search.Limit),
+		}
+	}
 	return out
 }
 
+// pbGetQueryDeserialize 完成pbGet查询Deserialize所需的内部处理。
 func pbGetQueryDeserialize(in *pbx.GetQuery) *MsgGetQuery {
 	if in == nil {
 		return nil
@@ -610,13 +791,19 @@ func pbGetQueryDeserialize(in *pbx.GetQuery) *MsgGetQuery {
 	if desc := in.GetDesc(); desc != nil {
 		msg.Desc = &MsgGetOpts{
 			IfModifiedSince: int64ToTime(desc.GetIfModifiedSince()),
+			User:            desc.GetUser(),
+			Topic:           desc.GetTopic(),
 			Limit:           int(desc.GetLimit()),
+			Forward:         desc.GetForward(),
 		}
 	}
 	if sub := in.GetSub(); sub != nil {
 		msg.Sub = &MsgGetOpts{
 			IfModifiedSince: int64ToTime(sub.GetIfModifiedSince()),
+			User:            sub.GetUser(),
+			Topic:           sub.GetTopic(),
 			Limit:           int(sub.GetLimit()),
+			Forward:         sub.GetForward(),
 		}
 	}
 	if data := in.GetData(); data != nil {
@@ -624,6 +811,7 @@ func pbGetQueryDeserialize(in *pbx.GetQuery) *MsgGetQuery {
 			BeforeId: int(data.GetBeforeId()),
 			SinceId:  int(data.GetSinceId()),
 			Limit:    int(data.GetLimit()),
+			Forward:  data.GetForward(),
 		}
 
 		if ranges := data.GetRanges(); len(ranges) > 0 {
@@ -634,10 +822,38 @@ func pbGetQueryDeserialize(in *pbx.GetQuery) *MsgGetQuery {
 			}
 		}
 	}
+	if del := in.GetDel(); del != nil {
+		msg.Del = &MsgGetOpts{
+			BeforeId: int(del.GetBeforeId()),
+			SinceId:  int(del.GetSinceId()),
+			Limit:    int(del.GetLimit()),
+			Forward:  del.GetForward(),
+		}
+		if ranges := del.GetRanges(); len(ranges) > 0 {
+			msg.Del.IdRanges = make([]MsgRange, len(ranges))
+			for i, sr := range ranges {
+				msg.Del.IdRanges[i].LowId = int(sr.GetLow())
+				msg.Del.IdRanges[i].HiId = int(sr.GetHi())
+			}
+		}
+	}
+	if search := in.GetSearch(); search != nil {
+		msg.Search = &MsgSearchOpts{
+			Query:   search.GetQuery(),
+			Scope:   search.GetScope(),
+			From:    search.GetFromUserId(),
+			Kinds:   search.GetKinds(),
+			MinDate: int64ToTime(search.GetMinDate()),
+			MaxDate: int64ToTime(search.GetMaxDate()),
+			Cursor:  search.GetCursor(),
+			Limit:   int(search.GetLimit()),
+		}
+	}
 
 	return &msg
 }
 
+// pbSetDescSerialize 完成pbSetDescSerialize所需的内部处理。
 func pbSetDescSerialize(in *MsgSetDesc) *pbx.SetDesc {
 	if in == nil {
 		return nil
@@ -655,6 +871,7 @@ func pbSetDescSerialize(in *MsgSetDesc) *pbx.SetDesc {
 	return nil
 }
 
+// pbSetDescDeserialize 完成pbSetDescDeserialize所需的内部处理。
 func pbSetDescDeserialize(in *pbx.SetDesc) *MsgSetDesc {
 	if in == nil {
 		return nil
@@ -677,6 +894,7 @@ func pbSetDescDeserialize(in *pbx.SetDesc) *MsgSetDesc {
 	return nil
 }
 
+// pbSetQuerySerialize 完成pbSet查询Serialize所需的内部处理。
 func pbSetQuerySerialize(in *MsgSetQuery) *pbx.SetQuery {
 	if in == nil {
 		return nil
@@ -690,6 +908,7 @@ func pbSetQuerySerialize(in *MsgSetQuery) *pbx.SetQuery {
 		out.Sub = &pbx.SetSub{
 			UserId: in.Sub.User,
 			Mode:   in.Sub.Mode,
+			Role:   in.Sub.Role,
 		}
 	}
 
@@ -700,6 +919,7 @@ func pbSetQuerySerialize(in *MsgSetQuery) *pbx.SetQuery {
 	return out
 }
 
+// pbSetQueryDeserialize 完成pbSet查询Deserialize所需的内部处理。
 func pbSetQueryDeserialize(in *pbx.SetQuery) *MsgSetQuery {
 	if in == nil {
 		return nil
@@ -715,8 +935,9 @@ func pbSetQueryDeserialize(in *pbx.SetQuery) *MsgSetQuery {
 	if sub := in.GetSub(); sub != nil {
 		user := sub.GetUserId()
 		mode := sub.GetMode()
+		role := sub.GetRole()
 
-		if user != "" || mode != "" {
+		if user != "" || mode != "" || role != "" {
 			if msg == nil {
 				msg = &MsgSetQuery{}
 			}
@@ -724,6 +945,7 @@ func pbSetQueryDeserialize(in *pbx.SetQuery) *MsgSetQuery {
 			msg.Sub = &MsgSetSub{
 				User: sub.GetUserId(),
 				Mode: sub.GetMode(),
+				Role: sub.GetRole(),
 			}
 		}
 	}
@@ -745,39 +967,58 @@ func pbSetQueryDeserialize(in *pbx.SetQuery) *MsgSetQuery {
 	return msg
 }
 
+// pbInfoNoteWhatSerialize 将内部 note 类型映射为 Protobuf 枚举。
 func pbInfoNoteWhatSerialize(what string) pbx.InfoNote {
 	var out pbx.InfoNote
 	switch what {
 	case "kp":
 		out = pbx.InfoNote_KP
+	case "kpa":
+		out = pbx.InfoNote_KPA
+	case "kpv":
+		out = pbx.InfoNote_KPV
 	case "read":
 		out = pbx.InfoNote_READ
 	case "recv":
 		out = pbx.InfoNote_RECV
 	case "call":
 		out = pbx.InfoNote_CALL
+	case "react":
+		out = pbx.InfoNote_REACT
+	case "pin":
+		out = pbx.InfoNote_PIN
 	default:
 		logs.Info.Println("unknown info-note.what", what)
 	}
 	return out
 }
 
+// pbInfoNoteWhatDeserialize 将 Protobuf note 枚举映射回内部字符串。
 func pbInfoNoteWhatDeserialize(what pbx.InfoNote) string {
 	var out string
 	switch what {
 	case pbx.InfoNote_KP:
 		out = "kp"
+	case pbx.InfoNote_KPA:
+		out = "kpa"
+	case pbx.InfoNote_KPV:
+		out = "kpv"
 	case pbx.InfoNote_READ:
 		out = "read"
 	case pbx.InfoNote_RECV:
 		out = "recv"
 	case pbx.InfoNote_CALL:
 		out = "call"
+	case pbx.InfoNote_REACT:
+		out = "react"
+	case pbx.InfoNote_PIN:
+		out = "pin"
 	default:
 	}
 	return out
 }
 
+// pbCallEventSerialize 完成pb通话事件Serialize所需的内部处理。
 func pbCallEventSerialize(event string) pbx.CallEvent {
 	var out pbx.CallEvent
 	switch event {
@@ -795,6 +1036,12 @@ func pbCallEventSerialize(event string) pbx.CallEvent {
 		out = pbx.CallEvent_OFFER
 	case "ringing":
 		out = pbx.CallEvent_RINGING
+	case "join":
+		out = pbx.CallEvent_JOIN
+	case "leave":
+		out = pbx.CallEvent_LEAVE
+	case "refresh":
+		out = pbx.CallEvent_REFRESH
 	case "":
 		out = pbx.CallEvent_X2
 	default:
@@ -803,6 +1050,7 @@ func pbCallEventSerialize(event string) pbx.CallEvent {
 	return out
 }
 
+// pbCallEventDeserialize 完成pb通话事件Deserialize所需的内部处理。
 func pbCallEventDeserialize(event pbx.CallEvent) string {
 	var out string
 	switch event {
@@ -820,11 +1068,18 @@ func pbCallEventDeserialize(event pbx.CallEvent) string {
 		out = "offer"
 	case pbx.CallEvent_RINGING:
 		out = "ringing"
+	case pbx.CallEvent_JOIN:
+		out = "join"
+	case pbx.CallEvent_LEAVE:
+		out = "leave"
+	case pbx.CallEvent_REFRESH:
+		out = "refresh"
 	default:
 	}
 	return out
 }
 
+// pbAccessModeSerialize 完成pbAccess访问模式Serialize所需的内部处理。
 func pbAccessModeSerialize(acs *MsgAccessMode) *pbx.AccessMode {
 	if acs == nil {
 		return nil
@@ -833,9 +1088,11 @@ func pbAccessModeSerialize(acs *MsgAccessMode) *pbx.AccessMode {
 	return &pbx.AccessMode{
 		Want:  acs.Want,
 		Given: acs.Given,
+		Role:  acs.Role,
 	}
 }
 
+// pbAccessModeDeserialize 完成pbAccess访问模式Deserialize所需的内部处理。
 func pbAccessModeDeserialize(acs *pbx.AccessMode) *MsgAccessMode {
 	if acs == nil {
 		return nil
@@ -844,9 +1101,11 @@ func pbAccessModeDeserialize(acs *pbx.AccessMode) *MsgAccessMode {
 	return &MsgAccessMode{
 		Want:  acs.Want,
 		Given: acs.Given,
+		Role:  acs.Role,
 	}
 }
 
+// pbDefaultAcsSerialize 完成pb默认AcsSerialize所需的内部处理。
 func pbDefaultAcsSerialize(defacs *MsgDefaultAcsMode) *pbx.DefaultAcsMode {
 	if defacs == nil {
 		return nil
@@ -858,6 +1117,7 @@ func pbDefaultAcsSerialize(defacs *MsgDefaultAcsMode) *pbx.DefaultAcsMode {
 	}
 }
 
+// pbDefaultAcsDeserialize 完成pb默认AcsDeserialize所需的内部处理。
 func pbDefaultAcsDeserialize(defacs *pbx.DefaultAcsMode) *MsgDefaultAcsMode {
 	if defacs == nil {
 		return nil
@@ -875,6 +1135,7 @@ func pbDefaultAcsDeserialize(defacs *pbx.DefaultAcsMode) *MsgDefaultAcsMode {
 	return nil
 }
 
+// pbTopicDescSerialize 完成pbTopicDescSerialize所需的内部处理。
 func pbTopicDescSerialize(desc *MsgTopicDesc) *pbx.TopicDesc {
 	if desc == nil {
 		return nil
@@ -892,6 +1153,7 @@ func pbTopicDescSerialize(desc *MsgTopicDesc) *pbx.TopicDesc {
 		ReadId:    int32(desc.ReadSeqId),
 		RecvId:    int32(desc.RecvSeqId),
 		DelId:     int32(desc.DelId),
+		SubCount:  int32(desc.SubCnt),
 		Public:    interfaceToBytes(desc.Public),
 		Trusted:   interfaceToBytes(desc.Trusted),
 		Private:   interfaceToBytes(desc.Private),
@@ -903,6 +1165,7 @@ func pbTopicDescSerialize(desc *MsgTopicDesc) *pbx.TopicDesc {
 	return out
 }
 
+// pbTopicDescDeserialize 完成pbTopicDescDeserialize所需的内部处理。
 func pbTopicDescDeserialize(desc *pbx.TopicDesc) *MsgTopicDesc {
 	if desc == nil {
 		return nil
@@ -920,6 +1183,7 @@ func pbTopicDescDeserialize(desc *pbx.TopicDesc) *MsgTopicDesc {
 		ReadSeqId:  int(desc.ReadId),
 		RecvSeqId:  int(desc.RecvId),
 		DelId:      int(desc.DelId),
+		SubCnt:     int(desc.SubCount),
 		Public:     bytesToInterface(desc.Public),
 		Trusted:    bytesToInterface(desc.Trusted),
 		Private:    bytesToInterface(desc.Private),
@@ -934,6 +1198,7 @@ func pbTopicDescDeserialize(desc *pbx.TopicDesc) *MsgTopicDesc {
 	return out
 }
 
+// pbTopicSerializeToDesc 完成pbTopicSerializeToDesc所需的内部处理。
 func pbTopicSerializeToDesc(topic *Topic) *pbx.TopicDesc {
 	if topic == nil {
 		return nil
@@ -941,17 +1206,20 @@ func pbTopicSerializeToDesc(topic *Topic) *pbx.TopicDesc {
 	return &pbx.TopicDesc{
 		CreatedAt: timeToInt64(&topic.created),
 		UpdatedAt: timeToInt64(&topic.updated),
+		IsChan:    topic.isChan,
 		Defacs: &pbx.DefaultAcsMode{
 			Auth: topic.accessAuth.String(),
 			Anon: topic.accessAnon.String(),
 		},
-		SeqId:   int32(topic.lastID),
-		DelId:   int32(topic.delID),
-		Public:  interfaceToBytes(topic.public),
-		Trusted: interfaceToBytes(topic.trusted),
+		SeqId:    int32(topic.lastID),
+		DelId:    int32(topic.delID),
+		SubCount: int32(topic.subCnt),
+		Public:   interfaceToBytes(topic.public),
+		Trusted:  interfaceToBytes(topic.trusted),
 	}
 }
 
+// pbTopicSubSliceSerialize 完成pbTopic订阅SliceSerialize所需的内部处理。
 func pbTopicSubSliceSerialize(subs []MsgTopicSub) []*pbx.TopicSub {
 	if len(subs) == 0 {
 		return nil
@@ -964,6 +1232,7 @@ func pbTopicSubSliceSerialize(subs []MsgTopicSub) []*pbx.TopicSub {
 	return out
 }
 
+// pbTopicSubSerialize 完成pbTopic订阅Serialize所需的内部处理。
 func pbTopicSubSerialize(sub *MsgTopicSub) *pbx.TopicSub {
 	out := &pbx.TopicSub{
 		UpdatedAt: timeToInt64(sub.UpdatedAt),
@@ -980,6 +1249,7 @@ func pbTopicSubSerialize(sub *MsgTopicSub) *pbx.TopicSub {
 		TouchedAt: timeToInt64(sub.TouchedAt),
 		SeqId:     int32(sub.SeqId),
 		DelId:     int32(sub.DelId),
+		SubCount:  int32(sub.SubCnt),
 	}
 	if sub.LastSeen != nil {
 		out.LastSeenTime = timeToInt64(sub.LastSeen.When)
@@ -988,6 +1258,7 @@ func pbTopicSubSerialize(sub *MsgTopicSub) *pbx.TopicSub {
 	return out
 }
 
+// pbTopicSubSliceDeserialize 完成pbTopic订阅SliceDeserialize所需的内部处理。
 func pbTopicSubSliceDeserialize(subs []*pbx.TopicSub) []MsgTopicSub {
 	if len(subs) == 0 {
 		return nil
@@ -1009,6 +1280,7 @@ func pbTopicSubSliceDeserialize(subs []*pbx.TopicSub) []MsgTopicSub {
 			TouchedAt: int64ToTime(subs[i].GetTouchedAt()),
 			SeqId:     int(subs[i].GetSeqId()),
 			DelId:     int(subs[i].GetDelId()),
+			SubCnt:    int(subs[i].GetSubCount()),
 		}
 		if acs := subs[i].GetAcs(); acs != nil {
 			out[i].Acs = *pbAccessModeDeserialize(acs)
@@ -1023,6 +1295,7 @@ func pbTopicSubSliceDeserialize(subs []*pbx.TopicSub) []MsgTopicSub {
 	return out
 }
 
+// pbSubSliceDeserialize 完成pb订阅SliceDeserialize所需的内部处理。
 func pbSubSliceDeserialize(subs []*pbx.TopicSub) []types.Subscription {
 	if len(subs) == 0 {
 		return nil
@@ -1054,6 +1327,7 @@ func pbSubSliceDeserialize(subs []*pbx.TopicSub) []types.Subscription {
 	return out
 }
 
+// pbDelQuerySerialize 完成pbDel查询Serialize所需的内部处理。
 func pbDelQuerySerialize(in []MsgRange) []*pbx.SeqRange {
 	if in == nil {
 		return nil
@@ -1067,6 +1341,7 @@ func pbDelQuerySerialize(in []MsgRange) []*pbx.SeqRange {
 	return out
 }
 
+// pbDelQueryDeserialize 完成pbDel查询Deserialize所需的内部处理。
 func pbDelQueryDeserialize(in []*pbx.SeqRange) []MsgRange {
 	if in == nil {
 		return nil
@@ -1081,6 +1356,7 @@ func pbDelQueryDeserialize(in []*pbx.SeqRange) []MsgRange {
 	return out
 }
 
+// pbDelValuesSerialize 完成pbDelValuesSerialize所需的内部处理。
 func pbDelValuesSerialize(in *MsgDelValues) *pbx.DelValues {
 	if in == nil {
 		return nil
@@ -1092,6 +1368,7 @@ func pbDelValuesSerialize(in *MsgDelValues) *pbx.DelValues {
 	}
 }
 
+// pbDelValuesDeserialize 完成pbDelValuesDeserialize所需的内部处理。
 func pbDelValuesDeserialize(in *pbx.DelValues) *MsgDelValues {
 	if in == nil {
 		return nil
@@ -1103,6 +1380,7 @@ func pbDelValuesDeserialize(in *pbx.DelValues) *MsgDelValues {
 	}
 }
 
+// pbClientCredSerialize 完成pb客户端凭据Serialize所需的内部处理。
 func pbClientCredSerialize(in *MsgCredClient) *pbx.ClientCred {
 	if in == nil {
 		return nil
@@ -1116,6 +1394,7 @@ func pbClientCredSerialize(in *MsgCredClient) *pbx.ClientCred {
 	}
 }
 
+// pbClientCredsSerialize 完成pb客户端CredsSerialize所需的内部处理。
 func pbClientCredsSerialize(in []MsgCredClient) []*pbx.ClientCred {
 	if in == nil {
 		return nil
@@ -1129,6 +1408,7 @@ func pbClientCredsSerialize(in []MsgCredClient) []*pbx.ClientCred {
 	return out
 }
 
+// pbClientCredDeserialize 完成pb客户端凭据Deserialize所需的内部处理。
 func pbClientCredDeserialize(in *pbx.ClientCred) *MsgCredClient {
 	if in == nil {
 		return nil
@@ -1142,6 +1422,7 @@ func pbClientCredDeserialize(in *pbx.ClientCred) *MsgCredClient {
 	}
 }
 
+// pbClientCredsDeserialize 完成pb客户端CredsDeserialize所需的内部处理。
 func pbClientCredsDeserialize(in []*pbx.ClientCred) []MsgCredClient {
 	if in == nil {
 		return nil
@@ -1155,6 +1436,7 @@ func pbClientCredsDeserialize(in []*pbx.ClientCred) []MsgCredClient {
 	return out
 }
 
+// pbServerCredsSerialize 完成pb服务端CredsSerialize所需的内部处理。
 func pbServerCredsSerialize(in []*MsgCredServer) []*pbx.ServerCred {
 	if in == nil {
 		return nil
@@ -1171,6 +1453,7 @@ func pbServerCredsSerialize(in []*MsgCredServer) []*pbx.ServerCred {
 	return out
 }
 
+// pbServerCredsDeserialize 完成pb服务端CredsDeserialize所需的内部处理。
 func pbServerCredsDeserialize(in []*pbx.ServerCred) []*MsgCredServer {
 	if in == nil {
 		return nil

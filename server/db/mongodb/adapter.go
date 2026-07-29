@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -27,58 +28,83 @@ import (
 
 // adapter 保存 MongoDB 连接数据。
 type adapter struct {
-	conn   *mdb.Client
-	db     *mdb.Database
+	// conn 保存连接。
+	conn *mdb.Client
+	// db 保存数据库。
+	db *mdb.Database
+	// dbName 保存数据库名称。
 	dbName string
 	// 最大返回记录数
 	maxResults int
 	// 最大返回消息记录数
 	maxMessageResults int
-	version           int
-	ctx               context.Context
-	useTransactions   bool
+	// version 保存版本。
+	version int
+	// ctx 保存ctx。
+	ctx context.Context
+	// useTransactions 指示是否启用或满足useTransactions。
+	useTransactions bool
 }
 
 const (
-	adpVersion  = 116
+	// adpVersion 指定adp版本。
+	adpVersion = 119
+	// adapterName 指定adapter名称。
 	adapterName = "mongodb"
 
-	defaultHost     = "localhost:27017"
+	// defaultHost 指定默认Host。
+	defaultHost = "localhost:27017"
+	// defaultDatabase 指定默认Database。
 	defaultDatabase = "im"
 
+	// defaultMaxResults 指定默认MaxResults。
 	defaultMaxResults = 1024
 	// 此值受 Session 发送队列上限 (128) 限制。
 	defaultMaxMessageResults = 100
 
+	// defaultAuthMechanism 指定默认认证Mechanism。
 	defaultAuthMechanism = "SCRAM-SHA-256"
-	defaultAuthSource    = "admin"
+	// defaultAuthSource 指定默认认证Source。
+	defaultAuthSource = "admin"
 )
 
 // 参见 https://godoc.org/go.mongodb.org/mongo-driver/mongo/options#ClientOptions 了解说明。
 type configType struct {
 	// 连接字符串 URI https://www.mongodb.com/docs/manual/reference/connection-string/
-	Uri            string `json:"uri,omitempty"`
-	Addresses      any    `json:"addresses,omitempty"`
-	ConnectTimeout int    `json:"timeout,omitempty"`
+	Uri string `json:"uri,omitempty"`
+	// Addresses 保存Addresses。
+	Addresses any `json:"addresses,omitempty"`
+	// ConnectTimeout 保存Connect超时时间。
+	ConnectTimeout int `json:"timeout,omitempty"`
 
 	// 独立于 ClientOptions 的选项（自定义选项）：
-	Database   string `json:"database,omitempty"`
+	Database string `json:"database,omitempty"`
+	// ReplicaSet 保存ReplicaSet。
 	ReplicaSet string `json:"replica_set,omitempty"`
 
+	// AuthMechanism 保存认证Mechanism。
 	AuthMechanism string `json:"auth_mechanism,omitempty"`
-	AuthSource    string `json:"auth_source,omitempty"`
-	Username      string `json:"username,omitempty"`
-	Password      string `json:"password,omitempty"`
+	// AuthSource 保存认证Source。
+	AuthSource string `json:"auth_source,omitempty"`
+	// Username 指示是否启用或满足Username。
+	Username string `json:"username,omitempty"`
+	// Password 保存密码。
+	Password string `json:"password,omitempty"`
 
-	UseTLS             bool   `json:"tls,omitempty"`
-	TlsCertFile        string `json:"tls_cert_file,omitempty"`
-	TlsPrivateKey      string `json:"tls_private_key,omitempty"`
-	InsecureSkipVerify bool   `json:"tls_skip_verify,omitempty"`
+	// UseTLS 指示是否启用或满足UseTLS。
+	UseTLS bool `json:"tls,omitempty"`
+	// TlsCertFile 保存TlsCert文件。
+	TlsCertFile string `json:"tls_cert_file,omitempty"`
+	// TlsPrivateKey 保存TlsPrivate键。
+	TlsPrivateKey string `json:"tls_private_key,omitempty"`
+	// InsecureSkipVerify 保存InsecureSkipVerify。
+	InsecureSkipVerify bool `json:"tls_skip_verify,omitempty"`
 
 	// 目前唯一支持的版本是 "1"。
 	APIVersion mdbopts.ServerAPIVersion `json:"api_version,omitempty"`
 }
 
+// maybeStartTransaction 完成maybeStartTransaction所需的内部处理。
 func (a *adapter) maybeStartTransaction(sess mdb.Session) error {
 	if a.useTransactions {
 		return sess.StartTransaction()
@@ -86,6 +112,7 @@ func (a *adapter) maybeStartTransaction(sess mdb.Session) error {
 	return nil
 }
 
+// maybeCommitTransaction 完成maybeCommitTransaction所需的内部处理。
 func (a *adapter) maybeCommitTransaction(ctx context.Context, sess mdb.Session) error {
 	if a.useTransactions {
 		return sess.CommitTransaction(ctx)
@@ -251,6 +278,7 @@ func (a *adapter) GetDbVersion() (int, error) {
 	return result.Value, nil
 }
 
+// updateDbVersion 更新数据库版本。
 func (a *adapter) updateDbVersion(v int) error {
 	a.version = -1
 	_, err := a.db.Collection("kvmeta").UpdateOne(a.ctx,
@@ -319,7 +347,9 @@ func (a *adapter) CreateDb(reset bool) error {
 	} else if a.isDbInitialized() {
 		return errors.New("Database already initialized")
 	}
-	// 集合（表）无需显式创建，MongoDB 会在首次写入时自动创建
+	// 集合（表）无需显式创建，MongoDB 会在首次写入或创建索引时自动创建。
+	// MongoDB 不支持关系型数据库的表/字段 COMMENT；下方每组索引前的注释
+	// 同时承担集合用途和关键字段约束的数据库文档职责。
 
 	indexes := []struct {
 		Collection string
@@ -395,6 +425,16 @@ func (a *adapter) CreateDb(reset bool) error {
 			Collection: "messages",
 			IndexOpts:  mdb.IndexModel{Keys: b.D{{Key: "topic", Value: 1}, {Key: "seqid", Value: 1}}},
 		},
+		// 客户端消息幂等键；旧消息不带 clientkey，不参与唯一约束。
+		{
+			Collection: "messages",
+			IndexOpts: mdb.IndexModel{
+				Keys: b.D{{Key: "topic", Value: 1}, {Key: "clientkey", Value: 1}},
+				Options: mdbopts.Index().
+					SetUnique(true).
+					SetPartialFilterExpression(b.M{"clientkey": b.M{"$type": "string"}}),
+			},
+		},
 		// 硬删除消息的复合索引
 		{
 			Collection: "messages",
@@ -405,6 +445,24 @@ func (a *adapter) CreateDb(reset bool) error {
 		{
 			Collection: "messages",
 			IndexOpts:  mdb.IndexModel{Keys: b.D{{Key: "topic", Value: 1}, {Key: "deletedfor.user", Value: 1}, {Key: "deletedfor.delid", Value: 1}}},
+		},
+		{
+			Collection: "messages",
+			IndexOpts:  mdb.IndexModel{Keys: b.D{{Key: "topic", Value: 1}, {Key: "updatedat", Value: 1}, {Key: "seqid", Value: 1}}},
+		},
+		// scheduledmessages 保存尚未分配 Topic SeqId 的定时消息快照。
+		// MongoDB 没有关系型数据库的表/字段 COMMENT，集合用途记录在此处。
+		// 唯一索引保证同一发送者的 cid 重试不会创建第二条队列记录。
+		{
+			Collection: "scheduledmessages",
+			IndexOpts: mdb.IndexModel{
+				Keys:    b.D{{Key: "topic", Value: 1}, {Key: "from", Value: 1}, {Key: "clientid", Value: 1}},
+				Options: mdbopts.Index().SetUnique(true),
+			},
+		},
+		{
+			Collection: "scheduledmessages",
+			Field:      "publishat",
 		},
 
 		// 已删除消息的日志
@@ -565,6 +623,60 @@ func (a *adapter) UpgradeDb() error {
 		}
 	}
 
+	if a.version == 116 {
+		// MongoDB 不支持字段 COMMENT；clientkey 的用途由索引和 Go 模型注释记录。
+		if _, err := a.db.Collection("messages").Indexes().CreateOne(a.ctx, mdb.IndexModel{
+			Keys: b.D{{Key: "topic", Value: 1}, {Key: "clientkey", Value: 1}},
+			Options: mdbopts.Index().
+				SetUnique(true).
+				SetPartialFilterExpression(b.M{"clientkey": b.M{"$type": "string"}}),
+		}); err != nil {
+			return err
+		}
+		if err := bumpVersion(a, 117); err != nil {
+			return err
+		}
+	}
+
+	if a.version == 117 {
+		// 数据库 117→118：增加消息修改游标索引和持久化定时队列索引。
+		if _, err := a.db.Collection("messages").Indexes().CreateOne(a.ctx, mdb.IndexModel{
+			Keys: b.D{{Key: "topic", Value: 1}, {Key: "updatedat", Value: 1}, {Key: "seqid", Value: 1}},
+		}); err != nil {
+			return err
+		}
+		// scheduledmessages 是持久化定时队列；MongoDB 无原生集合 COMMENT。
+		if _, err := a.db.Collection("scheduledmessages").Indexes().CreateMany(a.ctx, []mdb.IndexModel{
+			{
+				Keys:    b.D{{Key: "topic", Value: 1}, {Key: "from", Value: 1}, {Key: "clientid", Value: 1}},
+				Options: mdbopts.Index().SetUnique(true),
+			},
+			{Keys: b.D{{Key: "publishat", Value: 1}}},
+		}); err != nil {
+			return err
+		}
+		if err := bumpVersion(a, 118); err != nil {
+			return err
+		}
+	}
+
+	if a.version == 118 {
+		// 数据库 118→119：为历史消息回填服务端搜索文本。
+		// MongoDB 不支持字段 COMMENT；SearchText 的用途由 Go 模型注释记录。
+		searchTextExpr := b.D{{Key: "$cond", Value: b.A{
+			b.D{{Key: "$eq", Value: b.A{b.D{{Key: "$type", Value: "$content"}}, "string"}}},
+			"$content",
+			b.D{{Key: "$ifNull", Value: b.A{"$content.txt", ""}}},
+		}}}
+		if _, err := a.db.Collection("messages").UpdateMany(a.ctx, b.M{},
+			mdb.Pipeline{b.D{{Key: "$set", Value: b.D{{Key: "searchtext", Value: searchTextExpr}}}}}); err != nil {
+			return err
+		}
+		if err := bumpVersion(a, 119); err != nil {
+			return err
+		}
+	}
+
 	if a.version != adpVersion {
 		return errors.New("Failed to perform database upgrade to version " + strconv.Itoa(adpVersion) +
 			". DB is still at " + strconv.Itoa(a.version))
@@ -672,6 +784,19 @@ func (a *adapter) UserDelete(uid t.Uid, hard bool) error {
 	}
 
 	if err = mdb.WithSession(a.ctx, sess, func(sc mdb.SessionContext) error {
+		scheduledFilter := b.M{"from": forUser}
+		if len(ownTopics) > 0 {
+			scheduledFilter = b.M{"$or": b.A{
+				b.M{"from": forUser},
+				b.M{"topic": b.M{"$in": ownTopics}},
+			}}
+		}
+		if err = a.decFileUseCounter(sc, "scheduledmessages", scheduledFilter); err != nil {
+			return err
+		}
+		if _, err = a.db.Collection("scheduledmessages").DeleteMany(sc, scheduledFilter); err != nil {
+			return err
+		}
 
 		if hard {
 			// 无需删除用户的设备：设备存储在用户记录中，会随记录一起删除。
@@ -1255,6 +1380,7 @@ func (a *adapter) credDel(ctx context.Context, uid t.Uid, method, value string) 
 	return err
 }
 
+// CredDel 完成凭据Del所需的内部处理。
 func (a *adapter) CredDel(uid t.Uid, method, value string) error {
 	return a.credDel(a.ctx, uid, method, value)
 }
@@ -1372,6 +1498,7 @@ func (a *adapter) AuthDelScheme(uid t.Uid, scheme string) error {
 	return err
 }
 
+// authDelAllRecords 完成认证DelAllRecords所需的内部处理。
 func (a *adapter) authDelAllRecords(ctx context.Context, uid t.Uid) (int, error) {
 	res, err := a.db.Collection("auth").DeleteMany(ctx, b.M{"userid": uid.String()})
 	return int(res.DeletedCount), err
@@ -1437,6 +1564,7 @@ func (a *adapter) AuthUpdRecord(uid t.Uid, scheme, unique string,
 
 // Topic 管理
 
+// undeleteSubscription 完成undelete订阅所需的内部处理。
 func (a *adapter) undeleteSubscription(sub *t.Subscription) error {
 	_, err := a.db.Collection("subscriptions").UpdateOne(a.ctx,
 		b.M{"_id": sub.Id},
@@ -1502,6 +1630,20 @@ func (a *adapter) TopicGet(topic string) (*t.Topic, error) {
 			return nil, nil
 		}
 		return nil, err
+	}
+
+	// 独立 MongoDB 实例不支持跨文档事务。以消息日志为权威来源修复崩溃窗口中的游标偏差。
+	var latest t.Message
+	err := a.db.Collection("messages").FindOne(a.ctx, b.M{"topic": topic},
+		mdbopts.FindOne().SetSort(b.D{{Key: "seqid", Value: -1}}).SetProjection(b.M{"seqid": 1})).Decode(&latest)
+	if err != nil && err != mdb.ErrNoDocuments {
+		return nil, err
+	}
+	if latest.SeqId != tt.SeqId {
+		tt.SeqId = latest.SeqId
+		if err = a.topicUpdate(topic, b.M{"seqid": tt.SeqId}); err != nil {
+			return nil, err
+		}
 	}
 
 	if t.GetTopicCat(topic) == t.TopicCatGrp {
@@ -1862,6 +2004,7 @@ func (a *adapter) topicNamesForUser(collection string, filter b.M, field string,
 	return names, err
 }
 
+// p2pTopicsForUser 完成p2pTopicsFor用户所需的内部处理。
 func (a *adapter) p2pTopicsForUser(uid t.Uid) ([]string, error) {
 	return a.topicNamesForUser("subscriptions",
 		b.M{
@@ -1949,6 +2092,13 @@ func (a *adapter) TopicDelete(topic string, isChan, hard bool) error {
 		if err = a.MessageDeleteList(topic, nil); err != nil {
 			return err
 		}
+		scheduledFilter := b.M{"topic": topic}
+		if err = a.decFileUseCounter(a.ctx, "scheduledmessages", scheduledFilter); err != nil {
+			return err
+		}
+		if _, err = a.db.Collection("scheduledmessages").DeleteMany(a.ctx, scheduledFilter); err != nil {
+			return err
+		}
 		_, err = a.db.Collection("topics").DeleteOne(a.ctx, filter)
 	} else {
 		_, err = a.db.Collection("topics").UpdateOne(a.ctx, filter, b.M{"$set": b.M{
@@ -1965,6 +2115,7 @@ func (a *adapter) TopicUpdateOnMessage(topic string, msg *t.Message) error {
 	return a.topicUpdate(topic, b.M{"seqid": msg.SeqId, "touchedat": msg.CreatedAt})
 }
 
+// subscriptionCount 完成订阅数量所需的内部处理。
 func (a *adapter) subscriptionCount(topic string) (int64, error) {
 	// 获取 Topic 的非已删除订阅数。
 	return a.db.Collection("subscriptions").CountDocuments(a.ctx, b.M{
@@ -1997,6 +2148,7 @@ func (a *adapter) TopicOwnerChange(topic string, newOwner t.Uid) error {
 	return a.topicUpdate(topic, map[string]any{"owner": newOwner.String()})
 }
 
+// topicUpdate 将输入编码为picUpdate。
 func (a *adapter) topicUpdate(topic string, update map[string]any) error {
 	_, err := a.db.Collection("topics").UpdateOne(a.ctx,
 		b.M{"_id": topic},
@@ -2140,13 +2292,6 @@ func (a *adapter) SubsDelete(topic string, user t.Uid) error {
 			filter := b.M{"topic": topic, "deletedfor.user": forUser}
 			if _, err := a.db.Collection("messages").
 				UpdateMany(sc, filter, b.M{"$pull": b.M{"deletedfor": b.M{"user": forUser}}}); err != nil {
-				return err
-			}
-		}
-
-		if t.GetTopicCat(topic) == t.TopicCatGrp {
-			// Decrement Topic 订阅 count (only one 订阅 is	deleted).
-			if err := a.topicUpdate(topic, b.M{"subcnt": -1}); err != nil {
 				return err
 			}
 		}
@@ -2434,6 +2579,116 @@ func (a *adapter) Find(caller, prefPrefix string, req [][]string, opt []string, 
 	return subs, err
 }
 
+// FindByName 按公开 alias 子串发现用户，并按 alias 或 Public.fn 发现公开 Topic。
+func (a *adapter) FindByName(caller string, search *t.PeerSearchQuery) ([]t.Subscription, error) {
+	if search == nil || search.Query == "" {
+		return nil, nil
+	}
+	quotedQuery := regexp.QuoteMeta(search.Query)
+	aliasRegex := "a^"
+	if search.AliasPrefix != "" {
+		aliasRegex = "^" + regexp.QuoteMeta(search.AliasPrefix) + ":.*" + quotedQuery
+	}
+	aliasPattern := primitive.Regex{
+		Pattern: aliasRegex,
+		Options: "i",
+	}
+	namePattern := primitive.Regex{Pattern: quotedQuery, Options: "i"}
+
+	userFilter := b.M{"tags": aliasPattern}
+	if search.ActiveOnly {
+		userFilter["state"] = t.StateOK
+	}
+	userCursor, err := a.db.Collection("users").Find(a.ctx, userFilter,
+		mdbopts.Find().SetLimit(int64(a.maxResults)))
+	if err != nil {
+		return nil, err
+	}
+
+	found := make([]t.Subscription, 0)
+	for userCursor.Next(a.ctx) {
+		var user t.User
+		if err = userCursor.Decode(&user); err != nil {
+			break
+		}
+		uid := t.ParseUid(user.Id)
+		if uid.IsZero() {
+			continue
+		}
+		topic := uid.UserId()
+		if topic == caller {
+			continue
+		}
+		public := unmarshalBsonD(user.Public)
+		score, matched := common.RankPeerSearch(topic, search.Query, search.AliasPrefix, user.Tags, public)
+		if score == 0 {
+			continue
+		}
+		sub := t.Subscription{Topic: topic}
+		sub.CreatedAt = user.CreatedAt
+		sub.UpdatedAt = user.UpdatedAt
+		sub.SetPublic(public)
+		sub.SetTrusted(unmarshalBsonD(user.Trusted))
+		sub.SetDefaultAccess(user.Access.Auth, user.Access.Anon)
+		sub.SetSearchScore(score)
+		sub.ModeGiven = t.ModeUnset
+		sub.ModeWant = t.ModeUnset
+		sub.Private = matched
+		found = append(found, sub)
+	}
+	if closeErr := userCursor.Close(a.ctx); err == nil {
+		err = closeErr
+	}
+	if err == nil {
+		err = userCursor.Err()
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	topicFilter := b.M{"$or": b.A{
+		b.M{"tags": aliasPattern},
+		b.M{"public.fn": namePattern},
+	}}
+	if search.ActiveOnly {
+		topicFilter["state"] = t.StateOK
+	}
+	topicCursor, err := a.db.Collection("topics").Find(a.ctx, topicFilter,
+		mdbopts.Find().SetLimit(int64(a.maxResults)))
+	if err != nil {
+		return nil, err
+	}
+	defer topicCursor.Close(a.ctx)
+	for topicCursor.Next(a.ctx) {
+		var topic t.Topic
+		if err = topicCursor.Decode(&topic); err != nil {
+			return nil, err
+		}
+		public := unmarshalBsonD(topic.Public)
+		score, matched := common.RankPeerSearch(topic.Id, search.Query, search.AliasPrefix, topic.Tags, public)
+		if score == 0 {
+			continue
+		}
+		name := topic.Id
+		if topic.UseBt {
+			name = t.GrpToChn(name)
+		}
+		sub := t.Subscription{Topic: name}
+		sub.CreatedAt = topic.CreatedAt
+		sub.UpdatedAt = topic.UpdatedAt
+		sub.SetSubCnt(topic.SubCnt)
+		sub.SetPublic(public)
+		sub.SetTrusted(unmarshalBsonD(topic.Trusted))
+		sub.SetDefaultAccess(topic.Access.Auth, topic.Access.Anon)
+		sub.SetSearchScore(score)
+		sub.ModeGiven = t.ModeUnset
+		sub.ModeWant = t.ModeUnset
+		sub.Private = matched
+		found = append(found, sub)
+	}
+	return found, topicCursor.Err()
+}
+
 // FindOne returns the first Topic or 用户 which matches the given tag.
 func (a *adapter) FindOne(tag string) (string, error) {
 	// Part of the pipeline identical for 用户 and Topic collections.
@@ -2472,7 +2727,141 @@ func (a *adapter) FindOne(tag string) (string, error) {
 
 // MessageSave saves 消息 to 数据库
 func (a *adapter) MessageSave(msg *t.Message) error {
+	msg.InitClientKey()
 	_, err := a.db.Collection("messages").InsertOne(a.ctx, msg)
+	return err
+}
+
+// MessageSaveAtomic 在支持事务的 MongoDB 部署中原子推进 Topic 游标并保存消息。
+func (a *adapter) MessageSaveAtomic(msg *t.Message) error {
+	msg.InitClientKey()
+	sess, err := a.conn.StartSession()
+	if err != nil {
+		return err
+	}
+	defer sess.EndSession(a.ctx)
+	if err = a.maybeStartTransaction(sess); err != nil {
+		return err
+	}
+	return mdb.WithSession(a.ctx, sess, func(sc mdb.SessionContext) error {
+		if _, err := a.db.Collection("topics").UpdateOne(sc, b.M{"_id": msg.Topic},
+			b.M{"$set": b.M{"seqid": msg.SeqId, "touchedat": msg.CreatedAt}}); err != nil {
+			return err
+		}
+		if _, err := a.db.Collection("messages").InsertOne(sc, msg); err != nil {
+			return err
+		}
+		return a.maybeCommitTransaction(sc, sess)
+	})
+}
+
+// MessageGetByClientId 按 Topic、发送者和客户端幂等键查询已投递消息。
+func (a *adapter) MessageGetByClientId(topic string, from t.Uid, clientID string) (*t.Message, error) {
+	if clientID == "" {
+		return nil, nil
+	}
+	var msg t.Message
+	err := a.db.Collection("messages").FindOne(a.ctx,
+		b.M{"topic": topic, "clientkey": t.MessageClientKey(from, clientID)}).Decode(&msg)
+	if errors.Is(err, mdb.ErrNoDocuments) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	msg.Content = unmarshalBsonD(msg.Content)
+	return &msg, nil
+}
+
+// MessageGet 按 Topic 和 SeqId 查询一条未硬删除消息。
+func (a *adapter) MessageGet(topic string, seqID int) (*t.Message, error) {
+	var msg t.Message
+	err := a.db.Collection("messages").FindOne(a.ctx,
+		b.M{"topic": topic, "seqid": seqID, "delid": b.M{"$exists": false}}).Decode(&msg)
+	if errors.Is(err, mdb.ErrNoDocuments) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	msg.Content = unmarshalBsonD(msg.Content)
+	return &msg, nil
+}
+
+// MessageUpdate 更新现存消息的正文、消息头和修改时间。
+func (a *adapter) MessageUpdate(msg *t.Message) error {
+	res, err := a.db.Collection("messages").UpdateOne(a.ctx,
+		b.M{"topic": msg.Topic, "seqid": msg.SeqId, "delid": b.M{"$exists": false}},
+		b.M{"$set": b.M{
+			"updatedat":  msg.UpdatedAt,
+			"head":       msg.Head,
+			"content":    msg.Content,
+			"searchtext": msg.SearchText,
+		}})
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return t.ErrNotFound
+	}
+	return nil
+}
+
+// MessageSchedule 将消息快照写入持久化定时队列集合。
+func (a *adapter) MessageSchedule(msg *t.ScheduledMessage) error {
+	_, err := a.db.Collection("scheduledmessages").InsertOne(a.ctx, msg)
+	return err
+}
+
+// MessageGetScheduledByClientId 按发送者范围内的幂等键查询待投递消息。
+func (a *adapter) MessageGetScheduledByClientId(topic string, from t.Uid, clientID string) (*t.ScheduledMessage, error) {
+	if clientID == "" {
+		return nil, nil
+	}
+	var msg t.ScheduledMessage
+	err := a.db.Collection("scheduledmessages").FindOne(a.ctx,
+		b.M{"topic": topic, "from": from.String(), "clientid": clientID}).Decode(&msg)
+	if errors.Is(err, mdb.ErrNoDocuments) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	msg.Content = unmarshalBsonD(msg.Content)
+	return &msg, nil
+}
+
+// MessageGetDueScheduled 按计划时间升序读取一批已到期消息。
+func (a *adapter) MessageGetDueScheduled(now time.Time, limit int) ([]t.ScheduledMessage, error) {
+	if limit <= 0 {
+		limit = a.maxMessageResults
+	}
+	cur, err := a.db.Collection("scheduledmessages").Find(a.ctx,
+		b.M{"publishat": b.M{"$lte": now}},
+		mdbopts.Find().SetSort(b.D{{Key: "publishat", Value: 1}}).SetLimit(int64(limit)))
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(a.ctx)
+	var out []t.ScheduledMessage
+	for cur.Next(a.ctx) {
+		var msg t.ScheduledMessage
+		if err = cur.Decode(&msg); err != nil {
+			return nil, err
+		}
+		msg.Content = unmarshalBsonD(msg.Content)
+		out = append(out, msg)
+	}
+	return out, cur.Err()
+}
+
+// MessageDeleteScheduled 递减附件引用计数后删除指定发送者拥有的定时消息。
+func (a *adapter) MessageDeleteScheduled(id, topic string, from t.Uid) error {
+	filter := b.M{"_id": id, "topic": topic, "from": from.String()}
+	if err := a.decFileUseCounter(a.ctx, "scheduledmessages", filter); err != nil {
+		return err
+	}
+	_, err := a.db.Collection("scheduledmessages").DeleteOne(a.ctx, filter)
 	return err
 }
 
@@ -2503,7 +2892,18 @@ func (a *adapter) MessageGetAll(topic string, forUser t.Uid, opts *t.QueryOpt) (
 	} else {
 		filter["seqid"] = b.M{"$gte": lower, "$lt": upper}
 	}
-	findOpts := mdbopts.Find().SetSort(b.D{{Key: "topic", Value: -1}, {Key: "seqid", Value: -1}})
+	if opts != nil && opts.IfModifiedSince != nil {
+		filter["updatedat"] = b.M{"$gt": *opts.IfModifiedSince}
+	}
+	sortDirection := -1
+	if opts != nil && opts.Forward {
+		sortDirection = 1
+	}
+	sortBy := b.D{{Key: "seqid", Value: sortDirection}}
+	if opts != nil && opts.IfModifiedSince != nil {
+		sortBy = b.D{{Key: "updatedat", Value: sortDirection}, {Key: "seqid", Value: sortDirection}}
+	}
+	findOpts := mdbopts.Find().SetSort(sortBy)
 	findOpts.SetLimit(int64(limit))
 
 	cur, err := a.db.Collection("messages").Find(a.ctx, filter, findOpts)
@@ -2525,6 +2925,65 @@ func (a *adapter) MessageGetAll(topic string, forUser t.Uid, opts *t.QueryOpt) (
 	return msgs, nil
 }
 
+// MessageSearch 在单个 Topic 内按规范化正文搜索消息，并排除调用者已删除的消息。
+func (a *adapter) MessageSearch(topic string, forUser t.Uid, search *t.MessageSearchQuery) ([]t.Message, error) {
+	if search == nil || search.Query == "" {
+		return nil, nil
+	}
+	limit := search.Limit
+	if limit <= 0 || limit > a.maxMessageResults {
+		limit = a.maxMessageResults
+	}
+
+	filter := b.M{
+		"topic":           topic,
+		"delid":           b.M{"$exists": false},
+		"deletedfor.user": b.M{"$ne": forUser.String()},
+		"searchtext": primitive.Regex{
+			Pattern: regexp.QuoteMeta(search.Query),
+			Options: "i",
+		},
+	}
+	if !search.From.IsZero() {
+		filter["from"] = search.From.String()
+	}
+	if len(search.Kinds) > 0 {
+		filter["head.x-kind"] = b.M{"$in": search.Kinds}
+	}
+	if search.MinDate != nil || search.MaxDate != nil {
+		dateFilter := b.M{}
+		if search.MinDate != nil {
+			dateFilter["$gte"] = *search.MinDate
+		}
+		if search.MaxDate != nil {
+			dateFilter["$lt"] = *search.MaxDate
+		}
+		filter["createdat"] = dateFilter
+	}
+	if search.BeforeSeq > 0 {
+		filter["seqid"] = b.M{"$lt": search.BeforeSeq}
+	}
+
+	cursor, err := a.db.Collection("messages").Find(a.ctx, filter,
+		mdbopts.Find().SetSort(b.D{{Key: "seqid", Value: -1}}).SetLimit(int64(limit)))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(a.ctx)
+
+	messages := make([]t.Message, 0, limit)
+	for cursor.Next(a.ctx) {
+		var msg t.Message
+		if err = cursor.Decode(&msg); err != nil {
+			return nil, err
+		}
+		msg.Content = unmarshalBsonD(msg.Content)
+		messages = append(messages, msg)
+	}
+	return messages, cursor.Err()
+}
+
+// messagesHardDelete 完成messagesHard删除所需的内部处理。
 func (a *adapter) messagesHardDelete(topic string) error {
 	var err error
 
@@ -2929,23 +3388,41 @@ func (a *adapter) decFileUseCounter(ctx context.Context, collection string, msgF
 		filter[k] = v
 	}
 	filter["attachments"] = b.M{"$exists": true}
-	fileIds, err := a.db.Collection(collection).Distinct(ctx, "attachments", filter)
+	cur, err := a.db.Collection(collection).Find(ctx, filter,
+		mdbopts.Find().SetProjection(b.M{"attachments": 1, "_id": 0}))
 	if err != nil {
 		return err
 	}
+	defer cur.Close(ctx)
 
-	if len(fileIds) > 0 {
-		_, err = a.db.Collection("fileuploads").UpdateMany(ctx,
-			b.M{"_id": b.M{"$in": fileIds}},
-			b.M{"$inc": b.M{"usecount": -1}})
+	counts := make(map[string]int)
+	for cur.Next(ctx) {
+		var record struct {
+			Attachments []string `bson:"attachments"`
+		}
+		if err = cur.Decode(&record); err != nil {
+			return err
+		}
+		for _, id := range record.Attachments {
+			counts[id]++
+		}
 	}
-
-	return err
+	if err = cur.Err(); err != nil {
+		return err
+	}
+	for id, count := range counts {
+		if _, err = a.db.Collection("fileuploads").UpdateOne(ctx,
+			b.M{"_id": id}, b.M{"$inc": b.M{"usecount": -count}}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // FileLinkAttachments connects given Topic or 消息 to the file record IDs from the list.
 func (a *adapter) FileLinkAttachments(topic string, userId, msgId t.Uid, fids []string) error {
-	if len(fids) == 0 || (topic == "" && userId.IsZero() && msgId.IsZero()) {
+	if (topic == "" && userId.IsZero() && msgId.IsZero()) ||
+		(len(fids) == 0 && msgId.IsZero()) {
 		return t.ErrMalformed
 	}
 
@@ -2995,6 +3472,29 @@ func (a *adapter) FileLinkAttachments(topic string, userId, msgId t.Uid, fids []
 			return err
 		}
 	} else {
+		var previous struct {
+			Attachments []string `bson:"attachments"`
+		}
+		findOpts := mdbopts.FindOne().SetProjection(b.M{"attachments": 1, "_id": 0})
+		if err = a.db.Collection("messages").FindOne(a.ctx,
+			b.M{"_id": msgId.String()}, findOpts).Decode(&previous); err != nil {
+			return err
+		}
+		if len(previous.Attachments) > 0 {
+			counts := make(map[string]int)
+			for _, id := range previous.Attachments {
+				counts[id]++
+			}
+			for id, count := range counts {
+				if _, err = a.db.Collection("fileuploads").UpdateOne(a.ctx,
+					b.M{"_id": id}, b.M{
+						"$set": b.M{"updatedat": now},
+						"$inc": b.M{"usecount": -count},
+					}); err != nil {
+					return err
+				}
+			}
+		}
 		_, err = a.db.Collection("messages").UpdateOne(a.ctx,
 			b.M{"_id": msgId.String()},
 			b.M{"$set": b.M{"updatedat": now, "attachments": fids}})
@@ -3003,6 +3503,9 @@ func (a *adapter) FileLinkAttachments(topic string, userId, msgId t.Uid, fids []
 		}
 	}
 
+	if len(fids) == 0 {
+		return nil
+	}
 	ids := make([]any, len(fids))
 	for i, id := range fids {
 		ids[i] = id
@@ -3018,7 +3521,28 @@ func (a *adapter) FileLinkAttachments(topic string, userId, msgId t.Uid, fids []
 	return err
 }
 
-// PCacheGet 读取持久缓存条目。
+// FileLinkScheduled 把文件 ID 写入定时消息并增加引用计数，防止文件提前回收。
+func (a *adapter) FileLinkScheduled(scheduledId t.Uid, fids []string) error {
+	if scheduledId.IsZero() || len(fids) == 0 {
+		return t.ErrMalformed
+	}
+	ids := make([]any, len(fids))
+	for i, id := range fids {
+		if t.ParseUid(id).IsZero() {
+			return t.ErrMalformed
+		}
+		ids[i] = id
+	}
+	_, err := a.db.Collection("fileuploads").UpdateMany(a.ctx,
+		b.M{"_id": b.M{"$in": ids}},
+		b.M{
+			"$set": b.M{"updatedat": t.TimeNow()},
+			"$inc": b.M{"usecount": 1},
+		})
+	return err
+}
+
+// PCacheGet 完成P缓存Get所需的内部处理。
 func (a *adapter) PCacheGet(key string) (string, error) {
 	var value map[string]string
 	findOpts := mdbopts.FindOneOptions{Projection: b.M{"value": 1, "_id": 0}}
@@ -3080,6 +3604,7 @@ func (a *adapter) GetTestDB() any {
 	return a.db
 }
 
+// isDbInitialized 判断是否满足数据库Initialized条件。
 func (a *adapter) isDbInitialized() bool {
 	var result map[string]int
 
@@ -3095,10 +3620,12 @@ func GetTestAdapter() *adapter {
 	return &adapter{}
 }
 
+// init 注册当前包提供的实现并初始化包级状态。
 func init() {
 	store.RegisterAdapter(&adapter{})
 }
 
+// contains 完成contains所需的内部处理。
 func contains(s []string, e string) bool {
 	for _, a := range s {
 		if a == e {
@@ -3108,6 +3635,7 @@ func contains(s []string, e string) bool {
 	return false
 }
 
+// union 完成union所需的内部处理。
 func union(userTags, addTags []string) []string {
 	for _, tag := range addTags {
 		if !contains(userTags, tag) {
@@ -3117,6 +3645,7 @@ func union(userTags, addTags []string) []string {
 	return userTags
 }
 
+// diff 完成diff所需的内部处理。
 func diff(userTags, removeTags []string) []string {
 	var result []string
 	for _, tag := range userTags {
@@ -3162,6 +3691,7 @@ func unmarshalBsonD(bsonObj any) any {
 	return bsonObj
 }
 
+// copyBsonMap 返回Bson映射的独立副本。
 func copyBsonMap(mp b.M) b.M {
 	result := b.M{}
 	for k, v := range mp {
@@ -3169,6 +3699,8 @@ func copyBsonMap(mp b.M) b.M {
 	}
 	return result
 }
+
+// isDuplicateErr 判断是否满足DuplicateErr条件。
 func isDuplicateErr(err error) bool {
 	if err == nil {
 		return false

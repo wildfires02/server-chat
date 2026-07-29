@@ -36,17 +36,23 @@ type authenticator struct {
 
 // request 发送到远程认证服务器的请求体载荷。
 type request struct {
-	Endpoint   string    `json:"endpoint"`
-	Name       string    `json:"name"`
-	Record     *auth.Rec `json:"rec,omitempty"`
-	Secret     []byte    `json:"secret,omitempty"`
-	RemoteAddr string    `json:"addr,omitempty"`
+	// Endpoint 保存Endpoint。
+	Endpoint string `json:"endpoint"`
+	// Name 保存名称。
+	Name string `json:"name"`
+	// Record 保存Record。
+	Record *auth.Rec `json:"rec,omitempty"`
+	// Secret 保存密钥列表。
+	Secret []byte `json:"secret,omitempty"`
+	// RemoteAddr 保存RemoteAddr。
+	RemoteAddr string `json:"addr,omitempty"`
 }
 
 // newAccount 创建新用户账号时的用户初始化数据结构。
 type newAccount struct {
 	// 默认访问权限模式
 	Auth string `json:"auth,omitempty"`
+	// Anon 保存Anon。
 	Anon string `json:"anon,omitempty"`
 	// 用户的公开数据 (Public Data)
 	Public any `json:"public,omitempty"`
@@ -299,6 +305,7 @@ func (authenticator) GetResetParams(uid types.Uid) (map[string]any, error) {
 	return nil, nil
 }
 
+// realName 指定real名称。
 const realName = "rest"
 
 // GetRealName 返回认证器的硬编码内部名称 ("rest")。
@@ -306,6 +313,7 @@ func (authenticator) GetRealName() string {
 	return realName
 }
 
+// init 注册当前包提供的实现并初始化包级状态。
 func init() {
 	store.RegisterAuthScheme(realName, &authenticator{})
 }

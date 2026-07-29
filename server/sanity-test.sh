@@ -69,6 +69,7 @@ init-db() {
   $GOPATH/bin/init-db -config=./im.conf -data=../init-db/data.json
 }
 
+# 等待指定的本地 TCP 端口开始接受连接。
 wait-for() {
   local port=$1
   while ! nc -z localhost $port; do
@@ -81,6 +82,7 @@ run-server() {
   ./run-cluster.sh -s "" start && wait-for 16060
 }
 
+# 通过 CLI 向指定集群节点发送请求并校验成功响应数量。
 send-requests() {
   local expect=12
   local port=$1

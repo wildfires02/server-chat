@@ -14,6 +14,7 @@ import (
 
 // authenticator 是匿名认证器的单例实例。
 type authenticator struct {
+	// name 保存名称。
 	name string
 }
 
@@ -81,11 +82,12 @@ func (authenticator) RestrictedTags() ([]string, error) {
 }
 
 // GetResetParams 返回传递给密码重置处理器的认证器参数
-//（匿名认证无参数）。
+// （匿名认证无参数）。
 func (authenticator) GetResetParams(uid types.Uid) (map[string]any, error) {
 	return nil, nil
 }
 
+// realName 指定real名称。
 const realName = "anonymous"
 
 // GetRealName 返回认证器的硬编码名称。
@@ -93,6 +95,7 @@ func (authenticator) GetRealName() string {
 	return realName
 }
 
+// init 注册当前包提供的实现并初始化包级状态。
 func init() {
 	store.RegisterAuthScheme(realName, &authenticator{})
 }

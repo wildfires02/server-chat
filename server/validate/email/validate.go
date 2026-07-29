@@ -63,19 +63,28 @@ type validator struct {
 	// 发送的验证码数字位数长度
 	CodeLength int `json:"code_length"`
 
+	// validationTempl 保存validationTempl列表。
 	validationTempl []*textt.Template
-	resetTempl      []*textt.Template
-	auth            smtp.Auth
-	senderEmail     string
-	langMatcher     i18n.Matcher
-	maxCodeValue    *big.Int
+	// resetTempl 保存resetTempl列表。
+	resetTempl []*textt.Template
+	// auth 保存认证。
+	auth smtp.Auth
+	// senderEmail 保存senderEmail。
+	senderEmail string
+	// langMatcher 保存语言Matcher。
+	langMatcher i18n.Matcher
+	// maxCodeValue 保存maxCode值。
+	maxCodeValue *big.Int
 }
 
 const (
+	// validatorName 指定校验器名称。
 	validatorName = "email"
 
+	// defaultMaxRetries 指定默认MaxRetries。
 	defaultMaxRetries = 3
-	defaultPort       = "25"
+	// defaultPort 指定默认Port。
+	defaultPort = "25"
 
 	// 邮箱地址最大安全字节长度
 	maxEmailLength = 128
@@ -489,6 +498,7 @@ func (v *validator) send(to string, content map[string]string) error {
 	return err
 }
 
+// isTemplateValid 判断是否满足TemplateValid条件。
 func isTemplateValid(templ *textt.Template) error {
 	if templ.Lookup("subject") == nil {
 		return fmt.Errorf("模板无效: 未找到 '%s'", "subject")
@@ -499,14 +509,18 @@ func isTemplateValid(templ *textt.Template) error {
 	return nil
 }
 
+// loginAuth 保存登录认证的数据和运行状态。
 type loginAuth struct {
+	// username 指示是否启用或满足username。
 	username, password []byte
 }
 
+// Start 启动并运行Start处理流程。
 func (a *loginAuth) Start(_ *smtp.ServerInfo) (string, []byte, error) {
 	return "LOGIN", []byte(a.username), nil
 }
 
+// Next 完成Next所需的内部处理。
 func (a *loginAuth) Next(fromServer []byte, more bool) ([]byte, error) {
 	if more {
 		switch strings.ToLower(string(fromServer)) {
@@ -521,12 +535,14 @@ func (a *loginAuth) Next(fromServer []byte, more bool) ([]byte, error) {
 	return nil, nil
 }
 
+// randomBoundary 完成randomBoundary所需的内部处理。
 func randomBoundary() string {
 	var buf [24]byte
 	_, _ = crand.Read(buf[:])
 	return fmt.Sprintf("im--%x", buf[:])
 }
 
+// init 注册当前包提供的实现并初始化包级状态。
 func init() {
 	store.RegisterValidator(validatorName, &validator{})
 }

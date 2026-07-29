@@ -6,6 +6,7 @@
  *
  *****************************************************************************/
 
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -42,6 +43,7 @@ type topicUnreg struct {
 	done chan<- bool
 }
 
+// userStatusReq 保存用户状态Req的数据和运行状态。
 type userStatusReq struct {
 	// 受影响用户的 UID
 	forUser types.Uid
@@ -60,6 +62,8 @@ type Hub struct {
 
 	// 用于路由客户端消息的 Channel，buffer = 4096
 	routeCli chan *ClientComMessage
+	// 持久化定时消息到期后的内部路由 Channel。
+	schedule chan *ClientComMessage
 
 	// 处理未订阅 Topic 的 get.info 请求 Channel，buffer = 128
 	meta chan *ClientComMessage
@@ -83,6 +87,7 @@ type Hub struct {
 	shutdown chan chan<- bool
 }
 
+// topicGet 将输入编码为picGet。
 func (h *Hub) topicGet(name string) *Topic {
 	if t, ok := h.topics.Load(name); ok {
 		return t.(*Topic)
@@ -90,21 +95,25 @@ func (h *Hub) topicGet(name string) *Topic {
 	return nil
 }
 
+// topicPut 将输入编码为picPut。
 func (h *Hub) topicPut(name string, t *Topic) {
 	h.numTopics++
 	h.topics.Store(name, t)
 }
 
+// topicDel 将输入编码为picDel。
 func (h *Hub) topicDel(name string) {
 	h.numTopics--
 	h.topics.Delete(name)
 }
 
+// newHub 创建并初始化Hub。
 func newHub() *Hub {
 	h := &Hub{
 		topics: &sync.Map{},
 		// 管道缓冲区配置：为高并发与集群跨节点路由提供缓冲屏障，防止网络抖动阻塞主循环
 		routeCli:   make(chan *ClientComMessage, 4096),
+		schedule:   make(chan *ClientComMessage, 512),
 		routeSrv:   make(chan *ServerComMessage, 4096),
 		join:       make(chan *ClientComMessage, 256),
 		unreg:      make(chan *topicUnreg, 256),
@@ -145,6 +154,37 @@ func newHub() *Hub {
 	return h
 }
 
+// makeTopic 创建处于暂停状态的 Topic 路由并异步加载其持久化状态。
+// 普通加入和定时消息唤醒共用此入口，避免两套初始化逻辑发生偏差。
+func (h *Hub) makeTopic(join *ClientComMessage) *Topic {
+	t := &Topic{
+		name:      join.RcptTo,
+		xoriginal: join.Original,
+		isProxy:   globals.cluster.isRemoteTopic(join.RcptTo),
+		sessions:  make(map[*Session]perSessionData),
+		clientMsg: make(chan *ClientComMessage, 192),
+		serverMsg: make(chan *ServerComMessage, 64),
+		reg:       make(chan *ClientComMessage, 256),
+		unreg:     make(chan *ClientComMessage, 256),
+		meta:      make(chan *ClientComMessage, 64),
+		perUser:   make(map[types.Uid]perUserData),
+		exit:      make(chan *shutDown, 1),
+	}
+	if globals.cluster != nil {
+		if t.isProxy {
+			t.proxy = make(chan *ClusterResp, 128)
+			t.masterNode = globals.cluster.ring.Get(t.name)
+		} else {
+			t.master = make(chan *ClusterSessUpdate, 8)
+		}
+	}
+	t.markPaused(true)
+	h.topicPut(join.RcptTo, t)
+	go topicInit(t, join, h)
+	return t
+}
+
+// run 启动并运行run处理流程。
 func (h *Hub) run() {
 	for {
 		select {
@@ -161,38 +201,7 @@ func (h *Hub) run() {
 			// Topic 是否已加载？
 			t := h.topicGet(join.RcptTo)
 			if t == nil {
-				// Topic 不存在或未加载
-				t = &Topic{
-					name:      join.RcptTo,
-					xoriginal: join.Original,
-					// 指示这是一个代理 Topic
-					isProxy:   globals.cluster.isRemoteTopic(join.RcptTo),
-					sessions:  make(map[*Session]perSessionData),
-					clientMsg: make(chan *ClientComMessage, 192),
-					serverMsg: make(chan *ServerComMessage, 64),
-					reg:       make(chan *ClientComMessage, 256),
-					unreg:     make(chan *ClientComMessage, 256),
-					meta:      make(chan *ClientComMessage, 64),
-					perUser:   make(map[types.Uid]perUserData),
-					exit:      make(chan *shutDown, 1),
-				}
-				if globals.cluster != nil {
-					if t.isProxy {
-						t.proxy = make(chan *ClusterResp, 128)
-						t.masterNode = globals.cluster.ring.Get(t.name)
-					} else {
-						// 这是一个主 Topic。创建一个管道用于处理
-						// 来自代理的直接消息
-						t.master = make(chan *ClusterSessUpdate, 8)
-					}
-				}
-				// Topic 创建时处于暂停状态，因为尚未配置
-				t.markPaused(true)
-				// 立即保存 Topic 以防止竞态条件
-				h.topicPut(join.RcptTo, t)
-
-				// 配置 Topic
-				go topicInit(t, join, h)
+				h.makeTopic(join)
 			} else {
 				// 找到 Topic
 				if t.isInactive() {
@@ -214,6 +223,23 @@ func (h *Hub) run() {
 					logs.Err.Println("hub.join loop: topic's reg queue full", join.RcptTo, join.sess.sid,
 						" - total queue len:", len(t.reg))
 				}
+			}
+
+		case msg := <-h.schedule:
+			// 到期消息可唤醒无在线会话的 Topic，随后走与普通发布相同的串行通道。
+			dst := h.topicGet(msg.RcptTo)
+			if dst == nil {
+				dst = h.makeTopic(&ClientComMessage{
+					Original: msg.Original,
+					RcptTo:   msg.RcptTo,
+					AsUser:   msg.AsUser,
+				})
+			}
+			select {
+			case dst.clientMsg <- msg:
+			default:
+				// 不删除数据库队列记录，调度器下一轮仍可重试。
+				logs.Err.Printf("hub: scheduled queue is full for topic %s", dst.name)
 			}
 
 		case msg := <-h.routeCli:
@@ -706,7 +732,11 @@ func replyOfflineTopicGetDesc(sess *Session, msg *ClientComMessage) {
 		}
 	}
 
-	sub, err := store.Subs.Get(topic, asUid, false)
+	subTopic := topic
+	if types.IsChannel(msg.Original) {
+		subTopic = msg.Original
+	}
+	sub, err := store.Subs.Get(subTopic, asUid, false)
 	if err != nil {
 		logs.Warn.Println("replyOfflineTopicGetDesc:", err)
 		sess.queueOut(decodeStoreErrorExplicitTs(err, msg.Id, msg.Original, now, msg.Timestamp, nil))
@@ -724,6 +754,7 @@ func replyOfflineTopicGetDesc(sess *Session, msg *ClientComMessage) {
 			Want:  sub.ModeWant.String(),
 			Given: sub.ModeGiven.String(),
 			Mode:  mode.String(),
+			Role:  topicRoleFromAccess(mode, desc.IsChan, types.IsChannel(sub.Topic)),
 		}
 	}
 
@@ -769,6 +800,8 @@ func replyOfflineTopicGetSub(sess *Session, msg *ClientComMessage) {
 			Want:  ssub.ModeWant.String(),
 			Given: ssub.ModeGiven.String(),
 			Mode:  (ssub.ModeGiven & ssub.ModeWant).String(),
+			Role: topicRoleFromAccess(ssub.ModeGiven&ssub.ModeWant,
+				types.IsChannel(msg.Original), types.IsChannel(ssub.Topic)),
 		}
 		// Fnd 是非对称的：desc.private 是 string，但 sub.private 是 []string。
 		if types.GetTopicCat(msg.RcptTo) != types.TopicCatFnd {
@@ -797,6 +830,11 @@ func replyOfflineTopicGetSub(sess *Session, msg *ClientComMessage) {
 func replyOfflineTopicSetSub(sess *Session, msg *ClientComMessage) {
 	now := types.TimeNow()
 
+	if msg.Set.Sub != nil && msg.Set.Sub.Role != "" {
+		// 成员角色变更需要加载 Topic 的完整 ACL 与成员缓存，调用者必须先订阅 Topic。
+		sess.queueOut(ErrAttachFirst(msg, now))
+		return
+	}
 	if (msg.Set.Desc == nil || msg.Set.Desc.Private == nil) && (msg.Set.Sub == nil || msg.Set.Sub.Mode == "") {
 		sess.queueOut(InfoNotModifiedReply(msg, now))
 		return
@@ -875,6 +913,8 @@ func replyOfflineTopicSetSub(sess *Session, msg *ClientComMessage) {
 						Given: sub.ModeGiven.String(),
 						Want:  sub.ModeWant.String(),
 						Mode:  (sub.ModeGiven & sub.ModeWant).String(),
+						Role: topicRoleFromAccess(sub.ModeGiven&sub.ModeWant,
+							types.IsChannel(msg.Original), types.IsChannel(sub.Topic)),
 					},
 				}
 			}

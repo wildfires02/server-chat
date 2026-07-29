@@ -13,13 +13,20 @@ import (
 	t "chat/server/store/types"
 )
 
+// AuthRecord 保存认证Record的数据和运行状态。
 type AuthRecord struct {
-	Unique  string     `json:"unique" bson:"_id"`
-	UserId  string     `json:"userid"`
-	Scheme  string     `json:"scheme"`
+	// Unique 保存Unique。
+	Unique string `json:"unique" bson:"_id"`
+	// UserId 保存用户标识。
+	UserId string `json:"userid"`
+	// Scheme 保存Scheme。
+	Scheme string `json:"scheme"`
+	// AuthLvl 保存认证Lvl。
 	AuthLvl auth.Level `json:"authLvl"`
-	Secret  []byte     `json:"secret"`
-	Expires time.Time  `json:"expires"`
+	// Secret 保存密钥列表。
+	Secret []byte `json:"secret"`
+	// Expires 保存Expires。
+	Expires time.Time `json:"expires"`
 }
 
 // SelectEarliestUpdatedSubs 从给定切片中选择查询条件下不超过指定数量的订阅。
@@ -72,6 +79,14 @@ func SelectLatestTime(t1, t2 time.Time) time.Time {
 	return t1
 }
 
+// NullableString 将空字符串转换为 SQL NULL，使可选唯一索引不发生空值冲突。
+func NullableString(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
+}
+
 // RangesToSql 将范围切片转换为 SQL BETWEEN 或 IN() 约束和参数。
 func RangesToSql(in []t.Range) (string, []any) {
 	if len(in) > 1 || in[0].Hi == 0 {
@@ -120,6 +135,70 @@ func FilterFoundTags(setTags t.StringSlice, index map[string]struct{}) []string 
 		}
 	}
 	return foundTags
+}
+
+// RankPeerSearch 计算用户名/别名和公开名称的稳定相关性分数。
+// 用户只通过显式 alias Tag 被发现；群组和频道还允许按 Public.fn 搜索。
+func RankPeerSearch(topic, query, aliasPrefix string, tags t.StringSlice, public any) (int, []string) {
+	query = strings.ToLower(strings.TrimSpace(query))
+	aliasPrefix = strings.ToLower(strings.TrimSpace(aliasPrefix))
+	if query == "" {
+		return 0, nil
+	}
+
+	score := 0
+	var matched []string
+	prefix := aliasPrefix + ":"
+	for _, tag := range tags {
+		normalized := strings.ToLower(tag)
+		if aliasPrefix == "" || !strings.HasPrefix(normalized, prefix) {
+			continue
+		}
+		alias := strings.TrimPrefix(normalized, prefix)
+		switch {
+		case alias == query:
+			if score < 100 {
+				score = 100
+			}
+		case strings.HasPrefix(alias, query):
+			if score < 80 {
+				score = 80
+			}
+		case strings.Contains(alias, query):
+			if score < 70 {
+				score = 70
+			}
+		default:
+			continue
+		}
+		matched = append(matched, tag)
+	}
+
+	// 用户显示名称不属于公开用户名，避免仅凭昵称枚举账号。
+	if !strings.HasPrefix(topic, "usr") {
+		if fields, ok := public.(map[string]any); ok {
+			if name, ok := fields["fn"].(string); ok {
+				name = strings.ToLower(strings.TrimSpace(name))
+				switch {
+				case name == query && score < 60:
+					score = 60
+				case strings.HasPrefix(name, query) && score < 50:
+					score = 50
+				case strings.Contains(name, query) && score < 40:
+					score = 40
+				}
+			}
+		}
+	}
+	return score, matched
+}
+
+// EscapeLike 将用户输入转义为 SQL LIKE 模式中的普通字符。
+func EscapeLike(value string) string {
+	// 使用显式的 ! 转义符，避免依赖 MySQL SQL_MODE 或 PostgreSQL 字符串设置。
+	value = strings.ReplaceAll(value, `!`, `!!`)
+	value = strings.ReplaceAll(value, `%`, `!%`)
+	return strings.ReplaceAll(value, `_`, `!_`)
 }
 
 // ToJSON 在存储到 JSON 字段之前转换为 JSON。

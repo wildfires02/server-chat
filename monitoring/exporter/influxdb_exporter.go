@@ -1,3 +1,4 @@
+// Package main 实现监控指标抓取和导出工具。
 package main
 
 import (
@@ -13,13 +14,20 @@ import (
 
 // InfluxDBExporter 从 IM 服务端收集指标并推送到 InfluxDB。
 type InfluxDBExporter struct {
+	// targetAddress 保存targetAddress。
 	targetAddress string
-	organization  string
-	bucket        string
-	tokenHeader   string
-	instance      string
-	scraper       *Scraper
-	httpClient    *http.Client
+	// organization 保存organization。
+	organization string
+	// bucket 保存bucket。
+	bucket string
+	// tokenHeader 保存令牌Header。
+	tokenHeader string
+	// instance 保存instance。
+	instance string
+	// scraper 保存scraper。
+	scraper *Scraper
+	// httpClient 保存HTTP客户端。
+	httpClient *http.Client
 }
 
 // NewInfluxDBExporter 返回初始化的 InfluxDB 导出器。
@@ -87,6 +95,7 @@ func (e *InfluxDBExporter) Push() error {
 	return nil
 }
 
+// formPushTargetAddress 完成formPushTargetAddress所需的内部处理。
 func formPushTargetAddress(influxDBVersion, baseAddr, organization, bucket string) string {
 	url, err := url.ParseRequestURI(baseAddr)
 	if err != nil {
@@ -111,6 +120,7 @@ func formPushTargetAddress(influxDBVersion, baseAddr, organization, bucket strin
 	return url.String()
 }
 
+// formAuthorizationHeaderValue 完成formAuthorizationHeader值所需的内部处理。
 func formAuthorizationHeaderValue(influxDBVersion, token string) string {
 	// Authorization 请求头的值
 	// - in 2.0: Token <token>

@@ -4,8 +4,11 @@ package drafty
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 const (
@@ -16,49 +19,228 @@ const (
 )
 
 var (
+	// errUnrecognizedContent 保存errUnrecognized正文的共享实例或运行状态。
 	errUnrecognizedContent = errors.New("content unrecognized")
-	errInvalidContent      = errors.New("invalid format")
+	// errInvalidContent 保存errInvalid正文的共享实例或运行状态。
+	errInvalidContent = errors.New("invalid format")
 )
 
-type style struct {
-	Tp     string `json:"tp,omitempty"`
-	At     int    `json:"at,omitempty"`
-	Length int    `json:"len,omitempty"`
-	Key    int    `json:"key,omitempty"`
+// ContentInfo 是服务端对 Drafty 消息的可信分类结果。客户端提供的 MIME、
+// kind 和附件列表不能直接作为消息语义使用，必须由 Drafty 实体重新推导。
+type ContentInfo struct {
+	// Kind 是从正文实体推导出的 text、drafty、image、video、voice、audio 或 file。
+	Kind string
+	// Attachments 是媒体实体中去重后的带外文件引用。
+	Attachments []string
+	// MediaCount 是文档引用的媒体实体数量。
+	MediaCount int
 }
 
+// supportedStyles 是服务器接受的 Drafty 样式白名单。
+var supportedStyles = map[string]bool{
+	"BR": true, "BQ": true, "CO": true, "DL": true, "EM": true,
+	"FM": true, "HD": true, "HL": true, "PRE": true, "QQ": true,
+	"RW": true, "SP": true, "ST": true, "UN": true,
+}
+
+// supportedEntities 是服务器接受的 Drafty 实体白名单。
+var supportedEntities = map[string]bool{
+	"AU": true, "BN": true, "CE": true, "EX": true, "FM": true,
+	"HT": true, "IM": true, "LN": true, "MN": true, "VC": true,
+	"VD": true,
+}
+
+// Analyze 校验 Drafty 的范围、实体类型和媒体元数据，并返回服务端推导的
+// 消息类型及带外附件。字符串被识别为 text；Drafty 文档在没有媒体实体时
+// 被识别为 drafty。
+func Analyze(content any) (*ContentInfo, error) {
+	doc, err := decodeAsDrafty(content)
+	if err != nil {
+		return nil, err
+	}
+	if doc == nil {
+		return nil, errInvalidContent
+	}
+	if _, err = toTree(doc); err != nil {
+		return nil, err
+	}
+
+	info := &ContentInfo{Kind: "drafty"}
+	if text, ok := content.(string); ok {
+		if text == "" {
+			return nil, errInvalidContent
+		}
+		info.Kind = "text"
+		return info, nil
+	}
+
+	refs := make(map[string]struct{})
+	referencedEntities := make(map[int]bool)
+	mediaKind := ""
+	for _, st := range doc.Fmt {
+		// 带 Tp 的格式项是样式；不带 Tp 的格式项通过 Key 引用实体。
+		if st.Tp != "" && !supportedStyles[st.Tp] {
+			return nil, fmt.Errorf("%w: unsupported style %q", errInvalidContent, st.Tp)
+		}
+		if st.Tp == "" {
+			referencedEntities[st.Key] = true
+		}
+	}
+	for index, ent := range doc.Ent {
+		if !supportedEntities[ent.Tp] {
+			return nil, fmt.Errorf("%w: unsupported entity %q", errInvalidContent, ent.Tp)
+		}
+		if !referencedEntities[index] {
+			return nil, fmt.Errorf("%w: unreferenced entity %d", errInvalidContent, index)
+		}
+		if err = validateEntity(ent); err != nil {
+			return nil, err
+		}
+
+		kind := ""
+		switch ent.Tp {
+		case "IM":
+			kind = "image"
+		case "VD":
+			kind = "video"
+		case "AU":
+			kind = "audio"
+			if voice, _ := ent.Data["voice"].(bool); voice {
+				kind = "voice"
+			}
+		case "EX":
+			kind = "file"
+		}
+		if kind == "" {
+			continue
+		}
+		// 单一媒体实体可提升为对应消息类型；混合媒体仍归类为 Drafty。
+		info.MediaCount++
+		if mediaKind == "" {
+			mediaKind = kind
+		} else if mediaKind != kind {
+			mediaKind = "drafty"
+		}
+		if ref, _ := ent.Data["ref"].(string); ref != "" {
+			if _, found := refs[ref]; !found {
+				refs[ref] = struct{}{}
+				info.Attachments = append(info.Attachments, ref)
+			}
+		}
+	}
+	if info.MediaCount == 1 {
+		info.Kind = mediaKind
+	}
+	if info.MediaCount == 0 && doc.Txt == "" {
+		return nil, errInvalidContent
+	}
+	return info, nil
+}
+
+// validateEntity 校验媒体、文件和链接实体的关键元数据。
+func validateEntity(ent entity) error {
+	data := ent.Data
+	switch ent.Tp {
+	case "IM", "VD", "AU", "EX":
+		if data == nil {
+			return fmt.Errorf("%w: %s entity has no data", errInvalidContent, ent.Tp)
+		}
+		mimeType, _ := data["mime"].(string)
+		if mimeType != "" {
+			wantPrefix := map[string]string{
+				"IM": "image/", "VD": "video/", "AU": "audio/",
+			}[ent.Tp]
+			if wantPrefix != "" && !strings.HasPrefix(strings.ToLower(mimeType), wantPrefix) {
+				return fmt.Errorf("%w: %s entity has mismatched mime", errInvalidContent, ent.Tp)
+			}
+		}
+		ref, _ := data["ref"].(string)
+		_, hasInline := data["val"]
+		// 媒体必须是已上传文件引用或内联载荷，不能只有客户端声明的 MIME。
+		if ref == "" && !hasInline {
+			return fmt.Errorf("%w: %s entity has neither ref nor val", errInvalidContent, ent.Tp)
+		}
+		for _, key := range []string{"size", "width", "height", "duration"} {
+			if val, found := data[key]; found {
+				n, convErr := intFromNumeric(val)
+				if convErr != nil || n < 0 {
+					return fmt.Errorf("%w: invalid %s", errInvalidContent, key)
+				}
+			}
+		}
+	case "LN":
+		if url, _ := data["url"].(string); url == "" {
+			return fmt.Errorf("%w: link has no url", errInvalidContent)
+		}
+	}
+	return nil
+}
+
+// style 保存style的数据和运行状态。
+type style struct {
+	// Tp 保存Tp。
+	Tp string `json:"tp,omitempty"`
+	// At 保存At时间。
+	At int `json:"at,omitempty"`
+	// Length 保存Length。
+	Length int `json:"len,omitempty"`
+	// Key 保存键。
+	Key int `json:"key,omitempty"`
+}
+
+// entity 保存entity的数据和运行状态。
 type entity struct {
-	Tp   string         `json:"tp,omitempty"`
+	// Tp 保存Tp。
+	Tp string `json:"tp,omitempty"`
+	// Data 按键索引数据。
 	Data map[string]any `json:"data,omitempty"`
 }
 
+// document 保存document的数据和运行状态。
 type document struct {
-	Txt string   `json:"txt,omitempty"`
-	Fmt []style  `json:"fmt,omitempty"`
+	// Txt 保存Txt。
+	Txt string `json:"txt,omitempty"`
+	// Fmt 保存Fmt列表。
+	Fmt []style `json:"fmt,omitempty"`
+	// Ent 保存Ent列表。
 	Ent []entity `json:"ent,omitempty"`
 
 	// 解析出的字素簇。
 	gc *graphemes
 }
 
+// span 保存span的数据和运行状态。
 type span struct {
-	tp   string
-	at   int
-	end  int
-	key  int
+	// tp 保存tp。
+	tp string
+	// at 保存at时间。
+	at int
+	// end 保存end。
+	end int
+	// key 保存键。
+	key int
+	// data 按键索引数据。
 	data map[string]any
 }
 
+// node 保存节点的数据和运行状态。
 type node struct {
-	gc       *graphemes
-	sp       *span
+	// gc 保存gc。
+	gc *graphemes
+	// sp 保存sp。
+	sp *span
+	// children 保存children列表。
 	children []*node
 }
 
+// previewState 保存preview状态的数据和运行状态。
 type previewState struct {
-	drafty    *document
+	// drafty 保存drafty。
+	drafty *document
+	// maxLength 保存maxLength。
 	maxLength int
-	keymap    map[int]int
+	// keymap 按键索引keymap。
+	keymap map[int]int
 }
 
 // Preview 将 Drafty 缩短到指定长度（以字素为单位），移除引用文本、前导换行符，
@@ -100,7 +282,9 @@ func Preview(content any, length int) (string, error) {
 	return string(data), err
 }
 
+// plainTextState 保存plainText状态的数据和运行状态。
 type plainTextState struct {
+	// txt 保存txt。
 	txt string
 }
 
@@ -130,6 +314,37 @@ func PlainText(content any) (string, error) {
 	return strings.TrimSpace(string(state.txt)), nil
 }
 
+// SearchText 提取适合服务端全文搜索的稳定纯文本。
+// 正文使用 Drafty 的 txt 字段；文件名和公开链接等可见实体属性作为补充关键词。
+// 结果使用 NFKC 归一化以统一全角/半角字符，但不改变用户可见的语言内容。
+func SearchText(content any) (string, error) {
+	doc, err := decodeAsDrafty(content)
+	if err != nil {
+		return "", err
+	}
+	if doc == nil {
+		return "", nil
+	}
+	if _, err = toTree(doc); err != nil {
+		return "", err
+	}
+
+	text := doc.Txt
+	if text == "" && doc.gc != nil {
+		text = doc.gc.string()
+	}
+	parts := []string{text}
+	for _, ent := range doc.Ent {
+		for _, key := range []string{"name", "url"} {
+			if value, ok := nullableMapGet(ent.Data, key); ok && value != "" {
+				parts = append(parts, value)
+			}
+		}
+	}
+
+	return strings.TrimSpace(norm.NFKC.String(strings.Join(parts, " "))), nil
+}
+
 // styleToSpan 将 Drafty 样式转换为内部表示。
 func (s *span) styleToSpan(in *style) error {
 	s.tp = in.Tp
@@ -150,8 +365,11 @@ func (s *span) styleToSpan(in *style) error {
 	return nil
 }
 
+// spanfmt 保存spanfmt的数据和运行状态。
 type spanfmt struct {
-	dec    string
+	// dec 保存dec。
+	dec string
+	// isVoid 保存isVoid。
 	isVoid bool
 }
 

@@ -222,9 +222,11 @@ type Rec struct {
 	Credential string `json:"cred,omitempty"`
 
 	// 认证器可请求服务器创建新账号，以下参数用于创建账号
-	DefAcs  *types.DefaultAccess `json:"defacs,omitempty"`
-	Public  any                  `json:"public,omitempty"`
-	Private any                  `json:"private,omitempty"`
+	DefAcs *types.DefaultAccess `json:"defacs,omitempty"`
+	// Public 保存公开资料。
+	Public any `json:"public,omitempty"`
+	// Private 保存Private。
+	Private any `json:"private,omitempty"`
 }
 
 // AuthHandler 所有身份认证提供者（Authenticator）必须实现的接口。

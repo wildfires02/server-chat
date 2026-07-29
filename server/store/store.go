@@ -13,13 +13,19 @@ import (
 	"chat/server/validate"
 )
 
+// adp 保存adp的共享实例或运行状态。
 var adp adapter.Adapter
+
+// availableAdapters 保存availableAdapters的共享实例或运行状态。
 var availableAdapters = make(map[string]adapter.Adapter)
+
+// mediaHandler 保存媒体处理器的共享实例或运行状态。
 var mediaHandler media.Handler
 
 // 唯一 ID (UID) 生成器实例（基于 Snowflake + XTEA 加密）
 var uGen types.UidGenerator
 
+// configType 保存配置Type的数据和运行状态。
 type configType struct {
 	// 用于 XTEA 加密的 16 字节密钥，用于初始化 types.UidGenerator
 	UidKey []byte `json:"uid_key"`
@@ -83,29 +89,48 @@ func openAdapter(workerId int, jsonconf json.RawMessage) error {
 
 // PersistentStorageInterface 定义与持久化存储交互的方法。
 type PersistentStorageInterface interface {
+	// Open 完成Open所需的内部处理。
 	Open(workerId int, jsonconf json.RawMessage) error
+	// Close 停止Close并释放相关资源。
 	Close() error
+	// IsOpen 判断是否满足Open条件。
 	IsOpen() bool
+	// GetAdapter 查询并返回Adapter。
 	GetAdapter() adapter.Adapter
+	// GetAdapterName 查询并返回Adapter名称。
 	GetAdapterName() string
+	// GetAdapterVersion 查询并返回Adapter版本。
 	GetAdapterVersion() int
+	// GetDbVersion 查询并返回数据库版本。
 	GetDbVersion() int
+	// InitDb 完成Init数据库所需的内部处理。
 	InitDb(jsonconf json.RawMessage, reset bool) error
+	// UpgradeDb 完成Upgrade数据库所需的内部处理。
 	UpgradeDb(jsonconf json.RawMessage) error
+	// GetUid 查询并返回用户标识。
 	GetUid() types.Uid
+	// GetUidString 查询并返回用户标识String。
 	GetUidString() string
+	// DbStats 完成数据库Stats所需的内部处理。
 	DbStats() func() any
+	// GetAuthNames 查询并返回认证Names。
 	GetAuthNames() []string
+	// GetAuthHandler 查询并返回认证处理器。
 	GetAuthHandler(name string) auth.AuthHandler
+	// GetLogicalAuthHandler 查询并返回Logical认证处理器。
 	GetLogicalAuthHandler(name string) auth.AuthHandler
+	// GetValidator 查询并返回校验器。
 	GetValidator(name string) validate.Validator
+	// GetMediaHandler 查询并返回媒体处理器。
 	GetMediaHandler() media.Handler
+	// UseMediaHandler 完成Use媒体处理器所需的内部处理。
 	UseMediaHandler(name, config string) error
 }
 
 // Store 是与持久化存储交互主对象。
 var Store PersistentStorageInterface
 
+// storeObj 保存存储Obj的数据和运行状态。
 type storeObj struct{}
 
 // Open 初始化持久化系统。适配器持有一个数据库实例的连接池。
@@ -414,10 +439,12 @@ func (storeObj) UseMediaHandler(name, config string) error {
 	return mediaHandler.Init(config)
 }
 
+// SetTestUidGenerator 更新 Test Uid Generator。
 func SetTestUidGenerator(g types.UidGenerator) {
 	uGen = g
 }
 
+// init 注册当前包提供的实现并初始化包级状态。
 func init() {
 	Store = storeObj{}
 	Users = usersMapper{}

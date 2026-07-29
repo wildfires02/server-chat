@@ -1,3 +1,4 @@
+// Package media 提供媒体文件存储实现。
 package media
 
 import (

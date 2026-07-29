@@ -1,3 +1,4 @@
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -8,6 +9,20 @@ import (
 	"chat/server/store/types"
 )
 
+// TestMsgOpts2StoreOptsForward 验证 Msg Opts 2 Store Opts Forward 相关行为。
+func TestMsgOpts2StoreOptsForward(t *testing.T) {
+	got := msgOpts2storeOpts(&MsgGetOpts{
+		SinceId:  11,
+		BeforeId: 21,
+		Limit:    5,
+		Forward:  true,
+	})
+	if got == nil || !got.Forward || got.Since != 11 || got.Before != 21 || got.Limit != 5 {
+		t.Fatalf("sync options were not preserved: %#v", got)
+	}
+}
+
+// slicesEqual 完成slicesEqual所需的内部处理。
 func slicesEqual(expected, gotten []string) bool {
 	if len(expected) != len(gotten) {
 		return false
@@ -20,6 +35,7 @@ func slicesEqual(expected, gotten []string) bool {
 	return true
 }
 
+// expectSlicesEqual 完成expectSlicesEqual所需的内部处理。
 func expectSlicesEqual(t *testing.T, name string, expected, gotten []string) {
 	if !slicesEqual(expected, gotten) {
 		e := "'" + strings.Join(expected, "','") + "'"
@@ -28,6 +44,7 @@ func expectSlicesEqual(t *testing.T, name string, expected, gotten []string) {
 	}
 }
 
+// TestStringSliceDelta 验证 String Slice Delta 相关行为。
 func TestStringSliceDelta(t *testing.T) {
 	// Case format:
 	// - inputs: old, new
@@ -65,6 +82,7 @@ func TestStringSliceDelta(t *testing.T) {
 	}
 }
 
+// TestParseSearchQuery 验证 Parse Search Query 相关行为。
 func TestParseSearchQuery(t *testing.T) {
 	cases := []struct {
 		query       string
@@ -175,6 +193,7 @@ func TestParseSearchQuery(t *testing.T) {
 	}
 }
 
+// TestNormalizeTags 验证 Normalize Tags 相关行为。
 func TestNormalizeTags(t *testing.T) {
 	cases := []struct {
 		input    []string
@@ -208,6 +227,7 @@ func TestNormalizeTags(t *testing.T) {
 	}
 }
 
+// TestRestrictedTagsEqual 验证 Restricted Tags Equal 相关行为。
 func TestRestrictedTagsEqual(t *testing.T) {
 	cases := []struct {
 		oldTags    []string
@@ -243,6 +263,7 @@ func TestRestrictedTagsEqual(t *testing.T) {
 	}
 }
 
+// TestIsNullValue 验证 Is Null Value 相关行为。
 func TestIsNullValue(t *testing.T) {
 	cases := []struct {
 		input    any
@@ -274,6 +295,7 @@ func TestIsNullValue(t *testing.T) {
 	}
 }
 
+// TestParseVersion 验证 Parse Version 相关行为。
 func TestParseVersion(t *testing.T) {
 	cases := []struct {
 		input    string
@@ -345,6 +367,7 @@ func TestParseVersion(t *testing.T) {
 	}
 }
 
+// TestMergeMaps 验证 Merge Maps 相关行为。
 func TestMergeMaps(t *testing.T) {
 	cases := []struct {
 		dst      map[string]any
@@ -397,6 +420,8 @@ func TestMergeMaps(t *testing.T) {
 		}
 	}
 }
+
+// TestMergeInterfaces 验证 Merge Interfaces 相关行为。
 func TestMergeInterfaces(t *testing.T) {
 	cases := []struct {
 		dst      any
@@ -474,6 +499,7 @@ func TestMergeInterfaces(t *testing.T) {
 	}
 }
 
+// TestFilterTags 验证 Filter Tags 相关行为。
 func TestFilterTags(t *testing.T) {
 	cases := []struct {
 		tags     []string
@@ -500,6 +526,7 @@ func TestFilterTags(t *testing.T) {
 	}
 }
 
+// TestHasDuplicateNamespaceTags 验证 Has Duplicate Namespace Tags 相关行为。
 func TestHasDuplicateNamespaceTags(t *testing.T) {
 	cases := []struct {
 		tags     []string

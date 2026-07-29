@@ -1,3 +1,4 @@
+// Package main 实现服务端命令行客户端。
 package main
 
 import (
@@ -47,6 +48,7 @@ func ExpandMacro(tokens []string) ([]string, error) {
 	}
 }
 
+// expandUsermod 完成expandUsermod所需的内部处理。
 func expandUsermod(args []string) ([]string, error) {
 	fs := flag.NewFlagSet("usermod", flag.ContinueOnError)
 	suspend := fs.Bool("suspend", false, "Suspend account")
@@ -106,6 +108,7 @@ func expandUsermod(args []string) ([]string, error) {
 	return cmds, nil
 }
 
+// expandUseradd 完成expandUseradd所需的内部处理。
 func expandUseradd(args []string) ([]string, error) {
 	fs := flag.NewFlagSet("useradd", flag.ContinueOnError)
 	email := fs.String("email", "", "Email address")
@@ -141,6 +144,7 @@ func expandUseradd(args []string) ([]string, error) {
 	return []string{cmd}, nil
 }
 
+// expandUserdel 完成expandUserdel所需的内部处理。
 func expandUserdel(args []string) ([]string, error) {
 	if len(args) < 1 {
 		return nil, fmt.Errorf("userdel requires userid argument")
@@ -149,6 +153,7 @@ func expandUserdel(args []string) ([]string, error) {
 	return []string{fmt.Sprintf("del --user=%s --as_root", userid)}, nil
 }
 
+// expandPasswd 完成expandPasswd所需的内部处理。
 func expandPasswd(args []string) ([]string, error) {
 	if len(args) < 2 {
 		return nil, fmt.Errorf("passwd requires userid and new_password arguments")
@@ -158,6 +163,7 @@ func expandPasswd(args []string) ([]string, error) {
 	return []string{fmt.Sprintf("acc --user=%s --password=%s --as_root", userid, newPass)}, nil
 }
 
+// expandChacs 完成expandChacs所需的内部处理。
 func expandChacs(args []string) ([]string, error) {
 	fs := flag.NewFlagSet("chacs", flag.ContinueOnError)
 	auth := fs.String("auth", "", "Auth access mode (e.g. JRWP)")
@@ -184,6 +190,7 @@ func expandChacs(args []string) ([]string, error) {
 	return []string{cmd}, nil
 }
 
+// expandChcred 完成expandChcred所需的内部处理。
 func expandChcred(args []string) ([]string, error) {
 	fs := flag.NewFlagSet("chcred", flag.ContinueOnError)
 	add := fs.String("add", "", "Credential to add (email:alice@example.com)")
@@ -210,6 +217,7 @@ func expandChcred(args []string) ([]string, error) {
 	return []string{cmd}, nil
 }
 
+// expandResolve 完成expandResolve所需的内部处理。
 func expandResolve(args []string) ([]string, error) {
 	if len(args) < 1 {
 		return nil, fmt.Errorf("resolve requires username argument")
@@ -222,6 +230,7 @@ func expandResolve(args []string) ([]string, error) {
 	return []string{fmt.Sprintf(".must $res get %s --desc", target)}, nil
 }
 
+// expandThecard 完成expandThecard所需的内部处理。
 func expandThecard(args []string) ([]string, error) {
 	if len(args) < 1 {
 		return nil, fmt.Errorf("thecard requires userid argument")

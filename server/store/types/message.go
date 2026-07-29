@@ -1,7 +1,10 @@
+// Package types 提供领域模型及持久化访问层。
 package types
 
 import (
+	"crypto/sha256"
 	"database/sql/driver"
+	"encoding/base64"
 	"encoding/json"
 	"time"
 )
@@ -25,10 +28,12 @@ func (kvm KVMap) Value() (driver.Value, error) {
 
 // Topic 存储在数据库中。Topic 的名称为 Id
 type Topic struct {
+	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
 	ObjHeader `bson:",inline"`
 
 	// Topic 的状态：正常 (ok)、暂停、已删除
-	State   ObjState
+	State ObjState
+	// StateAt 保存状态At时间。
 	StateAt *time.Time `json:"StateAt,omitempty" bson:",omitempty"`
 
 	// 最后一次消息通过 Topic 的时间戳
@@ -51,7 +56,9 @@ type Topic struct {
 	// Topic 订阅者数量。
 	SubCnt int
 
-	Public  any
+	// Public 保存公开资料。
+	Public any
+	// Trusted 保存可信资料。
 	Trusted any
 
 	// 用于查找该 Topic 的索引标签。
@@ -125,32 +132,92 @@ func (t *Topic) GetAccess(uid Uid) (mode AccessMode) {
 
 // SoftDelete 是软删除的单条数据库记录。
 type SoftDelete struct {
-	User  string
+	// User 指示是否启用或满足用户。
+	User string
+	// DelId 保存Del标识。
 	DelId int
 }
 
 // 消息是存储的 {data} 消息
 type Message struct {
+	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
 	ObjHeader `bson:",inline"`
+	// DeletedAt 保存DeletedAt时间。
 	DeletedAt *time.Time `json:"DeletedAt,omitempty" bson:",omitempty"`
 
 	// 硬删除操作的 ID
 	DelId int `json:"DelId,omitempty" bson:",omitempty"`
 	// 将此消息标记为软删除的用户列表
 	DeletedFor []SoftDelete `json:"DeletedFor,omitempty" bson:",omitempty"`
-	SeqId      int
-	Topic      string
+	// SeqId 保存序列号标识。
+	SeqId int
+	// Topic 保存Topic。
+	Topic string
 	// 发送者的用户 ID（字符串形式，无 'usr' 前缀），可能为空。
-	From    string
-	Head    KVMap `json:"Head,omitempty" bson:",omitempty"`
+	From string
+	// ClientId 是客户端生成、在同一 Topic 和发送者范围内稳定的发布幂等键。
+	ClientId string `json:"ClientId,omitempty" bson:",omitempty"`
+	// ClientKey 是由 From 和 ClientId 哈希生成的数据库唯一索引值。
+	ClientKey string `json:"ClientKey,omitempty" bson:",omitempty"`
+	// Head 同时保存客户端自定义头和服务端管理的 x-* 消息元数据。
+	Head KVMap `json:"Head,omitempty" bson:",omitempty"`
+	// Content 是纯文本字符串或经过验证的 Drafty 文档。
 	Content any
+	// SearchText 是从 Content 提取的规范化纯文本，仅用于服务端全文搜索。
+	// 它不参与客户端协议序列化，也不能代替原始 Content。
+	SearchText string `json:"SearchText,omitempty" bson:",omitempty"`
+}
+
+// ScheduledMessage 是尚未进入 Topic 消息序列的持久化定时消息。
+// PublishAt 到达后才分配 SeqId，因此不会在同步游标中制造空洞或乱序。
+type ScheduledMessage struct {
+	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
+	ObjHeader `bson:",inline"`
+
+	// Topic 是目标会话的规范化名称。
+	Topic string
+	// From 是发送者的内部 UID 字符串。
+	From string
+	// ClientId 是发送者范围内的定时发布幂等键。
+	ClientId string
+	// NoEcho 指示投递时是否跳过原发起会话。
+	NoEcho bool
+	// PublishAt 是队列记录允许进入普通消息发布流程的时间。
+	PublishAt time.Time
+	// Head 是入队时已完成权限和语义校验的消息头快照。
+	Head KVMap `json:"Head,omitempty" bson:",omitempty"`
+	// Content 是入队时已完成 Drafty 校验的正文快照。
+	Content any
+	// AttachmentURLs 在投递普通消息时用于建立最终的消息附件关联。
+	AttachmentURLs StringSlice `json:"AttachmentURLs,omitempty" bson:",omitempty"`
+	// Attachments 保存文件 ID，用于保护待投递媒体不被垃圾回收。
+	Attachments StringSlice `json:"Attachments,omitempty" bson:",omitempty"`
+}
+
+// MessageClientKey 生成不暴露发送者身份的持久化幂等索引键。
+func MessageClientKey(from Uid, clientID string) string {
+	if from.IsZero() || clientID == "" {
+		return ""
+	}
+	raw, _ := from.MarshalBinary()
+	sum := sha256.Sum256(append(raw, clientID...))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
+}
+
+// InitClientKey 在消息带 cid 时初始化持久化幂等索引键。
+func (msg *Message) InitClientKey() {
+	if msg.ClientKey == "" {
+		msg.ClientKey = MessageClientKey(ParseUid(msg.From), msg.ClientId)
+	}
 }
 
 // Range 是消息 SeqID 的范围。低端为包含（闭区间），高端为不包含（开区间）：[Low, Hi)。
 // 如果范围只包含一个 ID，则 Hi 设为 0
 type Range struct {
+	// Low 保存Low。
 	Low int
-	Hi  int `json:"Hi,omitempty" bson:",omitempty"`
+	// Hi 保存Hi。
+	Hi int `json:"Hi,omitempty" bson:",omitempty"`
 }
 
 // RangeSorter 是 'sort' 包所需的辅助类型。
@@ -237,10 +304,15 @@ func SliceToRanges(in []int) []Range {
 
 // DelMessage 是已删除消息范围的日志条目。
 type DelMessage struct {
-	ObjHeader   `bson:",inline"`
-	Topic       string
-	DeletedFor  string
-	DelId       int
+	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
+	ObjHeader `bson:",inline"`
+	// Topic 保存Topic。
+	Topic string
+	// DeletedFor 保存DeletedFor。
+	DeletedFor string
+	// DelId 保存Del标识。
+	DelId int
+	// SeqIdRanges 保存序列号标识Ranges列表。
 	SeqIdRanges []Range
 
 	// 删除此值之后的消息。未序列化。
@@ -260,14 +332,19 @@ func (dm *DelMessage) SetNewerThan(t time.Time) {
 // QueryOpt 是查询选项，[since, before] - 两端均为闭区间
 type QueryOpt struct {
 	// 订阅查询
-	User            Uid
-	Topic           string
+	User Uid
+	// Topic 保存Topic。
+	Topic string
+	// IfModifiedSince 保存IfModifiedSince。
 	IfModifiedSince *time.Time
 	// 基于 ID 的查询参数：消息
-	Since  int
+	Since int
+	// Before 保存Before。
 	Before int
 	// 通用参数
 	Limit int
+	// Forward 指示按 SeqId 升序读取，用于断线同步追赶。
+	Forward bool
 	// ID 范围。
 	IdRanges []Range
 }
@@ -316,5 +393,3 @@ func IsEphemeralTopic(topic string) bool {
 	cat := GetTopicCat(topic)
 	return cat == TopicCatMe || cat == TopicCatFnd
 }
-
-

@@ -7,6 +7,7 @@
  *
  *****************************************************************************/
 
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -17,13 +18,14 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
-	"github.com/gorilla/websocket"
 	"chat/pbx"
 	"chat/server/auth"
 	"chat/server/logs"
 	"chat/server/store"
 	"chat/server/store/types"
+	"github.com/gorilla/websocket"
 
 	"golang.org/x/text/language"
 )
@@ -44,6 +46,7 @@ var ctrlCodeStatNames = [6]string{
 // 后台 Session 断开延迟发送 Presence 状态通知的超时时间
 const deferredNotificationsTimeout = time.Second * 5
 
+// minSupportedVersionValue 保存minSupported版本值的共享实例或运行状态。
 var minSupportedVersionValue = parseVersion(minSupportedVersion)
 
 // SessionProto 表示底层网络传输协议类型。
@@ -86,7 +89,8 @@ type Session struct {
 	clnode *ClusterNode
 
 	// 代理多路复用会话的引用，仅对于代理会话设置。
-	multi        *Session
+	multi *Session
+	// proxiedTopic 保存proxiedTopic。
 	proxiedTopic string
 
 	// 客户端 IP 地址。对于长轮询为上次轮询时的 IP。
@@ -177,6 +181,7 @@ type Subscription struct {
 	supd chan<- *sessionUpdate
 }
 
+// addSub 向当前集合添加订阅。
 func (s *Session) addSub(topic string, sub *Subscription) {
 	if s.multi != nil {
 		s.multi.addSub(topic, sub)
@@ -193,6 +198,7 @@ func (s *Session) addSub(topic string, sub *Subscription) {
 	s.subsLock.Unlock()
 }
 
+// getSub 查询并返回订阅。
 func (s *Session) getSub(topic string) *Subscription {
 	s.subsLock.RLock()
 	defer s.subsLock.RUnlock()
@@ -200,6 +206,7 @@ func (s *Session) getSub(topic string) *Subscription {
 	return s.subs[topic]
 }
 
+// delSub 完成del订阅所需的内部处理。
 func (s *Session) delSub(topic string) {
 	if s.multi != nil {
 		s.multi.delSub(topic)
@@ -210,6 +217,7 @@ func (s *Session) delSub(topic string) {
 	s.subsLock.Unlock()
 }
 
+// countSub 完成数量订阅所需的内部处理。
 func (s *Session) countSub() int {
 	if s.multi != nil {
 		return s.multi.countSub()
@@ -242,6 +250,7 @@ func (s *Session) isCluster() bool {
 	return s.isProxy() || s.isMultiplex()
 }
 
+// scheduleClusterWriteLoop 持续运行schedule集群WriteLoop，直到输入通道关闭或收到停止信号。
 func (s *Session) scheduleClusterWriteLoop() {
 	if globals.cluster != nil && globals.cluster.proxyEventQueue != nil {
 		globals.cluster.proxyEventQueue.Schedule(
@@ -249,6 +258,7 @@ func (s *Session) scheduleClusterWriteLoop() {
 	}
 }
 
+// supportsMessageBatching 完成supports消息Batching所需的内部处理。
 func (s *Session) supportsMessageBatching() bool {
 	switch s.proto {
 	case WEBSOCK:
@@ -293,7 +303,9 @@ func (s *Session) queueOutBatch(msgs []*ServerComMessage) bool {
 		}
 	} else {
 		for _, msg := range msgs {
-			s.queueOut(msg)
+			if !s.queueOut(msg) {
+				return false
+			}
 		}
 	}
 
@@ -361,6 +373,7 @@ func (s *Session) queueOutBytes(data []byte) bool {
 	return true
 }
 
+// maybeScheduleClusterWriteLoop 持续运行maybeSchedule集群WriteLoop，直到输入通道关闭或收到停止信号。
 func (s *Session) maybeScheduleClusterWriteLoop() {
 	if s.multi != nil {
 		s.multi.scheduleClusterWriteLoop()
@@ -371,6 +384,7 @@ func (s *Session) maybeScheduleClusterWriteLoop() {
 	}
 }
 
+// detachSession 完成detach会话所需的内部处理。
 func (s *Session) detachSession(fromTopic string) {
 	if atomic.LoadInt32(&s.terminating) == 0 {
 		s.detach <- fromTopic
@@ -378,11 +392,13 @@ func (s *Session) detachSession(fromTopic string) {
 	}
 }
 
+// stopSession 停止会话并释放相关资源。
 func (s *Session) stopSession(data any) {
 	s.stop <- data
 	s.maybeScheduleClusterWriteLoop()
 }
 
+// purgeChannels 完成purgeChannels所需的内部处理。
 func (s *Session) purgeChannels() {
 	for len(s.send) > 0 {
 		<-s.send
@@ -449,6 +465,7 @@ func (s *Session) dispatchRaw(raw []byte) {
 	s.dispatch(&msg)
 }
 
+// dispatch 处理dispatch消息或事件。
 func (s *Session) dispatch(msg *ClientComMessage) {
 	now := types.TimeNow()
 	atomic.StoreInt64(&s.lastAction, now.UnixNano())
@@ -574,6 +591,7 @@ func (s *Session) dispatch(msg *ClientComMessage) {
 	case msg.Note != nil:
 		// 若用户未认证或版本号未设置，静默忽略 {note} 包。
 		handler = s.note
+		msg.Id = msg.Note.Id
 		msg.Original = msg.Note.Topic
 		uaRefresh = true
 
@@ -664,11 +682,47 @@ func (s *Session) leave(msg *ClientComMessage) {
 
 // publish 广播消息给 Topic 所有订阅者。
 func (s *Session) publish(msg *ClientComMessage) {
+	// 在进入 Topic 串行队列前拒绝超长或非法 UTF-8 的客户端标识。
+	if len(msg.Pub.ClientId) > 64 || !utf8.ValidString(msg.Pub.ClientId) {
+		s.queueOut(ErrMalformedReply(msg, msg.Timestamp))
+		return
+	}
+	if msg.Pub.ReplyTo < 0 || msg.Pub.ReplaceSeq < 0 ||
+		(msg.Pub.ReplaceSeq > 0 && (msg.Pub.ReplyTo > 0 || msg.Pub.Forward != nil)) ||
+		len(msg.Pub.GroupId) > 64 || !utf8.ValidString(msg.Pub.GroupId) {
+		s.queueOut(ErrMalformedReply(msg, msg.Timestamp))
+		return
+	}
+
 	var resp *ServerComMessage
 	msg.RcptTo, resp = s.expandTopicName(msg)
 	if resp != nil {
 		s.queueOut(resp)
 		return
+	}
+
+	if msg.Pub.Forward != nil {
+		// 展开转发源 Topic，并拒绝当前会话无订阅权限的跨 Topic 引用。
+		if msg.Pub.Forward.SeqId <= 0 {
+			s.queueOut(ErrMalformedReply(msg, msg.Timestamp))
+			return
+		}
+		if msg.Pub.Forward.Topic == "" {
+			msg.Pub.Forward.Topic = msg.RcptTo
+		} else {
+			sourceMsg := *msg
+			sourceMsg.Original = msg.Pub.Forward.Topic
+			sourceTopic, sourceResp := s.expandTopicName(&sourceMsg)
+			if sourceResp != nil {
+				s.queueOut(sourceResp)
+				return
+			}
+			if sourceTopic != msg.RcptTo && s.getSub(sourceTopic) == nil {
+				s.queueOut(ErrPermissionDeniedReply(msg, msg.Timestamp))
+				return
+			}
+			msg.Pub.Forward.Topic = sourceTopic
+		}
 	}
 
 	// 如果代发消息，添加 "sender" 标头。
@@ -740,6 +794,11 @@ func (s *Session) hello(msg *ClientComMessage) {
 		}
 		if len(globals.iceServers) > 0 {
 			params["iceServers"] = globals.iceServers
+		}
+		if globals.agora != nil {
+			// 仅通告群组通话能力；App ID、频道和短期 Token 会在
+			// 成员通过 ACL 校验并发送 call/join 后单独下发。
+			params["groupCallProvider"] = constCallProviderAgora
 		}
 		if globals.callEstablishmentTimeout > 0 {
 			params["callTimeout"] = globals.callEstablishmentTimeout
@@ -1049,6 +1108,7 @@ func (s *Session) onLogin(msgID string, timestamp time.Time, rec *auth.Rec, miss
 	return reply
 }
 
+// get 查询并返回get。
 func (s *Session) get(msg *ClientComMessage) {
 	var resp *ServerComMessage
 	msg.RcptTo, resp = s.expandTopicName(msg)
@@ -1083,6 +1143,7 @@ func (s *Session) get(msg *ClientComMessage) {
 	}
 }
 
+// set 更新set。
 func (s *Session) set(msg *ClientComMessage) {
 	var resp *ServerComMessage
 	msg.RcptTo, resp = s.expandTopicName(msg)
@@ -1130,6 +1191,7 @@ func (s *Session) set(msg *ClientComMessage) {
 	}
 }
 
+// del 完成del所需的内部处理。
 func (s *Session) del(msg *ClientComMessage) {
 	msg.MetaWhat = parseMsgClientDel(msg.Del.What)
 
@@ -1202,7 +1264,7 @@ func (s *Session) note(msg *ClientComMessage) {
 			return
 		}
 		fallthrough
-	case "read", "recv":
+	case "read", "recv", "react", "pin":
 		if msg.Note.SeqId <= 0 {
 			return
 		}
@@ -1270,6 +1332,7 @@ func (s *Session) expandTopicName(msg *ClientComMessage) (string, *ServerComMess
 	return routeTo, nil
 }
 
+// serializeAndUpdateStats 将输入编码为AndUpdateStats。
 func (s *Session) serializeAndUpdateStats(msg *ServerComMessage) any {
 	dataSize, data := s.serialize(msg)
 	if dataSize >= 0 {
@@ -1278,6 +1341,7 @@ func (s *Session) serializeAndUpdateStats(msg *ServerComMessage) any {
 	return data
 }
 
+// serialize 将输入编码为serialize。
 func (s *Session) serialize(msg *ServerComMessage) (int, any) {
 	if s.proto == GRPC {
 		msg := pbServSerialize(msg)

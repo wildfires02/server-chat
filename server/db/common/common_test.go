@@ -1,3 +1,4 @@
+// Package common 提供数据库持久化、迁移或测试支持。
 package common
 
 import (
@@ -10,6 +11,7 @@ import (
 	"chat/server/store/types"
 )
 
+// genTestData 完成genTest数据所需的内部处理。
 func genTestData() []types.Subscription {
 	var testData = []types.Subscription{
 		{ObjHeader: types.ObjHeader{Id: "1", UpdatedAt: time.Date(2021, time.June, 1, 1, 11, 0, 0, time.Local)}},
@@ -38,6 +40,7 @@ func genTestData() []types.Subscription {
 	return testData
 }
 
+// TestSelectEarliestUpdatedSubs 验证 Select Earliest Updated Subs 相关行为。
 func TestSelectEarliestUpdatedSubs(t *testing.T) {
 	getOrder := func(subs []types.Subscription) string {
 		var order []string
@@ -105,6 +108,7 @@ func TestSelectEarliestUpdatedSubs(t *testing.T) {
 	}
 }
 
+// TestSelectLatestTime 验证 Select Latest Time 相关行为。
 func TestSelectLatestTime(t *testing.T) {
 	t1 := time.Date(2021, time.June, 1, 10, 0, 0, 0, time.UTC)
 	t2 := time.Date(2021, time.June, 2, 10, 0, 0, 0, time.UTC)
@@ -129,6 +133,7 @@ func TestSelectLatestTime(t *testing.T) {
 	}
 }
 
+// TestRangesToSql 验证 Ranges To Sql 相关行为。
 func TestRangesToSql(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -169,6 +174,7 @@ func TestRangesToSql(t *testing.T) {
 	}
 }
 
+// TestDisjunctionSql 验证 Disjunction Sql 相关行为。
 func TestDisjunctionSql(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -213,6 +219,7 @@ func TestDisjunctionSql(t *testing.T) {
 	}
 }
 
+// TestFilterFoundTags 验证 Filter Found Tags 相关行为。
 func TestFilterFoundTags(t *testing.T) {
 	setTags := types.StringSlice{"tag1", "tag2", "tag3", "tag4", "tag5"}
 	index := map[string]struct{}{
@@ -258,6 +265,7 @@ func TestFilterFoundTags(t *testing.T) {
 	}
 }
 
+// TestToJSON 验证 To JSON 相关行为。
 func TestToJSON(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -306,6 +314,7 @@ func TestToJSON(t *testing.T) {
 	}
 }
 
+// TestFromJSON 验证 From JSON 相关行为。
 func TestFromJSON(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -362,6 +371,7 @@ func TestFromJSON(t *testing.T) {
 	}
 }
 
+// TestUpdateByMap 验证 Update By Map 相关行为。
 func TestUpdateByMap(t *testing.T) {
 	update := map[string]any{
 		"Name":      "John Doe",
@@ -421,6 +431,7 @@ func TestUpdateByMap(t *testing.T) {
 	}
 }
 
+// TestExtractTags 验证 Extract Tags 相关行为。
 func TestExtractTags(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -471,5 +482,34 @@ func TestExtractTags(t *testing.T) {
 				t.Errorf("Expected %+v, got %+v", tt.expected, tags)
 			}
 		})
+	}
+}
+
+// TestRankPeerSearch 验证公开 alias 的优先级，并防止仅凭用户昵称枚举账号。
+func TestRankPeerSearch(t *testing.T) {
+	userScore, matched := RankPeerSearch(
+		"usrAlice", "alice", "alias", types.StringSlice{"alias:alice", "email:hidden@example.com"},
+		map[string]any{"fn": "Alice Display"})
+	if userScore != 100 || !reflect.DeepEqual(matched, []string{"alias:alice"}) {
+		t.Fatalf("unexpected exact alias rank: score=%d matched=%#v", userScore, matched)
+	}
+
+	userScore, _ = RankPeerSearch(
+		"usrHidden", "hidden", "alias", nil, map[string]any{"fn": "Hidden"})
+	if userScore != 0 {
+		t.Fatalf("user was discoverable by display name without an alias: %d", userScore)
+	}
+
+	topicScore, _ := RankPeerSearch(
+		"grpRelease", "release", "alias", nil, map[string]any{"fn": "Release Notes"})
+	if topicScore != 50 {
+		t.Fatalf("unexpected public topic name rank: %d", topicScore)
+	}
+}
+
+// TestEscapeLike 验证 SQL 搜索中的通配符和转义符按普通字符处理。
+func TestEscapeLike(t *testing.T) {
+	if got := EscapeLike("50%_done!"); got != "50!%!_done!!" {
+		t.Fatalf("unexpected LIKE escaping: %q", got)
 	}
 }

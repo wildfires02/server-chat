@@ -6,6 +6,7 @@
  *
  *****************************************************************************/
 
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -55,6 +56,7 @@ type Topic struct {
 
 	// 默认访问权限模式
 	accessAuth types.AccessMode
+	// accessAnon 保存accessAnon。
 	accessAnon types.AccessMode
 
 	// Topic 检索/发现标签
@@ -71,7 +73,8 @@ type Topic struct {
 	// Topic 针对每个订阅者的缓存数据
 	perUser map[types.Uid]perUserData
 	// 跨所有用户的权限并集（由 uid = 0 的代理 Session 使用）
-	modeWantUnion  types.AccessMode
+	modeWantUnion types.AccessMode
+	// modeGivenUnion 保存访问模式GivenUnion。
 	modeGivenUnion types.AccessMode
 
 	// 用户联系人列表（仅 'me' Topic 非空）
@@ -125,23 +128,32 @@ type perUserData struct {
 
 	// 用户通过 {pres} 汇报已接收/已读的最后消息 ID
 	recvID int
+	// readID 保存read标识。
 	readID int
 	// 最新一次删除操作的 ID
 	delID int
 
+	// private 保存private。
 	private any
 
-	modeWant  types.AccessMode
+	// modeWant 保存访问模式Want。
+	modeWant types.AccessMode
+	// modeGiven 保存访问模式Given。
 	modeGiven types.AccessMode
 
 	// 仅 P2P:
-	public   any
-	trusted  any
+	public any
+	// trusted 保存可信资料。
+	trusted any
+	// lastSeen 保存lastSeen。
 	lastSeen *time.Time
-	lastUA   string
+	// lastUA 保存lastUA。
+	lastUA string
 
+	// topicName 保存Topic名称。
 	topicName string
-	deleted   bool
+	// deleted 保存deleted。
+	deleted bool
 
 	// 用户是否为 Channel 订阅者
 	isChan bool
@@ -188,15 +200,20 @@ type shutDown struct {
 // sessionUpdate 用户 agent 变更或后台 Session 转为前台。
 // 如果 sess 为 nil 则表示用户 agent 变更，否则表示从后台转前台的更新。
 type sessionUpdate struct {
-	sess      *Session
+	// sess 保存sess。
+	sess *Session
+	// userAgent 指示是否启用或满足用户Agent。
 	userAgent string
 }
 
 var (
-	nilPresParams  = &presParams{}
+	// nilPresParams 保存nilPresParams的共享实例或运行状态。
+	nilPresParams = &presParams{}
+	// nilPresFilters 保存nilPresFilters的共享实例或运行状态。
 	nilPresFilters = &presFilters{}
 )
 
+// run 启动并运行run处理流程。
 func (t *Topic) run(hub *Hub) {
 	if !t.isProxy {
 		t.runLocal(hub)
@@ -215,10 +232,7 @@ func (t *Topic) getPerUserAcs(uid types.Uid) (types.AccessMode, types.AccessMode
 	return pud.modeWant, pud.modeGiven
 }
 
-
-
 // prepareBroadcastableMessage 根据 uid 和订阅类型设置 `msg` 中的 Topic 字段。
-
 
 // computePerUserAcsUnion 计算 Topic 所有订阅者的 want 和 given 权限并集。
 func (t *Topic) computePerUserAcsUnion() {
@@ -242,10 +256,7 @@ func (t *Topic) computePerUserAcsUnion() {
 	t.modeGivenUnion = givenUnion
 }
 
-
-
-
-
+// handleSessionUpdate 处理会话Update消息或事件。
 func (t *Topic) handleSessionUpdate(upd *sessionUpdate, currentUA *string, uaTimer *time.Timer) {
 	if upd.sess != nil {
 		// 仅 'me' 和 'grp'。后台 Session 超时后重新上线。
@@ -260,6 +271,7 @@ func (t *Topic) handleSessionUpdate(upd *sessionUpdate, currentUA *string, uaTim
 	}
 }
 
+// handleUATimerEvent 处理UA定时器事件消息或事件。
 func (t *Topic) handleUATimerEvent(currentUA string) {
 	// 延迟发布用户 agent 变更
 	if currentUA == "" || currentUA == t.userAgent {
@@ -269,6 +281,7 @@ func (t *Topic) handleUATimerEvent(currentUA string) {
 	t.presUsersOfInterest("ua", t.userAgent)
 }
 
+// handleTopicTimeout 处理Topic超时时间消息或事件。
 func (t *Topic) handleTopicTimeout(hub *Hub, currentUA string, uaTimer, defrNotifTimer *time.Timer) {
 	// Topic 超时
 	hub.unreg <- &topicUnreg{rcptTo: t.name}
@@ -282,6 +295,7 @@ func (t *Topic) handleTopicTimeout(hub *Hub, currentUA string, uaTimer, defrNoti
 	}
 }
 
+// handleTopicTermination 处理TopicTermination消息或事件。
 func (t *Topic) handleTopicTermination(sd *shutDown) {
 	// 处理四种情况：
 	// 1. Topic 因不活跃而通过定时器关闭（reason == StopNone）
@@ -326,6 +340,7 @@ func (t *Topic) handleTopicTermination(sd *shutDown) {
 	}
 }
 
+// runLocal 启动并运行Local处理流程。
 func (t *Topic) runLocal(hub *Hub) {
 	// 在一段时间不活跃后杀死 Topic。
 	t.killTimer = time.NewTimer(time.Hour)
@@ -482,14 +497,17 @@ func (t *Topic) isInactive() bool {
 	return (atomic.LoadInt32(&t.status) & (topicStatusPaused | topicStatusMarkedDeleted)) != 0
 }
 
+// isReadOnly 判断是否满足ReadOnly条件。
 func (t *Topic) isReadOnly() bool {
 	return (atomic.LoadInt32(&t.status) & topicStatusReadOnly) != 0
 }
 
+// isLoaded 判断是否满足Loaded条件。
 func (t *Topic) isLoaded() bool {
 	return (atomic.LoadInt32(&t.status) & topicStatusLoaded) != 0
 }
 
+// isDeleted 判断是否满足Deleted条件。
 func (t *Topic) isDeleted() bool {
 	return (atomic.LoadInt32(&t.status) & topicStatusMarkedDeleted) != 0
 }
@@ -589,6 +607,7 @@ func (t *Topic) fndRemovePublic(sess *Session) {
 	}
 }
 
+// accessFor 完成accessFor所需的内部处理。
 func (t *Topic) accessFor(authLvl auth.Level) types.AccessMode {
 	return selectAccessMode(authLvl, t.accessAnon, t.accessAuth, getDefaultAccess(t.cat, true, false))
 }

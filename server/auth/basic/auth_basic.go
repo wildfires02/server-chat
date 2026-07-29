@@ -29,11 +29,15 @@ var loginPattern = regexp.MustCompile(`^[\pL\pN][_.\pL\pN]*[\pL\pN]+$`)
 
 // authenticator 基本账号密码认证提供者实现结构体。
 type authenticator struct {
-	name      string
+	// name 保存名称。
+	name string
+	// addToTags 保存addToTags。
 	addToTags bool
 
+	// minPasswordLength 保存min密码Length。
 	minPasswordLength int
-	minLoginLength    int
+	// minLoginLength 保存min登录Length。
+	minLoginLength int
 }
 
 // checkLoginPolicy 检查用户名是否符合策略规则（长度限制与正则匹配）。
@@ -323,6 +327,7 @@ func (a *authenticator) GetResetParams(uid types.Uid) (map[string]any, error) {
 	return params, nil
 }
 
+// realName 指定real名称。
 const realName = "basic"
 
 // GetRealName 返回认证器的硬编码内部名称 ("basic")。
@@ -330,6 +335,7 @@ func (authenticator) GetRealName() string {
 	return realName
 }
 
+// init 注册当前包提供的实现并初始化包级状态。
 func init() {
 	store.RegisterAuthScheme(realName, &authenticator{})
 }

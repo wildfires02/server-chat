@@ -16,9 +16,12 @@ const NullValue = "\u2421"
 type ObjHeader struct {
 	// 使用 string 类型是为了解决 rethinkdb 对 uint64 的支持问题；
 	// `bson:"_id"` 标签用于 mongodb 将其作为主键 '_id'。
-	Id        string `bson:"_id"`
-	id        Uid
+	Id string `bson:"_id"`
+	// id 保存标识。
+	id Uid
+	// CreatedAt 保存CreatedAt时间。
 	CreatedAt time.Time
+	// UpdatedAt 保存UpdatedAt时间。
 	UpdatedAt time.Time
 }
 

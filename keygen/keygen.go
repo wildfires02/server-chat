@@ -1,3 +1,4 @@
+// Package main 提供当前命令或模块的实现。
 package main
 
 import (
@@ -53,6 +54,7 @@ const (
 	APIKEY_LENGTH = APIKEY_VERSION + APIKEY_APPID + APIKEY_SEQUENCE + APIKEY_WHO + APIKEY_SIGNATURE
 )
 
+// generate 完成generate所需的内部处理。
 func generate(sequence, isRoot int, hmacSaltB64 string) int {
 	var data [APIKEY_LENGTH]byte
 	var hmacSalt []byte
@@ -104,6 +106,7 @@ func generate(sequence, isRoot int, hmacSaltB64 string) int {
 	return 0
 }
 
+// validate 校验validate的输入和约束。
 func validate(apikey string, hmacSaltB64 string) int {
 	var version uint8
 	var deprecated uint32

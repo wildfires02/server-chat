@@ -1,19 +1,31 @@
+// Package store 提供领域模型及持久化访问层。
 package store
 
 import "chat/server/store/types"
 
 // TopicsPersistenceInterface 定义 Topic 持久化存储的方法接口。
 type TopicsPersistenceInterface interface {
+	// Create 创建并初始化Create。
 	Create(topic *types.Topic, owner types.Uid, private any) error
+	// CreateP2P 创建并初始化P2P。
 	CreateP2P(initiator, invited *types.Subscription) error
+	// Get 查询并返回Get。
 	Get(topic string) (*types.Topic, error)
+	// GetUsers 查询并返回Users。
 	GetUsers(topic string, opts *types.QueryOpt) ([]types.Subscription, error)
+	// GetUsersAny 查询并返回UsersAny。
 	GetUsersAny(topic string, opts *types.QueryOpt) ([]types.Subscription, error)
+	// GetSubs 查询并返回Subs。
 	GetSubs(topic string, opts *types.QueryOpt) ([]types.Subscription, error)
+	// GetSubsAny 查询并返回SubsAny。
 	GetSubsAny(topic string, opts *types.QueryOpt) ([]types.Subscription, error)
+	// Update 更新Update。
 	Update(topic string, update map[string]any) error
+	// UpdateSubCnt 更新订阅Cnt。
 	UpdateSubCnt(topic string) error
+	// OwnerChange 完成OwnerChange所需的内部处理。
 	OwnerChange(topic string, newOwner types.Uid) error
+	// Delete 删除或清理删除。
 	Delete(topic string, isChan, hard bool) error
 }
 

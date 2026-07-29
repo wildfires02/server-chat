@@ -7,6 +7,7 @@
  *
  *****************************************************************************/
 
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -14,9 +15,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"chat/server/logs"
 	"chat/server/store/types"
+	"github.com/gorilla/websocket"
 )
 
 const (
@@ -30,12 +31,14 @@ const (
 	pingPeriod = (pongWait * 9) / 10
 )
 
+// closeWS 停止WS并释放相关资源。
 func (sess *Session) closeWS() {
 	if sess.proto == WEBSOCK {
 		sess.ws.Close()
 	}
 }
 
+// readLoop 查询并返回Loop。
 func (sess *Session) readLoop() {
 	defer func() {
 		sess.closeWS()
@@ -64,6 +67,7 @@ func (sess *Session) readLoop() {
 	}
 }
 
+// sendMessage 处理消息消息或事件。
 func (sess *Session) sendMessage(msg any) bool {
 	if len(sess.send) > sendQueueLimit {
 		logs.Err.Println("ws: outbound queue limit exceeded", sess.sid)
@@ -81,6 +85,7 @@ func (sess *Session) sendMessage(msg any) bool {
 	return true
 }
 
+// writeLoop 保存Loop。
 func (sess *Session) writeLoop() {
 	ticker := time.NewTicker(pingPeriod)
 
@@ -165,6 +170,7 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
+// serveWebSocket 处理WebSocket消息或事件。
 func serveWebSocket(wrt http.ResponseWriter, req *http.Request) {
 	now := types.TimeNow()
 

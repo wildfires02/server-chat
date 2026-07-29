@@ -48,9 +48,13 @@ message Unused {
 
 // 身份认证级别
 enum AuthLevel {
+	// NONE 表示该枚举对应的协议状态。
 	NONE = 0;
+	// ANON 表示该枚举对应的协议状态。
 	ANON = 10;
+	// AUTH 表示该枚举对应的协议状态。
 	AUTH = 20;
+	// ROOT 表示该枚举对应的协议状态。
 	ROOT = 30;
 }
 
@@ -58,7 +62,9 @@ enum AuthLevel {
 
 // 主题默认访问权限模式
 message DefaultAcsMode {
+	// auth 保存该消息字段对应的协议值。
 	string auth = 1;
+	// anon 保存该消息字段对应的协议值。
 	string anon = 2;
 }
 
@@ -68,6 +74,8 @@ message AccessMode {
 	string want = 1;
 	// 管理员授予用户的访问权限模式
 	string given = 2;
+	// 服务端根据最终 ACL 推导出的业务角色
+	string role = 3;
 }
 
 // SetSub：在 set.sub 请求中更新当前订阅或邀请其他用户的负载数据，{sub.what} == "sub"
@@ -77,6 +85,9 @@ message SetSub {
 
 	// 访问模式变更，根据上下文代表 Given 或 Want
 	string mode = 2;
+
+	// 高层成员角色；与 mode 互斥
+	string role = 3;
 }
 
 // 身份凭据（如邮箱或手机号）
@@ -93,17 +104,25 @@ message ClientCred {
 
 // SetDesc：在 set.what == "desc" 和 sub.init 消息中客户端发往服务端的数据
 message SetDesc {
+	// default_acs 保存该消息字段对应的协议值。
 	DefaultAcsMode default_acs = 1;
+	// public 保存该消息字段对应的协议值。
 	bytes public = 2;
+	// private 保存该消息字段对应的协议值。
 	bytes private = 3;
+	// trusted 保存该消息字段对应的协议值。
 	bytes trusted = 4;
 }
 
+// SeqRange 定义 SeqRange 的 Protobuf 消息结构。
 message SeqRange {
+	// low 保存该消息字段对应的协议值。
 	int32 low = 1;
+	// hi 保存该消息字段对应的协议值。
 	int32 hi = 2;
 }
 
+// GetOpts 定义 GetOpts 的 Protobuf 消息结构。
 message GetOpts {
 	// 时间戳（自 1970/01/01 Epoch 以来的毫秒数）
 	int64 if_modified_since = 1;
@@ -119,9 +138,33 @@ message GetOpts {
 	int32 limit = 6;
 	// 根据具体 ID 或 ID 范围段加载消息
 	repeated SeqRange ranges = 7;
+	// 按 seq_id 升序返回结果，用于断线后的无间隙追赶
+	bool forward = 8;
 }
 
+// SearchOpts 定义 Peer 发现与当前 Topic 消息全文搜索参数。
+message SearchOpts {
+	// query 是用户输入的关键词。
+	string query = 1;
+	// scope 可取 peers 或 topic。
+	string scope = 2;
+	// from_user_id 仅返回该用户发送的消息。
+	string from_user_id = 3;
+	// kinds 仅返回指定的服务端消息类型。
+	repeated string kinds = 4;
+	// min_date 仅返回该时间点及之后创建的消息，使用 Epoch 毫秒。
+	int64 min_date = 5;
+	// max_date 仅返回该时间点之前创建的消息，使用 Epoch 毫秒。
+	int64 max_date = 6;
+	// cursor 是上一页返回的不透明分页游标。
+	string cursor = 7;
+	// limit 是本页最多返回的结果数量。
+	int32 limit = 8;
+}
+
+// GetQuery 定义 GetQuery 的 Protobuf 消息结构。
 message GetQuery {
+	// what 保存该消息字段对应的协议值。
 	string what = 1;
 
 	// "desc" 请求的参数
@@ -130,8 +173,13 @@ message GetQuery {
 	GetOpts sub = 3;
 	// "data" 请求的参数
 	GetOpts data = 4;
+	// "del" 删除记录请求的参数
+	GetOpts del = 5;
+	// "search" 关键词发现或消息全文搜索参数
+	SearchOpts search = 6;
 }
 
+// SetQuery 定义 SetQuery 的 Protobuf 消息结构。
 message SetQuery {
 	// 主题元数据，仅在新建主题和新建订阅时使用
 	SetDesc desc = 1;
@@ -147,17 +195,25 @@ message SetQuery {
 
 // 客户端握手消息
 message ClientHi {
+	// id 保存该消息字段对应的协议值。
 	string id = 1;
+	// user_agent 保存该消息字段对应的协议值。
 	string user_agent = 2;
+	// ver 保存该消息字段对应的协议值。
 	string ver = 3;
+	// device_id 保存该消息字段对应的协议值。
 	string device_id = 4;
+	// lang 保存该消息字段对应的协议值。
 	string lang = 5;
+	// platform 保存该消息字段对应的协议值。
 	string platform = 6;
+	// background 保存该消息字段对应的协议值。
 	bool background = 7;
 }
 
 // 用户创建/修改消息 {acc}
 message ClientAcc {
+	// id 保存该消息字段对应的协议值。
 	string id = 1;
 	// 正在创建或修改的目标用户 ID
 	string user_id = 2;
@@ -181,11 +237,13 @@ message ClientAcc {
 	AuthLevel auth_level = 11;
 	// 用于密码重置等一次性操作的临时认证参数
 	string tmp_scheme = 12;
+	// tmp_secret 保存该消息字段对应的协议值。
 	bytes tmp_secret = 13;
 }
 
 // 登录认证消息 {login}
 message ClientLogin  {
+	// id 保存该消息字段对应的协议值。
 	string id = 1;
 	// 认证方案 (basic, token 等)
 	string scheme  = 2;
@@ -197,7 +255,9 @@ message ClientLogin  {
 
 // 订阅请求消息 {sub}
 message ClientSub {
+	// id 保存该消息字段对应的协议值。
 	string id = 1;
+	// topic 保存该消息字段对应的协议值。
 	string topic  = 2;
 
 	// 镜像 {set} 参数
@@ -209,48 +269,94 @@ message ClientSub {
 
 // 取消订阅/离开请求消息 {leave}
 message ClientLeave {
+	// id 保存该消息字段对应的协议值。
 	string id = 1;
+	// topic 保存该消息字段对应的协议值。
 	string topic  = 2;
+	// unsub 保存该消息字段对应的协议值。
 	bool unsub = 3;
+}
+
+// MessageRef 定义 MessageRef 的 Protobuf 消息结构。
+message MessageRef {
+	// 为空表示当前主题。
+	string topic = 1;
+	// 被引用消息在主题内的服务端序列号。
+	int32 seq_id = 2;
 }
 
 // 客户端发布消息请求 {pub}（向主题订阅者广播数据）
 message ClientPub {
+	// id 保存该消息字段对应的协议值。
 	string id = 1;
+	// topic 保存该消息字段对应的协议值。
 	string topic = 2;
+	// no_echo 保存该消息字段对应的协议值。
 	bool no_echo = 3;
+	// head 保存该消息字段对应的协议值。
 	map<string, bytes> head = 4;
+	// content 保存该消息字段对应的协议值。
 	bytes content = 5;
+	// 客户端生成的持久化幂等键
+	string client_id = 6;
+	// 由服务端校验的消息类型：text/drafty/image/video/voice/audio/file。
+	string kind = 7;
+	// 当前主题内被回复消息的服务端序列号。
+	int32 reply_to = 8;
+	// 要原地替换正文的消息序列号；仅消息作者或管理员可用。
+	int32 replace_seq = 9;
+	// 要复制正文的原始消息引用。
+	MessageRef forward = 10;
+	// 连续图片或视频使用的客户端相册标识。
+	string group_id = 11;
+	// 计划投递时间（Epoch 毫秒）；0 表示立即发送。
+	int64 schedule_at = 12;
 }
 
 // 查询主题状态请求 {get}
 message ClientGet {
+	// id 保存该消息字段对应的协议值。
 	string id = 1;
+	// topic 保存该消息字段对应的协议值。
 	string topic = 2;
+	// query 保存该消息字段对应的协议值。
 	GetQuery query = 3;
 }
 
 // 更新主题状态请求 {set}
 message ClientSet {
+	// id 保存该消息字段对应的协议值。
 	string id = 1;
+	// topic 保存该消息字段对应的协议值。
 	string topic = 2;
+	// query 保存该消息字段对应的协议值。
 	SetQuery query = 3;
 }
 
 // 客户端删除消息或主题请求 {del}
 message ClientDel {
+	// id 保存该消息字段对应的协议值。
 	string id = 1;
+	// topic 保存该消息字段对应的协议值。
 	string topic = 2;
 	// 删除类型："msg" 删除消息（默认），"topic" 删除主题，"sub" 删除订阅
 	enum What {
 		// 无效占位值，枚举名必须全局唯一
 		X0 = 0;
+		// MSG 表示该枚举对应的协议状态。
 		MSG = 1;
+		// TOPIC 表示该枚举对应的协议状态。
 		TOPIC = 2;
+		// SUB 表示该枚举对应的协议状态。
 		SUB = 3;
+		// USER 表示该枚举对应的协议状态。
 		USER = 4;
+		// CRED 表示该枚举对应的协议状态。
 		CRED = 5;
+		// SCHEDULED 表示该枚举对应的协议状态。
+		SCHEDULED = 6;
 	}
+	// what 保存该消息字段对应的协议值。
 	What what = 3;
 	// 按单条 ID 或 ID 范围段删除消息
 	repeated SeqRange del_seq = 4;
@@ -260,31 +366,61 @@ message ClientDel {
 	ClientCred cred = 6;
 	// 是否请求彻底物理删除消息（对所有用户生效）
 	bool hard = 7;
+	// what=SCHEDULED 时要取消的持久化定时消息 ID。
+	string scheduled_id = 8;
 }
 
+// InfoNote 定义 InfoNote 的 Protobuf 枚举值集合。
 enum InfoNote {
 	// 无效占位值，枚举名必须全局唯一
 	X1 = 0;
+	// READ 表示该枚举对应的协议状态。
 	READ = 1;
+	// RECV 表示该枚举对应的协议状态。
 	RECV = 2;
+	// KP 表示该枚举对应的协议状态。
 	KP = 3;
+	// CALL 表示该枚举对应的协议状态。
 	CALL = 4;
+	// KPA 表示该枚举对应的协议状态。
+	KPA = 5;
+	// KPV 表示该枚举对应的协议状态。
+	KPV = 6;
+	// REACT 表示该枚举对应的协议状态。
+	REACT = 7;
+	// PIN 表示该枚举对应的协议状态。
+	PIN = 8;
 }
 
+// CallEvent 定义 CallEvent 的 Protobuf 枚举值集合。
 enum CallEvent {
 	// 无效占位值，枚举名必须全局唯一
 	X2 = 0;
+	// ACCEPT 表示该枚举对应的协议状态。
 	ACCEPT = 1;
+	// ANSWER 表示该枚举对应的协议状态。
 	ANSWER = 2;
+	// HANG_UP 表示该枚举对应的协议状态。
 	HANG_UP = 3;
+	// ICE_CANDIDATE 表示该枚举对应的协议状态。
 	ICE_CANDIDATE = 4;
+	// INVITE 表示该枚举对应的协议状态。
 	INVITE = 5;
+	// OFFER 表示该枚举对应的协议状态。
 	OFFER = 6;
+	// RINGING 表示该枚举对应的协议状态。
 	RINGING = 7;
+	// JOIN 表示成员请求加入 Agora 群组通话。
+	JOIN = 8;
+	// LEAVE 表示成员离开 Agora 群组通话。
+	LEAVE = 9;
+	// REFRESH 表示客户端请求续签即将过期的 Agora Token。
+	REFRESH = 10;
 }
 
 // 客户端生成的订阅者状态通知消息 {note}
 message ClientNote {
+	// topic 保存该消息字段对应的协议值。
 	string topic = 1;
 	// 报告的状态类型："recv"-收到消息，"read"-已读消息，"kp"-正在输入通知，"call"-音视频通话
 	InfoNote what = 2;
@@ -296,26 +432,47 @@ message ClientNote {
 	CallEvent event = 5;
 	// 自定义 JSON 负载（常用于视频通话信令）
 	bytes payload = 6;
+	// 可选请求 ID；read/recv 携带时服务端返回持久化确认
+	string id = 7;
+	// REACT 事件使用的 Unicode Emoji 或自定义反应标识。
+	string reaction = 8;
+	// REACT/PIN 事件为 true 时表示移除。
+	bool remove = 9;
 }
 
+// ClientExtra 定义 ClientExtra 的 Protobuf 消息结构。
 message ClientExtra {
+	// attachments 保存该消息字段对应的协议值。
 	repeated string attachments = 1;
 	// 超级管理员（Root）可以代其他用户发送消息
 	string on_behalf_of = 2;
+	// auth_level 保存该消息字段对应的协议值。
 	AuthLevel auth_level = 3;
 }
 
+// ClientMsg 定义 ClientMsg 的 Protobuf 消息结构。
 message ClientMsg {
+	// Message 定义 Message 的 Protobuf 互斥消息载荷。
 	oneof Message {
+		// hi 保存该消息字段对应的协议值。
 		ClientHi hi = 1;
+		// acc 保存该消息字段对应的协议值。
 		ClientAcc acc = 2;
+		// login 保存该消息字段对应的协议值。
 		ClientLogin login = 3;
+		// sub 保存该消息字段对应的协议值。
 		ClientSub sub = 4;
+		// leave 保存该消息字段对应的协议值。
 		ClientLeave leave = 5;
+		// pub 保存该消息字段对应的协议值。
 		ClientPub pub = 6;
+		// get 保存该消息字段对应的协议值。
 		ClientGet get = 7;
+		// set 保存该消息字段对应的协议值。
 		ClientSet set = 8;
+		// del 保存该消息字段对应的协议值。
 		ClientDel del = 9;
+		// note 保存该消息字段对应的协议值。
 		ClientNote note = 10;
 	}
 	// 消息附加扩展参数
@@ -337,40 +494,68 @@ message ServerCred {
 
 // 主题描述结构，在 Meta 消息中由服务端发往客户端 (S2C)
 message TopicDesc {
+	// created_at 保存该消息字段对应的协议值。
 	int64 created_at = 1;
+	// updated_at 保存该消息字段对应的协议值。
 	int64 updated_at = 2;
+	// touched_at 保存该消息字段对应的协议值。
 	int64 touched_at = 3;
+	// defacs 保存该消息字段对应的协议值。
 	DefaultAcsMode defacs = 4;
+	// acs 保存该消息字段对应的协议值。
 	AccessMode acs = 5;
+	// seq_id 保存该消息字段对应的协议值。
 	int32 seq_id = 6;
+	// read_id 保存该消息字段对应的协议值。
 	int32 read_id = 7;
+	// recv_id 保存该消息字段对应的协议值。
 	int32 recv_id = 8;
+	// del_id 保存该消息字段对应的协议值。
 	int32 del_id = 9;
+	// public 保存该消息字段对应的协议值。
 	bytes public = 10;
+	// private 保存该消息字段对应的协议值。
 	bytes private = 11;
+	// state 保存该消息字段对应的协议值。
 	string state = 12;
+	// state_at 保存该消息字段对应的协议值。
 	int64 state_at = 13;
+	// trusted 保存该消息字段对应的协议值。
 	bytes trusted = 14;
+	// is_chan 保存该消息字段对应的协议值。
 	bool is_chan = 17; // 频道标识！
+	// online 保存该消息字段对应的协议值。
 	bool online = 18;
+	// 群组或频道的当前订阅者总数
+	int32 sub_count = 19;
 
 	// 仅限点对点 (P2P) 会话：对方用户的最后在线时间戳与 User Agent
 	int64 last_seen_time = 15;
+	// last_seen_user_agent 保存该消息字段对应的协议值。
 	string last_seen_user_agent = 16;
 }
 
 // TopicSub：主题订阅详细信息，在 Meta 消息中发送
 message TopicSub {
+	// updated_at 保存该消息字段对应的协议值。
 	int64 updated_at = 1;
+	// deleted_at 保存该消息字段对应的协议值。
 	int64 deleted_at = 2;
 
+	// online 保存该消息字段对应的协议值。
 	bool online = 3;
 
+	// acs 保存该消息字段对应的协议值。
 	AccessMode acs = 4;
+	// read_id 保存该消息字段对应的协议值。
 	int32 read_id = 5;
+	// recv_id 保存该消息字段对应的协议值。
 	int32 recv_id = 6;
+	// public 保存该消息字段对应的协议值。
 	bytes public  = 7;
+	// trusted 保存该消息字段对应的协议值。
 	bytes trusted = 16;
+	// private 保存该消息字段对应的协议值。
 	bytes private = 8;
 
 	// 对非 'me' 主题的响应：
@@ -382,6 +567,7 @@ message TopicSub {
 
 	// 该订阅对应的目标主题名称
 	string topic = 10;
+	// touched_at 保存该消息字段对应的协议值。
 	int64 touched_at = 11;
 	// 主题中最新一条 {data} 消息的 ID (seq_id)
 	int32 seq_id = 12;
@@ -392,25 +578,49 @@ message TopicSub {
 
 	// 对方用户的最后在线时间戳与 User Agent
 	int64 last_seen_time = 14;
+	// last_seen_user_agent 保存该消息字段对应的协议值。
 	string last_seen_user_agent = 15;
+	// 群组或频道的当前订阅者总数
+	int32 sub_count = 17;
 }
 
+// DelValues 定义 DelValues 的 Protobuf 消息结构。
 message DelValues {
+	// del_id 保存该消息字段对应的协议值。
 	int32 del_id = 1;
+	// del_seq 保存该消息字段对应的协议值。
 	repeated SeqRange del_seq = 2;
+}
+
+// SearchResult 是统一的 Peer 发现与消息全文搜索结果。
+message SearchResult {
+	// scope 表示本响应属于 peers 或 topic 搜索。
+	string scope = 1;
+	// peers 保存用户、群组和频道发现结果。
+	repeated TopicSub peers = 2;
+	// messages 保存当前 Topic 中的消息命中结果。
+	repeated ServerData messages = 3;
+	// next 是下一页使用的不透明游标。
+	string next = 4;
 }
 
 // {ctrl} 控制响应消息
 message ServerCtrl {
+	// id 保存该消息字段对应的协议值。
 	string id = 1;
+	// topic 保存该消息字段对应的协议值。
 	string topic = 2;
+	// code 保存该消息字段对应的协议值。
 	int32 code = 3;
+	// text 保存该消息字段对应的协议值。
 	string text = 4;
+	// params 保存该消息字段对应的协议值。
 	map<string, bytes> params = 5;
 }
 
 // {data} 聊天数据消息
 message ServerData {
+	// topic 保存该消息字段对应的协议值。
 	string topic = 1;
 	// 发送该消息（通过 {pub}）的原始用户 ID，若为系统发送则可能为空
 	string from_user_id = 2;
@@ -418,73 +628,161 @@ message ServerData {
 	int64 timestamp = 7;
 	// 消息删除的时间戳（自 1970/01/01 Epoch 以来的毫秒数），未删除时为 0
 	int64 deleted_at = 3;
+	// seq_id 保存该消息字段对应的协议值。
 	int32 seq_id = 4;
+	// head 保存该消息字段对应的协议值。
 	map<string, bytes> head = 5;
+	// content 保存该消息字段对应的协议值。
 	bytes content = 6;
+	// 客户端发布时提供的持久化幂等键
+	string client_id = 8;
+	// 服务端从正文推导出的可信消息类型。
+	string kind = 9;
+	// 当前主题内被回复消息的服务端序列号。
+	int32 reply_to = 10;
+	// 转发消息的原始来源摘要。
+	ForwardedMessage forwarded = 11;
+	// 服务端按发送者命名空间归一化后的媒体相册 ID。
+	string group_id = 12;
+	// 消息反应的聚合计数，不包含用户明细。
+	repeated Reaction reactions = 13;
+	// 最近一次编辑时间（Epoch 毫秒）；未编辑时为 0。
+	int64 edited_at = 14;
+}
+
+// 转发消息的原始来源；P2P 消息不返回内部主题名。
+message ForwardedMessage {
+	// topic 保存该消息字段对应的协议值。
+	string topic = 1;
+	// seq_id 保存该消息字段对应的协议值。
+	int32 seq_id = 2;
+	// from_user_id 保存该消息字段对应的协议值。
+	string from_user_id = 3;
+	// timestamp 保存该消息字段对应的协议值。
+	int64 timestamp = 4;
+}
+
+// 单个反应标识及其参与用户总数。
+message Reaction {
+	// reaction 保存该消息字段对应的协议值。
+	string reaction = 1;
+	// count 保存该消息字段对应的协议值。
+	int32 count = 2;
 }
 
 // {pres} 状态在线提示消息
 message ServerPres {
+	// topic 保存该消息字段对应的协议值。
 	string topic = 1;
+	// src 保存该消息字段对应的协议值。
 	string src = 2;
+	// What 定义 What 的 Protobuf 枚举值集合。
 	enum What {
 		// 无效占位值，枚举名必须全局唯一
 		X3 = 0;
+		// ON 表示该枚举对应的协议状态。
 		ON = 1;
+		// OFF 表示该枚举对应的协议状态。
 		OFF = 2;
+		// UA 表示该枚举对应的协议状态。
 		UA = 3;
+		// UPD 表示该枚举对应的协议状态。
 		UPD = 4;
+		// GONE 表示该枚举对应的协议状态。
 		GONE = 5;
+		// ACS 表示该枚举对应的协议状态。
 		ACS = 6;
+		// TERM 表示该枚举对应的协议状态。
 		TERM = 7;
+		// MSG 表示该枚举对应的协议状态。
 		MSG = 8;
+		// READ 表示该枚举对应的协议状态。
 		READ = 9;
+		// RECV 表示该枚举对应的协议状态。
 		RECV = 10;
+		// DEL 表示该枚举对应的协议状态。
 		DEL = 11;
+		// TAGS 表示该枚举对应的协议状态。
 		TAGS = 12;
+		// AUX 表示该枚举对应的协议状态。
 		AUX = 13;
 	}
+	// what 保存该消息字段对应的协议值。
 	What what = 3;
+	// user_agent 保存该消息字段对应的协议值。
 	string user_agent = 4;
+	// seq_id 保存该消息字段对应的协议值。
 	int32 seq_id = 5;
+	// del_id 保存该消息字段对应的协议值。
 	int32 del_id = 6;
+	// del_seq 保存该消息字段对应的协议值。
 	repeated SeqRange del_seq = 7;
+	// target_user_id 保存该消息字段对应的协议值。
 	string target_user_id = 8;
+	// actor_user_id 保存该消息字段对应的协议值。
 	string actor_user_id = 9;
+	// acs 保存该消息字段对应的协议值。
 	AccessMode acs = 10;
 }
 
 // {meta} 元数据响应消息
 message ServerMeta {
+	// id 保存该消息字段对应的协议值。
 	string id = 1;
+	// topic 保存该消息字段对应的协议值。
 	string topic = 2;
 
+	// desc 保存该消息字段对应的协议值。
 	TopicDesc desc = 3;
+	// sub 保存该消息字段对应的协议值。
 	repeated TopicSub sub = 4;
+	// del 保存该消息字段对应的协议值。
 	DelValues del = 5;
+	// tags 保存该消息字段对应的协议值。
 	repeated string tags = 6;
+	// cred 保存该消息字段对应的协议值。
 	repeated ServerCred cred = 7;
+	// aux 保存该消息字段对应的协议值。
 	map<string, bytes> aux = 8;
+	// search 保存关键词发现或消息全文搜索结果。
+	SearchResult search = 9;
 }
 
 // {info} 通知消息：ServerNote 的服务端副本，补充了 From 和可选的 Src
 message ServerInfo {
+	// topic 保存该消息字段对应的协议值。
 	string topic = 1;
+	// from_user_id 保存该消息字段对应的协议值。
 	string from_user_id = 2;
+	// what 保存该消息字段对应的协议值。
 	InfoNote what = 3;
+	// seq_id 保存该消息字段对应的协议值。
 	int32 seq_id = 4;
+	// src 保存该消息字段对应的协议值。
 	string src = 5;
+	// event 保存该消息字段对应的协议值。
 	CallEvent event = 6;
+	// payload 保存该消息字段对应的协议值。
 	bytes payload = 7;
+	// REACT 事件中被添加或移除的反应。
+	string reaction = 8;
+	// REACT/PIN 事件为 true 时表示移除。
+	bool remove = 9;
 }
 
 // 服务端汇总总包消息
 message ServerMsg {
+	// Message 定义 Message 的 Protobuf 互斥消息载荷。
 	oneof Message {
+		// ctrl 保存该消息字段对应的协议值。
 		ServerCtrl ctrl = 1;
+		// data 保存该消息字段对应的协议值。
 		ServerData data = 2;
+		// pres 保存该消息字段对应的协议值。
 		ServerPres pres = 3;
+		// meta 保存该消息字段对应的协议值。
 		ServerMeta meta = 4;
+		// info 保存该消息字段对应的协议值。
 		ServerInfo info = 5;
 	}
 	// 已废弃，即将移除
@@ -503,36 +801,54 @@ enum RespCode {
 	REPLACE = 3;
 }
 
+// ServerResp 定义 ServerResp 的 Protobuf 消息结构。
 message ServerResp {
+	// status 保存该消息字段对应的协议值。
 	RespCode status = 1;
+	// srvmsg 保存该消息字段对应的协议值。
 	ServerMsg srvmsg = 2;
+	// clmsg 保存该消息字段对应的协议值。
 	ClientMsg clmsg = 3;
 }
 
 // 会话上下文消息
 message Session {
+	// session_id 保存该消息字段对应的协议值。
 	string session_id = 1;
+	// user_id 保存该消息字段对应的协议值。
 	string user_id = 2;
+	// auth_level 保存该消息字段对应的协议值。
 	AuthLevel auth_level = 3;
+	// remote_addr 保存该消息字段对应的协议值。
 	string remote_addr = 4;
+	// user_agent 保存该消息字段对应的协议值。
 	string user_agent = 5;
+	// device_id 保存该消息字段对应的协议值。
 	string device_id = 6;
+	// language 保存该消息字段对应的协议值。
 	string language = 7;
 }
 
+// ClientReq 定义 ClientReq 的 Protobuf 消息结构。
 message ClientReq {
+	// msg 保存该消息字段对应的协议值。
 	ClientMsg msg = 1;
+	// sess 保存该消息字段对应的协议值。
 	Session sess = 2;
 }
 
 // 搜索请求与结果
 
 message SearchQuery {
+	// user_id 保存该消息字段对应的协议值。
 	string user_id = 1;
+	// query 保存该消息字段对应的协议值。
 	string query = 2;
 }
 
+// SearchFound 定义 SearchFound 的 Protobuf 消息结构。
 message SearchFound {
+	// status 保存该消息字段对应的协议值。
 	RespCode status = 1;
 	// 若 status == REPLACE，则表示替换后的新搜索查询语句，否则未设置
 	string query = 2;
@@ -543,59 +859,89 @@ message SearchFound {
 // CRUD 事件类型
 
 enum Crud {
+	// CREATE 表示该枚举对应的协议状态。
 	CREATE = 0;
+	// UPDATE 表示该枚举对应的协议状态。
 	UPDATE = 1;
+	// DELETE 表示该枚举对应的协议状态。
 	DELETE = 2;
 }
 
+// TopicEvent 定义 TopicEvent 的 Protobuf 消息结构。
 message TopicEvent {
+	// action 保存该消息字段对应的协议值。
 	Crud action = 1;
+	// name 保存该消息字段对应的协议值。
 	string name = 2;
+	// desc 保存该消息字段对应的协议值。
 	TopicDesc desc = 3;
 }
 
+// AccountEvent 定义 AccountEvent 的 Protobuf 消息结构。
 message AccountEvent {
+	// action 保存该消息字段对应的协议值。
 	Crud action = 1;
+	// user_id 保存该消息字段对应的协议值。
 	string user_id = 2;
 
+	// default_acs 保存该消息字段对应的协议值。
 	DefaultAcsMode default_acs = 3;
+	// public 保存该消息字段对应的协议值。
 	bytes public = 4;
 
 	// 用于用户发现的可索引标签
 	repeated string tags = 8;
 }
 
+// SubscriptionEvent 定义 SubscriptionEvent 的 Protobuf 消息结构。
 message SubscriptionEvent {
+	// action 保存该消息字段对应的协议值。
 	Crud action = 1;
+	// topic 保存该消息字段对应的协议值。
 	string topic = 2;
+	// user_id 保存该消息字段对应的协议值。
 	string user_id = 3;
 
+	// del_id 保存该消息字段对应的协议值。
 	int32 del_id = 4;
+	// read_id 保存该消息字段对应的协议值。
 	int32 read_id = 5;
+	// recv_id 保存该消息字段对应的协议值。
 	int32 recv_id = 6;
 
+	// mode 保存该消息字段对应的协议值。
 	AccessMode mode = 7;
 
+	// private 保存该消息字段对应的协议值。
 	bytes private = 8;
 }
 
+// MessageEvent 定义 MessageEvent 的 Protobuf 消息结构。
 message MessageEvent {
+	// action 保存该消息字段对应的协议值。
 	Crud action = 1;
+	// msg 保存该消息字段对应的协议值。
 	ServerData msg = 2;
 }
 
 // 大文件处理消息定义
 
 message Auth {
+	// scheme 保存该消息字段对应的协议值。
 	string scheme = 1;
+	// secret 保存该消息字段对应的协议值。
 	string secret = 2;
 }
 
 // 文件元数据描述
 message FileMeta {
+	// name 保存该消息字段对应的协议值。
 	string name = 1;
+	// mime_type 保存该消息字段对应的协议值。
 	string mime_type = 2;
+	// etag 保存该消息字段对应的协议值。
 	string etag = 3;
+	// size 保存该消息字段对应的协议值。
 	int64 size = 4;
 }
 
@@ -621,6 +967,7 @@ message FileUpResp {
 	int32 code = 2;
 	// 响应文本消息
 	string text = 3;
+	// meta 保存该消息字段对应的协议值。
 	FileMeta meta = 4;
 	// 新上传重定向 URL 位置
 	string redir_url = 5;
@@ -646,6 +993,7 @@ message FileDownResp {
 	int32 code = 2;
 	// 响应文本消息
 	string text = 3;
+	// meta 保存该消息字段对应的协议值。
 	FileMeta meta = 4;
 	// 重定向文件位置
 	string redir_url = 5;

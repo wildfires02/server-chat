@@ -13,7 +13,7 @@ import (
 // 当前架构支持每种数据库类型一个连接。
 type Adapter interface {
 	// 通用操作
-	
+
 	// Open 打开并配置适配器。
 	Open(config json.RawMessage) error
 	// Close 关闭适配器。
@@ -150,11 +150,29 @@ type Adapter interface {
 	Find(caller, prefix string, req [][]string, opt []string, activeOnly bool) ([]t.Subscription, error)
 	// FindOne 返回与给定标签匹配的 Topic 或用户。
 	FindOne(tag string) (string, error)
+	// FindByName 按公开别名或名称关键词搜索可发现的用户与 Topic。
+	FindByName(caller string, query *t.PeerSearchQuery) ([]t.Subscription, error)
 
 	// 消息管理
 
 	// MessageSave 保存消息到数据库。
 	MessageSave(msg *t.Message) error
+	// MessageSaveAtomic 原子地更新 Topic 游标并保存消息。
+	MessageSaveAtomic(msg *t.Message) error
+	// MessageGetByClientId 按发送方生成的幂等键读取已持久化消息。
+	MessageGetByClientId(topic string, from t.Uid, clientID string) (*t.Message, error)
+	// MessageGet 按 Topic 和服务端序号读取一条未硬删除消息。
+	MessageGet(topic string, seqID int) (*t.Message, error)
+	// MessageUpdate 原地更新消息内容、Header 和更新时间。
+	MessageUpdate(msg *t.Message) error
+	// MessageSchedule 持久化一条尚未分配 Topic SeqId 的定时消息。
+	MessageSchedule(msg *t.ScheduledMessage) error
+	// MessageGetScheduledByClientId 按发布方幂等键查询定时消息。
+	MessageGetScheduledByClientId(topic string, from t.Uid, clientID string) (*t.ScheduledMessage, error)
+	// MessageGetDueScheduled 返回已到投递时间的定时消息。
+	MessageGetDueScheduled(now time.Time, limit int) ([]t.ScheduledMessage, error)
+	// MessageDeleteScheduled 删除已投递或取消的定时消息。
+	MessageDeleteScheduled(id, topic string, from t.Uid) error
 	// MessageGetAll 返回匹配查询的消息。
 	MessageGetAll(topic string, forUser t.Uid, opts *t.QueryOpt) ([]t.Message, error)
 	// MessageDeleteList 将消息标记为已删除。
@@ -162,6 +180,8 @@ type Adapter interface {
 	MessageDeleteList(topic string, toDel *t.DelMessage) error
 	// MessageGetDeleted 返回已删除的消息 ID 列表。
 	MessageGetDeleted(topic string, forUser t.Uid, opts *t.QueryOpt) ([]t.DelMessage, error)
+	// MessageSearch 在单个 Topic 中按正文、发送者、类型、日期和游标搜索消息。
+	MessageSearch(topic string, forUser t.Uid, query *t.MessageSearchQuery) ([]t.Message, error)
 
 	// 设备管理（用于推送通知）
 
@@ -186,6 +206,8 @@ type Adapter interface {
 	FileDeleteUnused(olderThan time.Time, limit int) ([]string, error)
 	// FileLinkAttachments 将指定的 Topic 或消息连接到文件记录 ID 列表。
 	FileLinkAttachments(topic string, userId, msgId t.Uid, fids []string) error
+	// FileLinkScheduled 将文件 ID 连接到尚未投递的定时消息。
+	FileLinkScheduled(scheduledId t.Uid, fids []string) error
 
 	// 持久缓存管理
 

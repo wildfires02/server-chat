@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"hash/fnv"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,22 +24,30 @@ import (
 
 // adapter 保存 RethinkDB 连接数据。
 type adapter struct {
-	conn   *rdb.Session
+	// conn 保存连接。
+	conn *rdb.Session
+	// dbName 保存数据库名称。
 	dbName string
 	// 最大返回记录数
 	maxResults int
 	// 最大返回消息记录数
 	maxMessageResults int
-	version           int
+	// version 保存版本。
+	version int
 }
 
 const (
-	adpVersion  = 116
+	// adpVersion 指定adp版本。
+	adpVersion = 119
+	// adapterName 指定adapter名称。
 	adapterName = "rethinkdb"
 
-	defaultHost     = "localhost:28015"
+	// defaultHost 指定默认Host。
+	defaultHost = "localhost:28015"
+	// defaultDatabase 指定默认Database。
 	defaultDatabase = "im"
 
+	// defaultMaxResults 指定默认MaxResults。
 	defaultMaxResults = 1024
 	// 此值受 Session 发送队列上限 (128) 限制。
 	defaultMaxMessageResults = 100
@@ -46,21 +55,36 @@ const (
 
 // 配置字段说明参见 https://godoc.org/github.com/rethinkdb/rethinkdb-go#ConnectOpts
 type configType struct {
-	Database          string `json:"database,omitempty"`
-	Addresses         any    `json:"addresses,omitempty"`
-	Username          string `json:"username,omitempty"`
-	Password          string `json:"password,omitempty"`
-	AuthKey           string `json:"authkey,omitempty"`
-	Timeout           int    `json:"timeout,omitempty"`
-	WriteTimeout      int    `json:"write_timeout,omitempty"`
-	ReadTimeout       int    `json:"read_timeout,omitempty"`
-	KeepAlivePeriod   int    `json:"keep_alive_timeout,omitempty"`
-	UseJSONNumber     bool   `json:"use_json_number,omitempty"`
-	NumRetries        int    `json:"num_retries,omitempty"`
-	InitialCap        int    `json:"initial_cap,omitempty"`
-	MaxOpen           int    `json:"max_open,omitempty"`
-	DiscoverHosts     bool   `json:"discover_hosts,omitempty"`
-	HostDecayDuration int    `json:"host_decay_duration,omitempty"`
+	// Database 保存Database。
+	Database string `json:"database,omitempty"`
+	// Addresses 保存Addresses。
+	Addresses any `json:"addresses,omitempty"`
+	// Username 指示是否启用或满足Username。
+	Username string `json:"username,omitempty"`
+	// Password 保存密码。
+	Password string `json:"password,omitempty"`
+	// AuthKey 保存认证键。
+	AuthKey string `json:"authkey,omitempty"`
+	// Timeout 保存超时时间。
+	Timeout int `json:"timeout,omitempty"`
+	// WriteTimeout 保存Write超时时间。
+	WriteTimeout int `json:"write_timeout,omitempty"`
+	// ReadTimeout 保存Read超时时间。
+	ReadTimeout int `json:"read_timeout,omitempty"`
+	// KeepAlivePeriod 保存KeepAlivePeriod。
+	KeepAlivePeriod int `json:"keep_alive_timeout,omitempty"`
+	// UseJSONNumber 指示是否启用或满足UseJSONNumber。
+	UseJSONNumber bool `json:"use_json_number,omitempty"`
+	// NumRetries 保存NumRetries。
+	NumRetries int `json:"num_retries,omitempty"`
+	// InitialCap 保存InitialCap。
+	InitialCap int `json:"initial_cap,omitempty"`
+	// MaxOpen 保存MaxOpen。
+	MaxOpen int `json:"max_open,omitempty"`
+	// DiscoverHosts 保存DiscoverHosts。
+	DiscoverHosts bool `json:"discover_hosts,omitempty"`
+	// HostDecayDuration 保存HostDecayDuration。
+	HostDecayDuration int `json:"host_decay_duration,omitempty"`
 }
 
 // Open 初始化 RethinkDB Session
@@ -186,6 +210,7 @@ func (a *adapter) GetDbVersion() (int, error) {
 	return vers, nil
 }
 
+// updateDbVersion 更新数据库版本。
 func (a *adapter) updateDbVersion(v int) error {
 	a.version = -1
 	if _, err := rdb.DB(a.dbName).Table("kvmeta").Get("version").
@@ -262,6 +287,9 @@ func (a *adapter) CreateDb(reset bool) error {
 	if _, err := rdb.DBCreate(a.dbName).RunWrite(a.conn); err != nil {
 		return err
 	}
+
+	// RethinkDB 不支持关系型数据库的表/字段 COMMENT；每个 TableCreate 前的
+	// 注释记录表用途，字段语义由对应 Go 持久化模型的字段注释说明。
 
 	// 元数据键值对表。
 	if _, err := rdb.DB(a.dbName).TableCreate("kvmeta", rdb.TableCreateOpts{PrimaryKey: "key"}).RunWrite(a.conn); err != nil {
@@ -344,6 +372,13 @@ func (a *adapter) CreateDb(reset bool) error {
 		}).RunWrite(a.conn); err != nil {
 		return err
 	}
+	// 客户端消息幂等键。
+	if _, err := rdb.DB(a.dbName).Table("messages").IndexCreateFunc("Topic_ClientKey",
+		func(row rdb.Term) any {
+			return []any{row.Field("Topic"), row.Field("ClientKey")}
+		}).RunWrite(a.conn); err != nil {
+		return err
+	}
 	// 硬删除消息的复合索引
 	if _, err := rdb.DB(a.dbName).Table("messages").IndexCreateFunc("Topic_DelId",
 		func(row rdb.Term) any {
@@ -359,6 +394,22 @@ func (a *adapter) CreateDb(reset bool) error {
 				return []any{row.Field("Topic"), df.Field("User"), df.Field("DelId")}
 			})
 		}, rdb.IndexCreateOpts{Multi: true}).RunWrite(a.conn); err != nil {
+		return err
+	}
+
+	// scheduledmessages 保存尚未分配 Topic SeqId 的定时消息快照。
+	// RethinkDB 不支持表/字段 COMMENT，表用途记录在建表代码和 Go 模型注释中。
+	if _, err := rdb.DB(a.dbName).TableCreate("scheduledmessages",
+		rdb.TableCreateOpts{PrimaryKey: "Id"}).RunWrite(a.conn); err != nil {
+		return err
+	}
+	if _, err := rdb.DB(a.dbName).Table("scheduledmessages").IndexCreate("PublishAt").RunWrite(a.conn); err != nil {
+		return err
+	}
+	if _, err := rdb.DB(a.dbName).Table("scheduledmessages").IndexCreateFunc("Topic_From_ClientId",
+		func(row rdb.Term) any {
+			return []any{row.Field("Topic"), row.Field("From"), row.Field("ClientId")}
+		}).RunWrite(a.conn); err != nil {
 		return err
 	}
 
@@ -494,7 +545,7 @@ func (a *adapter) UpgradeDb() error {
 		if _, err := rdb.DB(a.dbName).Table("users").IndexCreate("State").RunWrite(a.conn); err != nil {
 			return err
 		}
-		
+
 		// Topic
 
 		// 为所有 DeletedAt 不为空的 Topic 添加 StateDeleted 状态。
@@ -556,6 +607,60 @@ func (a *adapter) UpgradeDb() error {
 
 		// 仅升级版本。
 		if err := bumpVersion(a, 116); err != nil {
+			return err
+		}
+	}
+
+	if a.version == 116 {
+		// RethinkDB 不支持字段 COMMENT；ClientKey 的用途由索引和 Go 模型注释记录。
+		if _, err := rdb.DB(a.dbName).Table("messages").IndexCreateFunc("Topic_ClientKey",
+			func(row rdb.Term) any {
+				return []any{row.Field("Topic"), row.Field("ClientKey")}
+			}).RunWrite(a.conn); err != nil {
+			return err
+		}
+		if err := bumpVersion(a, 117); err != nil {
+			return err
+		}
+	}
+
+	if a.version == 117 {
+		// 数据库 117→118：创建持久化定时队列表及投递/幂等索引。
+		// 创建持久化定时队列；RethinkDB 无原生表 COMMENT。
+		if _, err := rdb.DB(a.dbName).TableCreate("scheduledmessages",
+			rdb.TableCreateOpts{PrimaryKey: "Id"}).RunWrite(a.conn); err != nil {
+			return err
+		}
+		if _, err := rdb.DB(a.dbName).Table("scheduledmessages").IndexCreate("PublishAt").RunWrite(a.conn); err != nil {
+			return err
+		}
+		if _, err := rdb.DB(a.dbName).Table("scheduledmessages").IndexCreateFunc("Topic_From_ClientId",
+			func(row rdb.Term) any {
+				return []any{row.Field("Topic"), row.Field("From"), row.Field("ClientId")}
+			}).RunWrite(a.conn); err != nil {
+			return err
+		}
+		if err := bumpVersion(a, 118); err != nil {
+			return err
+		}
+	}
+
+	if a.version == 118 {
+		// 数据库 118→119：为历史消息回填服务端搜索文本。
+		// RethinkDB 不支持字段 COMMENT；SearchText 的用途由 Go 模型注释记录。
+		if _, err := rdb.DB(a.dbName).Table("messages").Update(func(row rdb.Term) any {
+			content := row.Field("Content").Default("")
+			return map[string]any{
+				"SearchText": rdb.Branch(
+					content.TypeOf().Eq("STRING"),
+					content,
+					content.Default(map[string]any{}).Field("txt").Default(""),
+				),
+			}
+		}).RunWrite(a.conn); err != nil {
+			return err
+		}
+		if err := bumpVersion(a, 119); err != nil {
 			return err
 		}
 	}
@@ -803,9 +908,20 @@ func (a *adapter) UserDelete(uid t.Uid, hard bool) error {
 		return err
 	}
 
+	scheduledQuery := rdb.DB(a.dbName).Table("scheduledmessages").
+		Filter(func(row rdb.Term) any {
+			return row.Field("From").Eq(uid.String()).
+				Or(rdb.Expr(ownTopics).Contains(row.Field("Topic")))
+		})
+	if err = a.decFileUseCounter(scheduledQuery); err != nil {
+		return err
+	}
+	if _, err = scheduledQuery.Delete().RunWrite(a.conn); err != nil {
+		return err
+	}
+
 	if hard {
 		// 用户的设备存储在用户记录中，没有单独的表。
-
 		// 删除用户在所有 Topic 中的订阅。
 		if err = a.subsDelForUser(uid, true); err != nil {
 			return err
@@ -1047,6 +1163,7 @@ func (a *adapter) topicNamesForUser(query rdb.Term, includeChan bool) ([]any, er
 	return args, nil
 }
 
+// p2pTopicsForUser 完成p2pTopicsFor用户所需的内部处理。
 func (a *adapter) p2pTopicsForUser(uid t.Uid) ([]any, error) {
 	return a.topicNamesForUser(rdb.DB(a.dbName).Table("subscriptions").
 		GetAllByIndex("User", uid.String()).
@@ -1356,6 +1473,29 @@ func (a *adapter) TopicGet(topic string) (*t.Topic, error) {
 	}
 
 	// cursor.One 执行时会自动关闭游标。
+
+	// RethinkDB 不支持跨文档事务。以消息日志为权威来源修复崩溃窗口中的游标偏差。
+	latestCursor, err := rdb.DB(a.dbName).Table("messages").
+		Between([]any{topic, rdb.MinVal}, []any{topic, rdb.MaxVal},
+			rdb.BetweenOpts{Index: "Topic_SeqId"}).
+		OrderBy(rdb.OrderByOpts{Index: rdb.Desc("Topic_SeqId")}).
+		Limit(1).Field("SeqId").Run(a.conn)
+	if err != nil {
+		return nil, err
+	}
+	var latestSeq int
+	if err = latestCursor.One(&latestSeq); err == rdb.ErrEmptyResult {
+		latestSeq = 0
+	} else if err != nil {
+		return nil, err
+	}
+	if latestSeq != tt.SeqId {
+		tt.SeqId = latestSeq
+		if _, err = rdb.DB(a.dbName).Table("topics").Get(topic).
+			Update(map[string]any{"SeqId": tt.SeqId}).RunWrite(a.conn); err != nil {
+			return nil, err
+		}
+	}
 
 	if t.GetTopicCat(topic) == t.TopicCatGrp {
 		// Topic 已找到，获取订阅数。尝试 Topic 和 Channel 名称。
@@ -1758,6 +1898,14 @@ func (a *adapter) TopicDelete(topic string, isChan, hard bool) error {
 		if err = a.MessageDeleteList(topic, nil); err != nil {
 			return err
 		}
+		scheduledQuery := rdb.DB(a.dbName).Table("scheduledmessages").
+			Filter(map[string]any{"Topic": topic})
+		if err = a.decFileUseCounter(scheduledQuery); err != nil {
+			return err
+		}
+		if _, err = scheduledQuery.Delete().RunWrite(a.conn); err != nil {
+			return err
+		}
 	}
 
 	// 必须使用 GetAll 以产生 decFileUseCounter 期望的数组结果。
@@ -1953,8 +2101,13 @@ func (a *adapter) SubsDelete(topic string, user t.Uid) error {
 		return t.ErrNotFound
 	}
 
+	// 频道读者的订阅键是 chn...，计数必须更新对应的 grp... Topic。
+	counterTopic := topic
+	if t.IsChannel(counterTopic) {
+		counterTopic = t.ChnToGrp(counterTopic)
+	}
 	// 减少 Topic 的 SubCnt。
-	_, err = rdb.DB(a.dbName).Table("topics").Get(topic).
+	_, err = rdb.DB(a.dbName).Table("topics").Get(counterTopic).
 		Update(map[string]any{"SubCnt": rdb.Row.Field("SubCnt").Default(1).Sub(1)}).
 		RunWrite(a.conn)
 	if err != nil {
@@ -2184,6 +2337,106 @@ func (a *adapter) Find(caller, promoPrefix string, req [][]string, opt []string,
 	return subs, cursor.Err()
 }
 
+// FindByName 按公开 alias 子串发现用户，并按 alias 或 Public.fn 发现公开 Topic。
+func (a *adapter) FindByName(caller string, search *t.PeerSearchQuery) ([]t.Subscription, error) {
+	if search == nil || search.Query == "" {
+		return nil, nil
+	}
+	quotedQuery := regexp.QuoteMeta(search.Query)
+	aliasPattern := "(?i)a^"
+	if search.AliasPrefix != "" {
+		aliasPattern = "(?i)^" + regexp.QuoteMeta(search.AliasPrefix) + ":.*" + quotedQuery
+	}
+	namePattern := "(?i)" + quotedQuery
+
+	userQuery := rdb.DB(a.dbName).Table("users").Filter(func(row rdb.Term) any {
+		return row.Field("Tags").Default([]any{}).Contains(func(tag rdb.Term) any {
+			return tag.Match(aliasPattern)
+		})
+	})
+	if search.ActiveOnly {
+		userQuery = userQuery.Filter(rdb.Row.Field("State").Eq(t.StateOK))
+	}
+	userCursor, err := userQuery.Limit(a.maxResults).Run(a.conn)
+	if err != nil {
+		return nil, err
+	}
+
+	found := make([]t.Subscription, 0)
+	var user t.User
+	for userCursor.Next(&user) {
+		uid := t.ParseUid(user.Id)
+		if uid.IsZero() {
+			continue
+		}
+		topic := uid.UserId()
+		if topic == caller {
+			continue
+		}
+		score, matched := common.RankPeerSearch(topic, search.Query, search.AliasPrefix, user.Tags, user.Public)
+		if score == 0 {
+			continue
+		}
+		sub := t.Subscription{Topic: topic}
+		sub.CreatedAt = user.CreatedAt
+		sub.UpdatedAt = user.UpdatedAt
+		sub.SetPublic(user.Public)
+		sub.SetTrusted(user.Trusted)
+		sub.SetDefaultAccess(user.Access.Auth, user.Access.Anon)
+		sub.SetSearchScore(score)
+		sub.ModeGiven = t.ModeUnset
+		sub.ModeWant = t.ModeUnset
+		sub.Private = matched
+		found = append(found, sub)
+	}
+	userCursor.Close()
+	if err = userCursor.Err(); err != nil {
+		return nil, err
+	}
+
+	topicQuery := rdb.DB(a.dbName).Table("topics").Filter(func(row rdb.Term) any {
+		aliasMatch := row.Field("Tags").Default([]any{}).Contains(func(tag rdb.Term) any {
+			return tag.Match(aliasPattern)
+		})
+		nameMatch := row.Field("Public").Default(map[string]any{}).
+			Field("fn").Default("").Match(namePattern)
+		return rdb.Or(aliasMatch, nameMatch)
+	})
+	if search.ActiveOnly {
+		topicQuery = topicQuery.Filter(rdb.Row.Field("State").Eq(t.StateOK))
+	}
+	topicCursor, err := topicQuery.Limit(a.maxResults).Run(a.conn)
+	if err != nil {
+		return nil, err
+	}
+	defer topicCursor.Close()
+
+	var topic t.Topic
+	for topicCursor.Next(&topic) {
+		score, matched := common.RankPeerSearch(topic.Id, search.Query, search.AliasPrefix, topic.Tags, topic.Public)
+		if score == 0 {
+			continue
+		}
+		name := topic.Id
+		if topic.UseBt {
+			name = t.GrpToChn(name)
+		}
+		sub := t.Subscription{Topic: name}
+		sub.CreatedAt = topic.CreatedAt
+		sub.UpdatedAt = topic.UpdatedAt
+		sub.SetSubCnt(topic.SubCnt)
+		sub.SetPublic(topic.Public)
+		sub.SetTrusted(topic.Trusted)
+		sub.SetDefaultAccess(topic.Access.Auth, topic.Access.Anon)
+		sub.SetSearchScore(score)
+		sub.ModeGiven = t.ModeUnset
+		sub.ModeWant = t.ModeUnset
+		sub.Private = matched
+		found = append(found, sub)
+	}
+	return found, topicCursor.Err()
+}
+
 // FindOne 返回匹配给定标签的 Topic 或用户。
 func (a *adapter) FindOne(tag string) (string, error) {
 	query := rdb.DB(a.dbName).
@@ -2216,7 +2469,137 @@ func (a *adapter) FindOne(tag string) (string, error) {
 
 // MessageSave 将消息保存到数据库。
 func (a *adapter) MessageSave(msg *t.Message) error {
+	msg.InitClientKey()
 	_, err := rdb.DB(a.dbName).Table("messages").Insert(msg).RunWrite(a.conn)
+	return err
+}
+
+// MessageSaveAtomic 串行推进 Topic 游标并保存消息。
+func (a *adapter) MessageSaveAtomic(msg *t.Message) error {
+	msg.InitClientKey()
+	// RethinkDB 不支持跨文档事务。主题由单主 goroutine 串行写入；
+	// 先更新游标再写消息，加载 Topic 时再以消息日志修复崩溃窗口中的游标偏差。
+	if err := a.TopicUpdateOnMessage(msg.Topic, msg); err != nil {
+		return err
+	}
+	return a.MessageSave(msg)
+}
+
+// MessageGetByClientId 按 Topic、发送者和客户端幂等键查询已投递消息。
+func (a *adapter) MessageGetByClientId(topic string, from t.Uid, clientID string) (*t.Message, error) {
+	if clientID == "" {
+		return nil, nil
+	}
+	cursor, err := rdb.DB(a.dbName).Table("messages").
+		GetAllByIndex("Topic_ClientKey", []any{topic, t.MessageClientKey(from, clientID)}).
+		Limit(1).Run(a.conn)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close()
+	var msg t.Message
+	if err = cursor.One(&msg); err == rdb.ErrEmptyResult {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return &msg, nil
+}
+
+// MessageGet 按 Topic 和 SeqId 查询一条未硬删除消息。
+func (a *adapter) MessageGet(topic string, seqID int) (*t.Message, error) {
+	cursor, err := rdb.DB(a.dbName).Table("messages").
+		GetAllByIndex("Topic_SeqId", []any{topic, seqID}).
+		Filter(rdb.Row.HasFields("DelId").Not()).
+		Limit(1).Run(a.conn)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close()
+	var msg t.Message
+	if err = cursor.One(&msg); err == rdb.ErrEmptyResult {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return &msg, nil
+}
+
+// MessageUpdate 更新现存消息的正文、消息头和修改时间。
+func (a *adapter) MessageUpdate(msg *t.Message) error {
+	res, err := rdb.DB(a.dbName).Table("messages").
+		GetAllByIndex("Topic_SeqId", []any{msg.Topic, msg.SeqId}).
+		Filter(rdb.Row.HasFields("DelId").Not()).
+		Update(map[string]any{
+			"UpdatedAt":  msg.UpdatedAt,
+			"Head":       msg.Head,
+			"Content":    msg.Content,
+			"SearchText": msg.SearchText,
+		}).RunWrite(a.conn)
+	if err != nil {
+		return err
+	}
+	if res.Replaced+res.Unchanged == 0 {
+		return t.ErrNotFound
+	}
+	return nil
+}
+
+// MessageSchedule 将消息快照写入持久化定时队列表。
+func (a *adapter) MessageSchedule(msg *t.ScheduledMessage) error {
+	_, err := rdb.DB(a.dbName).Table("scheduledmessages").Insert(msg).RunWrite(a.conn)
+	return err
+}
+
+// MessageGetScheduledByClientId 按发送者范围内的幂等键查询待投递消息。
+func (a *adapter) MessageGetScheduledByClientId(topic string, from t.Uid, clientID string) (*t.ScheduledMessage, error) {
+	if clientID == "" {
+		return nil, nil
+	}
+	cursor, err := rdb.DB(a.dbName).Table("scheduledmessages").
+		GetAllByIndex("Topic_From_ClientId", []any{topic, from.String(), clientID}).
+		Limit(1).Run(a.conn)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close()
+	var msg t.ScheduledMessage
+	if err = cursor.One(&msg); err == rdb.ErrEmptyResult {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return &msg, nil
+}
+
+// MessageGetDueScheduled 按计划时间升序读取一批已到期消息。
+func (a *adapter) MessageGetDueScheduled(now time.Time, limit int) ([]t.ScheduledMessage, error) {
+	if limit <= 0 {
+		limit = a.maxMessageResults
+	}
+	cursor, err := rdb.DB(a.dbName).Table("scheduledmessages").
+		Between(rdb.MinVal, now, rdb.BetweenOpts{Index: "PublishAt", RightBound: "closed"}).
+		OrderBy(rdb.OrderByOpts{Index: "PublishAt"}).
+		Limit(limit).Run(a.conn)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close()
+	var out []t.ScheduledMessage
+	if err = cursor.All(&out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// MessageDeleteScheduled 递减附件引用计数后删除指定发送者拥有的定时消息。
+func (a *adapter) MessageDeleteScheduled(id, topic string, from t.Uid) error {
+	query := rdb.DB(a.dbName).Table("scheduledmessages").GetAll(id).
+		Filter(map[string]any{"Topic": topic, "From": from.String()})
+	if err := a.decFileUseCounter(query); err != nil {
+		return err
+	}
+	_, err := query.Delete().RunWrite(a.conn)
 	return err
 }
 
@@ -2246,10 +2629,20 @@ func (a *adapter) MessageGetAll(topic string, forUser t.Uid, opts *t.QueryOpt) (
 	upper = []any{topic, upper}
 
 	requester := forUser.String()
-	cursor, err := rdb.DB(a.dbName).Table("messages").
-		Between(lower, upper, rdb.BetweenOpts{Index: "Topic_SeqId"}).
-		// 按索引排序必须在过滤之前
-		OrderBy(rdb.OrderByOpts{Index: rdb.Desc("Topic_SeqId")}).
+	orderIndex := any(rdb.Desc("Topic_SeqId"))
+	if opts != nil && opts.Forward {
+		orderIndex = "Topic_SeqId"
+	}
+	query := rdb.DB(a.dbName).Table("messages").
+		Between(lower, upper, rdb.BetweenOpts{Index: "Topic_SeqId"})
+	if opts != nil && opts.IfModifiedSince != nil {
+		query = query.Filter(rdb.Row.Field("UpdatedAt").Gt(*opts.IfModifiedSince)).
+			OrderBy("UpdatedAt", "SeqId")
+	} else {
+		// 按索引排序必须在过滤之前。
+		query = query.OrderBy(rdb.OrderByOpts{Index: orderIndex})
+	}
+	query = query.
 		// 跳过硬删除的消息
 		Filter(rdb.Row.HasFields("DelId").Not()).
 		// 跳过为当前用户软删除的消息
@@ -2258,7 +2651,8 @@ func (a *adapter) MessageGetAll(topic string, forUser t.Uid, opts *t.QueryOpt) (
 				func(df rdb.Term) any {
 					return df.Field("User").Eq(requester)
 				}))
-		}).Limit(limit).Run(a.conn)
+		})
+	cursor, err := query.Limit(limit).Run(a.conn)
 
 	if err != nil {
 		return nil, err
@@ -2271,6 +2665,67 @@ func (a *adapter) MessageGetAll(topic string, forUser t.Uid, opts *t.QueryOpt) (
 	}
 
 	return msgs, nil
+}
+
+// MessageSearch 在单个 Topic 内按规范化正文搜索消息，并排除调用者已删除的消息。
+func (a *adapter) MessageSearch(topic string, forUser t.Uid, search *t.MessageSearchQuery) ([]t.Message, error) {
+	if search == nil || search.Query == "" {
+		return nil, nil
+	}
+	limit := search.Limit
+	if limit <= 0 || limit > a.maxMessageResults {
+		limit = a.maxMessageResults
+	}
+
+	upper := any(rdb.MaxVal)
+	if search.BeforeSeq > 0 {
+		upper = search.BeforeSeq
+	}
+	query := rdb.DB(a.dbName).Table("messages").
+		Between([]any{topic, rdb.MinVal}, []any{topic, upper},
+			rdb.BetweenOpts{Index: "Topic_SeqId"}).
+		OrderBy(rdb.OrderByOpts{Index: rdb.Desc("Topic_SeqId")}).
+		Filter(rdb.Row.HasFields("DelId").Not()).
+		Filter(func(row rdb.Term) any {
+			return rdb.Not(row.Field("DeletedFor").Default([]any{}).Contains(
+				func(deletedFor rdb.Term) any {
+					return deletedFor.Field("User").Eq(forUser.String())
+				}))
+		}).
+		Filter(func(row rdb.Term) any {
+			return row.Field("SearchText").Default("").Match(
+				"(?i)" + regexp.QuoteMeta(search.Query))
+		})
+	if !search.From.IsZero() {
+		query = query.Filter(rdb.Row.Field("From").Eq(search.From.String()))
+	}
+	if len(search.Kinds) > 0 {
+		kinds := make([]any, len(search.Kinds))
+		for i, kind := range search.Kinds {
+			kinds[i] = kind
+		}
+		query = query.Filter(func(row rdb.Term) any {
+			return rdb.Expr(kinds).Contains(
+				row.Field("Head").Default(map[string]any{}).Field("x-kind").Default(""))
+		})
+	}
+	if search.MinDate != nil {
+		query = query.Filter(rdb.Row.Field("CreatedAt").Ge(*search.MinDate))
+	}
+	if search.MaxDate != nil {
+		query = query.Filter(rdb.Row.Field("CreatedAt").Lt(*search.MaxDate))
+	}
+
+	cursor, err := query.Limit(limit).Run(a.conn)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close()
+	var messages []t.Message
+	if err = cursor.All(&messages); err != nil {
+		return nil, err
+	}
+	return messages, nil
 }
 
 // MessageGetDeleted 返回已删除消息的范围。
@@ -2361,6 +2816,7 @@ func (a *adapter) messagesHardDelete(topic string) error {
 	return err
 }
 
+// rangeToQuery 完成rangeTo查询所需的内部处理。
 func rangeToQuery(delRanges []t.Range, topic string, query rdb.Term) rdb.Term {
 	if len(delRanges) > 1 || delRanges[0].Hi <= delRanges[0].Low {
 		var indexVals []any
@@ -2484,6 +2940,7 @@ func (a *adapter) MessageDeleteList(topic string, toDel *t.DelMessage) error {
 	return nil
 }
 
+// deviceHasher 完成设备Hasher所需的内部处理。
 func deviceHasher(deviceID string) string {
 	// 生成自定义密钥作为 [64 位设备 ID 哈希] 以确保密钥长度可预测
 	hasher := fnv.New64()
@@ -2865,7 +3322,8 @@ func (a *adapter) FileGet(fid string) (*t.FileDef, error) {
 
 // FileLinkAttachments 将给定的 Topic 或消息连接到列表中的文件记录 ID。
 func (a *adapter) FileLinkAttachments(topic string, userId, msgId t.Uid, fids []string) error {
-	if len(fids) == 0 || (topic == "" && userId.IsZero() && msgId.IsZero()) {
+	if (topic == "" && userId.IsZero() && msgId.IsZero()) ||
+		(len(fids) == 0 && msgId.IsZero()) {
 		return t.ErrMalformed
 	}
 
@@ -2926,7 +3384,33 @@ func (a *adapter) FileLinkAttachments(topic string, userId, msgId t.Uid, fids []
 			return err
 		}
 	} else {
-		// 消息是不可变的。只需保存 ID。
+		var cursor *rdb.Cursor
+		cursor, err = rdb.DB(a.dbName).Table("messages").Get(msgId.String()).
+			Field("Attachments").Default([]string{}).Run(a.conn)
+		if err != nil {
+			return err
+		}
+		var previous []string
+		if !cursor.IsNil() {
+			err = cursor.One(&previous)
+		}
+		cursor.Close()
+		if err != nil && err != rdb.ErrEmptyResult {
+			return err
+		}
+		counts := make(map[string]int)
+		for _, id := range previous {
+			counts[id]++
+		}
+		for id, count := range counts {
+			if _, err = rdb.DB(a.dbName).Table("fileuploads").Get(id).
+				Update(map[string]any{
+					"UpdatedAt": now,
+					"UseCount":  rdb.Row.Field("UseCount").Default(count).Sub(count),
+				}).RunWrite(a.conn); err != nil {
+				return err
+			}
+		}
 		_, err := rdb.DB(a.dbName).Table("messages").Get(msgId.String()).
 			Update(map[string]any{
 				"UpdatedAt":   now,
@@ -2937,6 +3421,9 @@ func (a *adapter) FileLinkAttachments(topic string, userId, msgId t.Uid, fids []
 		}
 	}
 
+	if len(fids) == 0 {
+		return nil
+	}
 	ids := make([]any, len(fids))
 	for i, id := range fids {
 		ids[i] = id
@@ -2985,36 +3472,57 @@ func (a *adapter) FileDeleteUnused(olderThan time.Time, limit int) ([]string, er
 // 给定选择查询，减少 'fileuploads' 表中相应的使用计数。
 // 'query' 必须返回数组，即 GetAll，而非 Get。
 func (a *adapter) decFileUseCounter(query rdb.Term) error {
-	/*
-		r.db("test").table("one")
-			.getAll(
-				r.args(r.db("test").table("zero")
-					.getAll(
-						"07e2c6fe-ac91-49cb-9834-ff34bf50aad1",
-			  			"0098a829-6da5-4f7b-8432-32b40de9ab3b",
-						"0926e7dd-321a-49cb-adb1-7a705d9d9a78",
-						"8e195450-babd-4954-a8fb-0cc414b43156")
-					.filter(r.row.hasFields("att"))
-					.concatMap(function(row) { return row.getField("att"); })
-					.coerceTo("array"))
-				)
-			.update({useCount: r.row.getField("useCount").default(0).add(1)})
-	*/
-	_, err := rdb.DB(a.dbName).Table("fileuploads").GetAll(
-		rdb.Args(
-			query.
-				// 仅获取有附件的消息
-				Filter(rdb.Row.HasFields("Attachments")).
-				// 扁平化数组
-				ConcatMap(func(row rdb.Term) any { return row.Field("Attachments") }).
-				CoerceTo("array"))).
-		// 减少 UseCount。
-		Update(map[string]any{"UseCount": rdb.Row.Field("UseCount").Default(1).Sub(1)}).
-		RunWrite(a.conn)
+	cursor, err := query.Filter(rdb.Row.HasFields("Attachments")).
+		Pluck("Attachments").Run(a.conn)
+	if err != nil {
+		return err
+	}
+	defer cursor.Close()
+
+	var records []struct {
+		Attachments []string
+	}
+	if err = cursor.All(&records); err != nil {
+		return err
+	}
+	counts := make(map[string]int)
+	for _, record := range records {
+		for _, id := range record.Attachments {
+			counts[id]++
+		}
+	}
+	for id, count := range counts {
+		if _, err = rdb.DB(a.dbName).Table("fileuploads").Get(id).
+			Update(map[string]any{
+				"UseCount": rdb.Row.Field("UseCount").Default(count).Sub(count),
+			}).RunWrite(a.conn); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// FileLinkScheduled 把文件 ID 写入定时消息并增加引用计数，防止文件提前回收。
+func (a *adapter) FileLinkScheduled(scheduledId t.Uid, fids []string) error {
+	if scheduledId.IsZero() || len(fids) == 0 {
+		return t.ErrMalformed
+	}
+	ids := make([]any, len(fids))
+	for i, id := range fids {
+		if t.ParseUid(id).IsZero() {
+			return t.ErrMalformed
+		}
+		ids[i] = id
+	}
+	_, err := rdb.DB(a.dbName).Table("fileuploads").GetAll(ids...).
+		Update(map[string]any{
+			"UpdatedAt": t.TimeNow(),
+			"UseCount":  rdb.Row.Field("UseCount").Default(0).Add(1),
+		}).RunWrite(a.conn)
 	return err
 }
 
-// PCacheGet 读取持久缓存条目。
+// PCacheGet 完成P缓存Get所需的内部处理。
 func (a *adapter) PCacheGet(key string) (string, error) {
 	cursor, err := rdb.DB(a.dbName).Table("kvmeta").Get(key).Run(a.conn)
 	if err != nil {
@@ -3112,6 +3620,7 @@ func GetTestAdapter() *adapter {
 	return &adapter{}
 }
 
+// init 注册当前包提供的实现并初始化包级状态。
 func init() {
 	store.RegisterAdapter(&adapter{})
 }

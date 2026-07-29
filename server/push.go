@@ -5,6 +5,7 @@
  *
  *****************************************************************************/
 
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -84,6 +85,7 @@ func (t *Topic) pushForData(fromUid types.Uid, data *MsgServerData, msgMarkedAsR
 	return nil
 }
 
+// preparePushForSubReceipt 完成preparePushFor订阅Receipt所需的内部处理。
 func (t *Topic) preparePushForSubReceipt(fromUid types.Uid, now time.Time) *push.Receipt {
 	// 推送回执中的 `Topic` 对于群组 Topic 是 `t.xoriginal`，对于 p2p Topic 是 `fromUid`，
 	// 而非 t.original(fromUid)，因为这是接收者看到的 Topic 名称，而非发送者看到的

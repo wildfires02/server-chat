@@ -11,21 +11,30 @@ import (
 	"chat/server/push"
 )
 
+// handler 保存处理器的共享实例或运行状态。
 var handler stdoutPush
 
 // 默认输入 Channel 缓冲区容量大小
 const defaultBuffer = 32
 
+// stdoutPush 保存stdoutPush的数据和运行状态。
 type stdoutPush struct {
+	// initialized 保存initialized。
 	initialized bool
-	input       chan *push.Receipt
-	channel     chan *push.ChannelReq
-	stop        chan bool
+	// input 传递input相关的异步事件。
+	input chan *push.Receipt
+	// channel 传递通道相关的异步事件。
+	channel chan *push.ChannelReq
+	// stop 传递stop相关的异步事件。
+	stop chan bool
 }
 
+// configType 保存配置Type的数据和运行状态。
 type configType struct {
+	// Enabled 指示是否启用或满足Enabled。
 	Enabled bool `json:"enabled"`
-	Buffer  int  `json:"buffer"`
+	// Buffer 保存缓冲区。
+	Buffer int `json:"buffer"`
 }
 
 // Init 初始化 stdout 推送处理器。
@@ -91,6 +100,7 @@ func (stdoutPush) Stop() {
 	handler.stop <- true
 }
 
+// init 注册当前包提供的实现并初始化包级状态。
 func init() {
 	push.Register("stdout", &handler)
 }

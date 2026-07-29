@@ -1,3 +1,4 @@
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -6,14 +7,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"chat/server/auth"
 	"chat/server/auth/mock_auth"
 	"chat/server/store"
 	"chat/server/store/mock_store"
 	"chat/server/store/types"
+	"github.com/golang/mock/gomock"
 )
 
+// test_makeSession 完成testmake会话所需的内部处理。
 func test_makeSession(uid types.Uid) *Session {
 	return &Session{
 		send:         make(chan any, 10),
@@ -24,6 +26,7 @@ func test_makeSession(uid types.Uid) *Session {
 	}
 }
 
+// TestDispatchHello 验证 Dispatch Hello 相关行为。
 func TestDispatchHello(t *testing.T) {
 	s := &Session{
 		send:    make(chan any, 10),
@@ -77,6 +80,7 @@ func TestDispatchHello(t *testing.T) {
 	}
 }
 
+// verifyResponseCodes 校验响应Codes的输入和约束。
 func verifyResponseCodes(r *responses, codes []int, t *testing.T) {
 	if len(r.messages) != len(codes) {
 		t.Errorf("responses: expected %d, received %d.", len(codes), len(r.messages))
@@ -95,6 +99,7 @@ func verifyResponseCodes(r *responses, codes []int, t *testing.T) {
 	}
 }
 
+// TestDispatchInvalidVersion 验证 Dispatch Invalid Version 相关行为。
 func TestDispatchInvalidVersion(t *testing.T) {
 	s := &Session{
 		send:    make(chan any, 10),
@@ -118,6 +123,7 @@ func TestDispatchInvalidVersion(t *testing.T) {
 	verifyResponseCodes(&r, []int{http.StatusBadRequest}, t)
 }
 
+// TestDispatchUnsupportedVersion 验证 Dispatch Unsupported Version 相关行为。
 func TestDispatchUnsupportedVersion(t *testing.T) {
 	s := &Session{
 		send:    make(chan any, 10),
@@ -141,6 +147,7 @@ func TestDispatchUnsupportedVersion(t *testing.T) {
 	verifyResponseCodes(&r, []int{http.StatusHTTPVersionNotSupported}, t)
 }
 
+// TestDispatchLogin 验证 Dispatch Login 相关行为。
 func TestDispatchLogin(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ss := mock_store.NewMockPersistentStorageInterface(ctrl)
@@ -219,6 +226,7 @@ func TestDispatchLogin(t *testing.T) {
 	}
 }
 
+// TestDispatchSubscribe 验证 Dispatch Subscribe 相关行为。
 func TestDispatchSubscribe(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -268,6 +276,7 @@ func TestDispatchSubscribe(t *testing.T) {
 	s.inflightReqs.Done()
 }
 
+// TestDispatchAlreadySubscribed 验证 Dispatch Already Subscribed 相关行为。
 func TestDispatchAlreadySubscribed(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -296,6 +305,7 @@ func TestDispatchAlreadySubscribed(t *testing.T) {
 	verifyResponseCodes(&r, []int{http.StatusNotModified}, t)
 }
 
+// TestDispatchSubscribeJoinChannelFull 验证 Dispatch Subscribe Join Channel Full 相关行为。
 func TestDispatchSubscribeJoinChannelFull(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -331,6 +341,7 @@ func TestDispatchSubscribeJoinChannelFull(t *testing.T) {
 	verifyResponseCodes(&r, []int{http.StatusServiceUnavailable}, t)
 }
 
+// TestDispatchLeave 验证 Dispatch Leave 相关行为。
 func TestDispatchLeave(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -381,6 +392,7 @@ func TestDispatchLeave(t *testing.T) {
 	s.inflightReqs.Done()
 }
 
+// TestDispatchLeaveUnsubMe 验证 Dispatch Leave Unsub Me 相关行为。
 func TestDispatchLeaveUnsubMe(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -408,6 +420,7 @@ func TestDispatchLeaveUnsubMe(t *testing.T) {
 	verifyResponseCodes(&r, []int{http.StatusForbidden}, t)
 }
 
+// TestDispatchLeaveUnknownTopic 验证 Dispatch Leave Unknown Topic 相关行为。
 func TestDispatchLeaveUnknownTopic(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -434,6 +447,7 @@ func TestDispatchLeaveUnknownTopic(t *testing.T) {
 	verifyResponseCodes(&r, []int{http.StatusNotModified}, t)
 }
 
+// TestDispatchLeaveUnsubFromUnknownTopic 验证 Dispatch Leave Unsub From Unknown Topic 相关行为。
 func TestDispatchLeaveUnsubFromUnknownTopic(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -461,6 +475,7 @@ func TestDispatchLeaveUnsubFromUnknownTopic(t *testing.T) {
 	verifyResponseCodes(&r, []int{http.StatusConflict}, t)
 }
 
+// TestDispatchPublish 验证 Dispatch Publish 相关行为。
 func TestDispatchPublish(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -511,6 +526,7 @@ func TestDispatchPublish(t *testing.T) {
 	}
 }
 
+// TestDispatchPublishBroadcastChannelFull 验证 Dispatch Publish Broadcast Channel Full 相关行为。
 func TestDispatchPublishBroadcastChannelFull(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -546,6 +562,7 @@ func TestDispatchPublishBroadcastChannelFull(t *testing.T) {
 	verifyResponseCodes(&r, []int{http.StatusServiceUnavailable}, t)
 }
 
+// TestDispatchPublishMissingSubcription 验证 Dispatch Publish Missing Subcription 相关行为。
 func TestDispatchPublishMissingSubcription(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -575,6 +592,7 @@ func TestDispatchPublishMissingSubcription(t *testing.T) {
 	verifyResponseCodes(&r, []int{http.StatusConflict}, t)
 }
 
+// TestDispatchGet 验证 Dispatch Get 相关行为。
 func TestDispatchGet(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -620,6 +638,7 @@ func TestDispatchGet(t *testing.T) {
 	}
 }
 
+// TestDispatchGetMalformedWhat 验证 Dispatch Get Malformed What 相关行为。
 func TestDispatchGetMalformedWhat(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -647,6 +666,7 @@ func TestDispatchGetMalformedWhat(t *testing.T) {
 	verifyResponseCodes(&r, []int{http.StatusBadRequest}, t)
 }
 
+// TestDispatchGetMetaChannelFull 验证 Dispatch Get Meta Channel Full 相关行为。
 func TestDispatchGetMetaChannelFull(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -682,6 +702,7 @@ func TestDispatchGetMetaChannelFull(t *testing.T) {
 	verifyResponseCodes(&r, []int{http.StatusServiceUnavailable}, t)
 }
 
+// TestDispatchSet 验证 Dispatch Set 相关行为。
 func TestDispatchSet(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -734,6 +755,7 @@ func TestDispatchSet(t *testing.T) {
 	}
 }
 
+// TestDispatchSetMalformedWhat 验证 Dispatch Set Malformed What 相关行为。
 func TestDispatchSetMalformedWhat(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -760,6 +782,7 @@ func TestDispatchSetMalformedWhat(t *testing.T) {
 	verifyResponseCodes(&r, []int{http.StatusBadRequest}, t)
 }
 
+// TestDispatchSetMetaChannelFull 验证 Dispatch Set Meta Channel Full 相关行为。
 func TestDispatchSetMetaChannelFull(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -799,6 +822,7 @@ func TestDispatchSetMetaChannelFull(t *testing.T) {
 	verifyResponseCodes(&r, []int{http.StatusServiceUnavailable}, t)
 }
 
+// TestDispatchDelMsg 验证 Dispatch Del Msg 相关行为。
 func TestDispatchDelMsg(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -844,6 +868,7 @@ func TestDispatchDelMsg(t *testing.T) {
 	}
 }
 
+// TestDispatchDelMalformedWhat 验证 Dispatch Del Malformed What 相关行为。
 func TestDispatchDelMalformedWhat(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -869,6 +894,7 @@ func TestDispatchDelMalformedWhat(t *testing.T) {
 	verifyResponseCodes(&r, []int{http.StatusBadRequest}, t)
 }
 
+// TestDispatchDelMetaChanFull 验证 Dispatch Del Meta Chan Full 相关行为。
 func TestDispatchDelMetaChanFull(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -904,6 +930,7 @@ func TestDispatchDelMetaChanFull(t *testing.T) {
 	verifyResponseCodes(&r, []int{http.StatusServiceUnavailable}, t)
 }
 
+// TestDispatchDelUnsubscribedSession 验证 Dispatch Del Unsubscribed Session 相关行为。
 func TestDispatchDelUnsubscribedSession(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -932,6 +959,7 @@ func TestDispatchDelUnsubscribedSession(t *testing.T) {
 	verifyResponseCodes(&r, []int{http.StatusConflict}, t)
 }
 
+// TestDispatchNote 验证 Dispatch Note 相关行为。
 func TestDispatchNote(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -984,6 +1012,7 @@ func TestDispatchNote(t *testing.T) {
 	}
 }
 
+// TestDispatchNoteBroadcastChanFull 验证 Dispatch Note Broadcast Chan Full 相关行为。
 func TestDispatchNoteBroadcastChanFull(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -1017,6 +1046,7 @@ func TestDispatchNoteBroadcastChanFull(t *testing.T) {
 	verifyResponseCodes(&r, []int{http.StatusServiceUnavailable}, t)
 }
 
+// TestDispatchNoteOnNonSubscribedTopic 验证 Dispatch Note On Non Subscribed Topic 相关行为。
 func TestDispatchNoteOnNonSubscribedTopic(t *testing.T) {
 	uid := types.Uid(1)
 	s := test_makeSession(uid)
@@ -1043,6 +1073,7 @@ func TestDispatchNoteOnNonSubscribedTopic(t *testing.T) {
 	verifyResponseCodes(&r, []int{http.StatusConflict}, t)
 }
 
+// TestDispatchAccNew 验证 Dispatch Acc New 相关行为。
 func TestDispatchAccNew(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ss := mock_store.NewMockPersistentStorageInterface(ctrl)
@@ -1142,6 +1173,7 @@ func TestDispatchAccNew(t *testing.T) {
 	}
 }
 
+// TestDispatchNoMessage 验证 Dispatch No Message 相关行为。
 func TestDispatchNoMessage(t *testing.T) {
 	remoteAddr := "192.168.0.1"
 	s := &Session{

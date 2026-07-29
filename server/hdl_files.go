@@ -6,6 +6,7 @@
  *
  *****************************************************************************/
 
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -33,6 +34,7 @@ import (
 // 参见 https://www.iana.org/assignments/media-types/media-types.xhtml
 var allowedMimeTypes = []string{"application/", "audio/", "font/", "image/", "text/", "video/"}
 
+// largeFileServeHTTP 完成large文件ServeHTTP所需的内部处理。
 func largeFileServeHTTP(wrt http.ResponseWriter, req *http.Request) {
 	now := types.TimeNow()
 	enc := json.NewEncoder(wrt)

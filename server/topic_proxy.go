@@ -3,6 +3,7 @@
  *    集群中的 Proxy Topic，用作托管在另一个节点上的 Master Topic 的本地代理表示。
  *****************************************************************************/
 
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -13,6 +14,7 @@ import (
 	"chat/server/store/types"
 )
 
+// runProxy 启动并运行代理处理流程。
 func (t *Topic) runProxy(hub *Hub) {
 	killTimer := time.NewTimer(time.Hour)
 	killTimer.Stop()

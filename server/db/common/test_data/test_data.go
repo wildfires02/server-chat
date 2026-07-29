@@ -1,3 +1,4 @@
+// Package test_data 提供数据库持久化、迁移或测试支持。
 package test_data
 
 import (
@@ -8,21 +9,33 @@ import (
 	"chat/server/store/types"
 )
 
+// TestData 保存Test数据的数据和运行状态。
 type TestData struct {
-	UGen   *types.UidGenerator
-	Users  []*types.User
-	Creds  []*types.Credential
-	Recs   []common.AuthRecord
+	// UGen 保存UGen。
+	UGen *types.UidGenerator
+	// Users 指示是否启用或满足Users。
+	Users []*types.User
+	// Creds 保存Creds列表。
+	Creds []*types.Credential
+	// Recs 保存Recs列表。
+	Recs []common.AuthRecord
+	// Topics 保存Topics列表。
 	Topics []*types.Topic
-	Subs   []*types.Subscription
-	Msgs   []*types.Message
-	Devs   []*types.DeviceDef
-	Files  []*types.FileDef
+	// Subs 保存Subs列表。
+	Subs []*types.Subscription
+	// Msgs 保存Msgs列表。
+	Msgs []*types.Message
+	// Devs 保存Devs列表。
+	Devs []*types.DeviceDef
+	// Files 保存Files列表。
+	Files []*types.FileDef
 	// 标签：添加、删除、重置
 	Tags [][]string
-	Now  time.Time
+	// Now 保存Now。
+	Now time.Time
 }
 
+// initUsers 完成initUsers所需的内部处理。
 func initUsers(now time.Time) []*types.User {
 	users := make([]*types.User, 0, 3)
 	users = append(users, &types.User{
@@ -58,6 +71,7 @@ func initUsers(now time.Time) []*types.User {
 	return users
 }
 
+// initCreds 完成initCreds所需的内部处理。
 func initCreds(now time.Time, users []*types.User) []*types.Credential {
 	creds := make([]*types.Credential, 0, 6)
 	creds = append(creds, &types.Credential{ // 0
@@ -101,6 +115,7 @@ func initCreds(now time.Time, users []*types.User) []*types.Credential {
 	return creds
 }
 
+// initAuthRecords 完成init认证Records所需的内部处理。
 func initAuthRecords(now time.Time, users []*types.User) []common.AuthRecord {
 	recs := make([]common.AuthRecord, 0, 2)
 	recs = append(recs, common.AuthRecord{
@@ -122,6 +137,7 @@ func initAuthRecords(now time.Time, users []*types.User) []common.AuthRecord {
 	return recs
 }
 
+// initTopics 完成initTopics所需的内部处理。
 func initTopics(now time.Time, users []*types.User) []*types.Topic {
 	topics := make([]*types.Topic, 0, 5)
 	topics = append(topics, &types.Topic{
@@ -175,6 +191,7 @@ func initTopics(now time.Time, users []*types.User) []*types.Topic {
 	return topics
 }
 
+// initSubs 完成initSubs所需的内部处理。
 func initSubs(now time.Time, users []*types.User, topics []*types.Topic) []*types.Subscription {
 	subs := make([]*types.Subscription, 0, 6)
 	subs = append(subs, &types.Subscription{
@@ -255,6 +272,7 @@ func initSubs(now time.Time, users []*types.User, topics []*types.Topic) []*type
 	return subs
 }
 
+// initMessages 完成initMessages所需的内部处理。
 func initMessages(users []*types.User, topics []*types.Topic) []*types.Message {
 	msgs := make([]*types.Message, 0, 6)
 	msgs = append(msgs, &types.Message{
@@ -304,6 +322,7 @@ func initMessages(users []*types.User, topics []*types.Topic) []*types.Message {
 	return msgs
 }
 
+// initDevices 完成initDevices所需的内部处理。
 func initDevices(now time.Time) []*types.DeviceDef {
 	devs := make([]*types.DeviceDef, 0, 2)
 	devs = append(devs, &types.DeviceDef{
@@ -321,6 +340,7 @@ func initDevices(now time.Time) []*types.DeviceDef {
 	return devs
 }
 
+// initFileDefs 完成init文件Defs所需的内部处理。
 func initFileDefs(now time.Time, users []*types.User) []*types.FileDef {
 	files := make([]*types.FileDef, 0, 2)
 	files = append(files, &types.FileDef{
@@ -349,6 +369,7 @@ func initFileDefs(now time.Time, users []*types.User) []*types.FileDef {
 	return files
 }
 
+// initTags 完成initTags所需的内部处理。
 func initTags() [][]string {
 	// 标签必须为小写且不重复。
 	addTags := []string{"tag1", "alice"}
@@ -357,6 +378,7 @@ func initTags() [][]string {
 	return [][]string{addTags, removeTags, resetTags}
 }
 
+// InitTestData 完成InitTest数据所需的内部处理。
 func InitTestData() *TestData {
 	// 使用固定时间戳以使测试更可预测
 	var now = time.Date(2021, time.June, 12, 11, 39, 24, 15, time.Local).UTC().Round(time.Millisecond)

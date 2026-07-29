@@ -1,3 +1,4 @@
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -51,11 +52,15 @@ const (
 	ProxyReqCall // 用于视频通话代理 Session 中路由通话事件
 )
 
+// clusterNodeConfig 保存集群节点配置的数据和运行状态。
 type clusterNodeConfig struct {
+	// Name 保存名称。
 	Name string `json:"name"`
+	// Addr 保存Addr。
 	Addr string `json:"addr"`
 }
 
+// clusterConfig 保存集群配置的数据和运行状态。
 type clusterConfig struct {
 	// 集群中所有节点的列表（包含当前节点自身）
 	Nodes []clusterNodeConfig `json:"nodes"`
@@ -69,6 +74,7 @@ type clusterConfig struct {
 
 // ClusterNode 表示客户端与其他节点建立的 RPC 连接对象。
 type ClusterNode struct {
+	// lock 保护集群节点的并发读写。
 	lock sync.Mutex
 
 	// RPC 端点
@@ -101,12 +107,14 @@ type ClusterNode struct {
 	p2mSender chan *ClusterReq
 }
 
+// asyncRpcLoop 持续运行asyncRpcLoop，直到输入通道关闭或收到停止信号。
 func (n *ClusterNode) asyncRpcLoop() {
 	for call := range n.rpcDone {
 		n.handleRpcResponse(call)
 	}
 }
 
+// p2mSenderLoop 持续运行p2mSenderLoop，直到输入通道关闭或收到停止信号。
 func (n *ClusterNode) p2mSenderLoop() {
 	for req := range n.p2mSender {
 		if req == nil {
@@ -313,6 +321,7 @@ func (n *ClusterNode) reconnect() {
 	}
 }
 
+// call 完成通话所需的内部处理。
 func (n *ClusterNode) call(proc string, req, resp any) error {
 	if !n.connected.Load() {
 		return errors.New("cluster: node '" + n.name + "' not connected")
@@ -335,6 +344,7 @@ func (n *ClusterNode) call(proc string, req, resp any) error {
 	return nil
 }
 
+// handleRpcResponse 处理Rpc响应消息或事件。
 func (n *ClusterNode) handleRpcResponse(call *rpc.Call) {
 	if call.Error != nil {
 		logs.Warn.Printf("cluster: %s call failed: %s", call.ServiceMethod, call.Error)
@@ -349,6 +359,7 @@ func (n *ClusterNode) handleRpcResponse(call *rpc.Call) {
 	}
 }
 
+// callAsync 完成通话Async所需的内部处理。
 func (n *ClusterNode) callAsync(proc string, req, resp any, done chan *rpc.Call) *rpc.Call {
 	if done != nil && cap(done) == 0 {
 		logs.Err.Panic("cluster: RPC done channel is unbuffered")
@@ -459,6 +470,7 @@ type Cluster struct {
 	proxyEventQueue *concurrency.GoRoutinePool
 }
 
+// stopMultiplexingSession 停止Multiplexing会话并释放相关资源。
 func (n *ClusterNode) stopMultiplexingSession(msess *Session) {
 	if msess == nil {
 		return
@@ -843,6 +855,7 @@ func (c *Cluster) isPartitioned() bool {
 	return result
 }
 
+// makeClusterReq 创建并初始化集群Req。
 func (c *Cluster) makeClusterReq(reqType ProxyReqType, msg *ClientComMessage, topic string, sess *Session) *ClusterReq {
 	req := &ClusterReq{
 		Node:        c.thisNodeName,
@@ -1092,6 +1105,7 @@ func (c *Cluster) start() {
 		globals.cluster.thisNodeName, c.listenOn)
 }
 
+// shutdown 停止shutdown并释放相关资源。
 func (c *Cluster) shutdown() {
 	if globals.cluster == nil {
 		return

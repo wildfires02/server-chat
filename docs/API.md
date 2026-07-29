@@ -197,7 +197,85 @@ IM 使用基于位图的 ACL 权限控制体系。用户的实际权限由 **用
 
 ### fnd 与 Tag 标签：用户与主题搜索
 
-通过订阅 `fnd` 主题发送 `set.tags` 或 `get` 查询，可以在系统中搜索其他用户或公开群组。
+协议 `0.28` 通过订阅 `fnd` 主题发送 `set.tags` 或 `get` 查询，可以在系统中搜索其他用户或公开群组。除原有精确 Tag 组合查询外，`get.what=search` 支持关键词发现：
+
+```json
+{
+  "get": {
+    "id": "peer-search-1",
+    "topic": "fnd",
+    "what": "search",
+    "search": {
+      "q": "release",
+      "scope": "peers",
+      "limit": 20
+    }
+  }
+}
+```
+
+用户仅能通过配置的公开 alias Tag（默认 `alias:<name>`）被发现，不能仅凭显示昵称枚举账号；群组和频道可通过 alias Tag 或 `public.fn` 命中。服务端过滤暂停账号、内部 Topic 和默认 ACL 不允许加入的私有群，并按“alias 精确、alias 前缀、alias 子串、公开名称、订阅数、Topic 名称”的稳定顺序排序。
+
+响应通过 `{meta.search}` 返回，`private` 中只包含本次命中的公开 alias，不会返回邮箱、手机号等其它索引 Tag：
+
+```json
+{
+  "meta": {
+    "id": "peer-search-1",
+    "topic": "fnd",
+    "search": {
+      "scope": "peers",
+      "peers": [
+        {
+          "topic": "grpYiqEXb4QY6s",
+          "public": { "fn": "Release Notes" },
+          "private": ["alias:release"]
+        }
+      ],
+      "next": "opaque-cursor"
+    }
+  }
+}
+```
+
+`next` 是与关键词及过滤条件绑定的不透明游标；下一页把它原样放到 `search.cursor`，不要解析或跨查询复用。
+
+#### 当前会话消息全文搜索
+
+已订阅 P2P、普通群或广播频道管理 Topic 的读者，可以在当前 Topic 中搜索文本、Drafty 可见文本及附件名称/URL：
+
+```json
+{
+  "get": {
+    "id": "message-search-1",
+    "topic": "grpYiqEXb4QY6s",
+    "what": "search",
+    "search": {
+      "q": "版本说明",
+      "scope": "topic",
+      "from": "usr2il9suCbuko",
+      "kinds": ["text", "file"],
+      "min_date": "2026-01-01T00:00:00Z",
+      "max_date": "2027-01-01T00:00:00Z",
+      "limit": 20
+    }
+  }
+}
+```
+
+- `q` 为 2–256 个 Unicode 字符。
+- `kinds` 可取 `text`、`drafty`、`image`、`video`、`voice`、`audio`、`file`。
+- `min_date` 包含边界，`max_date` 不包含边界。
+- 结果按 `seq` 倒序返回；下一页继续使用响应中的 `next`。
+- 服务端再次校验 Read ACL，并排除硬删除及当前用户已软删除的消息。
+- 搜索结果仍使用标准消息字段，位于 `{meta.search.messages}`。
+
+CLI 对应命令示例：
+
+```text
+get --search="版本说明" --scope=topic --from=usr2il9suCbuko --kinds=text,file --limit=20 grpYiqEXb4QY6s
+get --search=release --scope=peers --limit=20 fnd
+```
 
 ### 点对点 P2P 主题
 
@@ -207,6 +285,155 @@ IM 使用基于位图的 ACL 权限控制体系。用户的实际权限由 **用
 
 多人聊天会话通道（前缀 `grp`，如 `grpYiqEXb4QY6s`）。支持将其配置为只读频道 (Channel) 模式。
 
+#### 创建普通群组与广播频道
+
+- 订阅临时 Topic `new` 创建普通群组；成员按 ACL 获得读写权限。
+- 订阅临时 Topic `nch` 创建广播频道。创建者和发布者使用返回的 `grp...` 名称管理、发布，普通读者使用对应的 `chn...` 名称订阅。
+- 服务端会在 `{meta.desc}` 中返回 `chan` 和 `subcnt`；gRPC 的对应字段为 `is_chan` 和 `sub_count`。
+
+```json
+{ "sub": { "id": "create-group", "topic": "new", "set": { "desc": { "public": { "fn": "研发群" } } } } }
+{ "sub": { "id": "create-channel", "topic": "nch", "set": { "desc": { "public": { "fn": "产品公告" } } } } }
+```
+
+#### 成员角色与 ACL
+
+管理员先订阅 `grp...` 管理 Topic，再通过 `{set.sub}` 的 `role` 字段管理成员。`role` 与底层 `mode` 互斥：
+
+- 普通群：`admin`、`member`、`readonly`、`banned`。
+- 广播频道：`admin`、`publisher`、`subscriber`、`banned`；`readonly` 是 `subscriber` 的兼容别名。
+- 只有群主可以提升或调整管理员。普通管理员不能授予自己不具备的 ACL。
+- `banned` 会保留拒绝加入的订阅记录；`del what=sub` 是移出成员，之后仍可重新邀请。
+
+```json
+{ "set": { "id": "mute-1", "topic": "grpYiqEXb4QY6s", "sub": { "user": "usrTarget", "role": "readonly" } } }
+{ "set": { "id": "publisher-1", "topic": "grpYiqEXb4QY6s", "sub": { "user": "usrTarget", "role": "publisher" } } }
+{ "set": { "id": "ban-1", "topic": "grpYiqEXb4QY6s", "sub": { "user": "usrTarget", "role": "banned" } } }
+{ "del": { "id": "kick-1", "topic": "grpYiqEXb4QY6s", "what": "sub", "user": "usrTarget" } }
+```
+
+`{meta.sub[].acs.role}` 会返回服务端根据最终 ACL 推导的角色。频道管理员默认查询 `grp...` 发布者；要列出包括离线用户在内的频道读者，在 `get.sub.topic` 指定对应的 `chn...`：
+
+```json
+{ "get": { "id": "list-readers", "topic": "grpYiqEXb4QY6s", "what": "sub", "sub": { "topic": "chnYiqEXb4QY6s", "limit": 100 } } }
+```
+
+广播频道读者在发布、编辑、定时发送和输入状态路径上都由服务端强制只读，即使旧订阅数据错误地含有 `W` 位也不能发言。普通群的 `member` 角色保留双向读写能力。
+
+---
+
+## 音视频通话 (Video Calls)
+
+协议 `0.29` 同时保留两种媒体通话路径：
+
+- P2P Topic 使用原有 WebRTC 信令，由业务 WebSocket 转发 `ringing`、`accept`、`offer`、`answer`、`ice-candidate` 和 `hang-up`。
+- 普通群组 Topic 使用 Agora RTC。业务服务端只负责邀请、ACL、短期 AccessToken2、参与状态和通话日志，音频和视频媒体流由 Agora SDK 传输。
+
+当前交付状态：
+
+| 范围 | 状态 | 说明 |
+|---|---|---|
+| P2P WebRTC 服务端信令 | ✅ 已实现 | 需要部署真实 STUN/TURN 并进行生产网络验证 |
+| Agora 群组通话服务端 | ✅ 已实现 | 已实现 Token、ACL、加入、离开、续期、断线清理和状态持久化 |
+| 正式客户端 Agora SDK | 🟡 待接入 | Web、Android、iOS 客户端需根据下发凭证调用 Agora SDK |
+| Agora 真实项目跨端联调 | 🟡 待验证 | 当前仓库测试不连接外部 Agora 网络 |
+
+服务端 `{hi}` 响应中的 `groupCallProvider: "agora"` 表示已启用群组通话。群组邀请仍使用兼容的 `webrtc` 消息头，服务端会写入可信的 `call-provider: "agora"`：
+
+```json
+{
+  "pub": {
+    "id": "call-create-1",
+    "topic": "grpYiqEXb4QY6s",
+    "head": {
+      "webrtc": "started",
+      "mime": "application/x-im-call"
+    },
+    "content": {
+      "type": "video",
+      "title": "周会"
+    }
+  }
+}
+```
+
+只有群组 `W` 权限成员可以创建通话。收到邀请后，具有 `J+R` 权限的成员发送 `join`：
+
+```json
+{
+  "note": {
+    "id": "call-join-1",
+    "topic": "grpYiqEXb4QY6s",
+    "what": "call",
+    "seq": 120,
+    "event": "join"
+  }
+}
+```
+
+服务端仅向请求 Session 返回加入凭证，Token 不会广播给其他成员：
+
+```json
+{
+  "info": {
+    "topic": "grpYiqEXb4QY6s",
+    "from": "usr2il9suCbuko",
+    "what": "call",
+    "seq": 120,
+    "event": "join",
+    "payload": {
+      "provider": "agora",
+      "app_id": "Agora App ID",
+      "channel": "im_4b2f...",
+      "uid": 1938475621,
+      "user_id": "usr2il9suCbuko",
+      "token": "007...",
+      "expires_at": 1785302400,
+      "role": "publisher",
+      "call_seq": 120
+    }
+  }
+}
+```
+
+客户端必须用响应中的同一组 `app_id + channel + uid + token` 加入 Agora 频道：
+
+- `publisher` 对应群组可写成员，可发布音频、视频和数据流。
+- `subscriber` 对应只读成员，只获取加入频道权限。生产项目应在 Agora Console 开启 Co-host Token Authentication，确保发布权限在 Agora 网络侧强制生效。
+- Agora SDK 在 Token 即将过期时会触发 `onTokenPrivilegeWillExpire`。客户端发送 `event: "refresh"` 获取新 Token，然后调用 SDK 的 `renewToken`。
+- 客户端离开时发送 `event: "leave"`；最后一个在线参与者离开会结束当前群组通话。
+- 发起人或群管理员可以发送 `event: "hang-up"` 结束整个群组通话。
+- 服务端为每个 Session 分配独立数字 UID，同一账号可以通过多个设备同时加入。
+
+续期和离开示例：
+
+```json
+{ "note": { "id": "call-refresh-1", "topic": "grpYiqEXb4QY6s", "what": "call", "seq": 120, "event": "refresh" } }
+{ "note": { "id": "call-leave-1", "topic": "grpYiqEXb4QY6s", "what": "call", "seq": 120, "event": "leave" } }
+{ "note": { "id": "call-end-1", "topic": "grpYiqEXb4QY6s", "what": "call", "seq": 120, "event": "hang-up" } }
+```
+
+服务端配置位于 `webrtc.agora`。生产环境建议不在配置文件保存证书，而是设置 `AGORA_APP_ID` 和 `AGORA_APP_CERTIFICATE`。`token_ttl` 范围为 60–86400 秒，默认 3600 秒：
+
+```json
+{
+  "webrtc": {
+    "enabled": true,
+    "call_establishment_timeout": 30,
+    "agora": {
+      "enabled": true,
+      "app_id": "",
+      "app_certificate": "",
+      "token_ttl": 3600,
+      "channel_prefix": "im",
+      "max_participants": 128
+    }
+  }
+}
+```
+
+`app_certificate` 是服务端密钥，不得写入客户端、下发协议或业务日志。群组通话不使用业务服务端 ICE 配置；`ice_servers` 只服务于兼容的 P2P WebRTC 通话。
+
 ---
 
 ## 消息报文详细规范 (Messages Spec)
@@ -215,7 +442,7 @@ IM 使用基于位图的 ACL 权限控制体系。用户的实际权限由 **用
 
 ```json
 // {hi} 握手
-{ "hi": { "id": "100", "user_agent": "MyApp/1.0", "ver": "0.22" } }
+{ "hi": { "id": "100", "user_agent": "MyApp/1.0", "ver": "0.29" } }
 
 // {login} 登录
 { "login": { "id": "101", "scheme": "basic", "secret": "dXNlcm5hbWU6cGFzc3dvcmQ=" } }
@@ -223,21 +450,105 @@ IM 使用基于位图的 ACL 权限控制体系。用户的实际权限由 **用
 // {sub} 订阅主题
 { "sub": { "id": "102", "topic": "grpYiqEXb4QY6s" } }
 
-// {pub} 发布消息
-{ "pub": { "id": "103", "topic": "grpYiqEXb4QY6s", "content": "Hello World" } }
+// {pub} 发布消息；cid 是同一发送者在该 Topic 内持久化的幂等键，最长 64 字节
+{ "pub": { "id": "103", "topic": "grpYiqEXb4QY6s", "cid": "device-a:00000103", "content": "Hello World" } }
 
-// {note} 状态/已读/正在输入通知
-{ "note": { "topic": "grpYiqEXb4QY6s", "what": "read", "seq_id": 15 } }
+// 断线后从 seq=16 开始按升序追赶；服务端将查询固定在请求时的 high 水位
+{ "get": { "id": "104", "topic": "grpYiqEXb4QY6s", "what": "data", "data": { "since": 16, "limit": 100, "forward": true } } }
+
+// {note} 已读/送达通知；提供 id 时服务端在状态持久化后返回确认
+{ "note": { "id": "read-15", "topic": "grpYiqEXb4QY6s", "what": "read", "seq": 15 } }
+```
+
+协议 `0.27` 的消息字段：
+
+- `kind`：可选客户端声明；服务端从内容重新推导并校验，只接受 `text`、`drafty`、`image`、`video`、`voice`、`audio`、`file`。
+- `reply`：当前 Topic 内被回复消息的 `seq`。
+- `replace`：原位编辑目标消息；原作者或管理员可操作，`seq` 不变，服务端返回 `edited`。
+- `forward`：`{"topic":"源 Topic","seq":12}`；服务端检查读取权限并复制源内容及可信来源信息。
+- `group`：客户端相册 ID，同一发送者同组最多连续 10 项；服务端返回按发送者命名空间化后的可信组 ID。
+- `schedule`：RFC 3339 UTC 投递时间，最多提前 366 天；必须提供 `cid`，10 秒内按立即发送处理，其余在投递时才分配 `seq`。
+
+Drafty 图片示例（视频使用 `VD`、音频/语音使用 `AU`、文件使用 `EX`）：
+
+```json
+{
+  "pub": {
+    "id": "media-1",
+    "topic": "grpYiqEXb4QY6s",
+    "cid": "device-a:media-1",
+    "kind": "image",
+    "content": {
+      "txt": "caption",
+      "fmt": [{"at": -1, "key": 0}],
+      "ent": [{
+        "tp": "IM",
+        "data": {
+          "mime": "image/jpeg",
+          "ref": "/v0/file/s/AbCdEf12345.jpg",
+          "width": 1280,
+          "height": 720,
+          "size": 245760
+        }
+      }]
+    }
+  },
+  "extra": {"attachments": ["/v0/file/s/AbCdEf12345.jpg"]}
+}
+```
+
+服务端会校验 Drafty span、实体、MIME、尺寸/时长和附件引用；`extra.attachments` 不能声明内容中未引用的文件。语音消息在 `AU.data.voice` 中设置 `true`。
+
+消息交互示例：
+
+```json
+// 回复
+{ "pub": { "id": "reply-1", "topic": "grpYiqEXb4QY6s", "reply": 15, "content": "收到" } }
+
+// 编辑 seq=15
+{ "pub": { "id": "edit-15", "topic": "grpYiqEXb4QY6s", "replace": 15, "content": "修正后的文本" } }
+
+// 跨 Topic 转发
+{ "pub": { "id": "fwd-1", "topic": "grpYiqEXb4QY6s", "forward": {"topic": "grpSource", "seq": 9}, "content": null } }
+
+// 定时发送
+{ "pub": { "id": "sched-1", "topic": "grpYiqEXb4QY6s", "cid": "device-a:sched-1", "schedule": "2026-07-30T08:00:00Z", "content": "明早发送" } }
+
+// 添加/移除反应
+{ "note": { "id": "react-1", "topic": "grpYiqEXb4QY6s", "what": "react", "seq": 15, "reaction": "👍" } }
+{ "note": { "id": "react-2", "topic": "grpYiqEXb4QY6s", "what": "react", "seq": 15, "reaction": "👍", "remove": true } }
+
+// 置顶/取消置顶
+{ "note": { "id": "pin-1", "topic": "grpYiqEXb4QY6s", "what": "pin", "seq": 15 } }
+{ "note": { "id": "pin-2", "topic": "grpYiqEXb4QY6s", "what": "pin", "seq": 15, "remove": true } }
+
+// 为自己软删除；hard=true 为双方/全体删除。普通用户只能 hard-delete 自己发送的消息。
+{ "del": { "id": "del-15", "topic": "grpYiqEXb4QY6s", "what": "msg", "delseq": [{"low": 15}], "hard": true } }
+
+// 取消尚未投递的定时消息
+{ "del": { "id": "cancel-1", "topic": "grpYiqEXb4QY6s", "what": "sched", "scheduled": "AbCdEf12345" } }
+
+// 拉取 ims 之后的编辑和反应聚合状态；使用响应 params.modified 继续分页
+{ "get": { "id": "modified-1", "topic": "grpYiqEXb4QY6s", "what": "data", "data": {"ims": "2026-07-29T08:00:00Z", "limit": 100} } }
 ```
 
 ### 服务端发往客户端报文 (S2C)
 
 ```json
-// {ctrl} 控制响应
-{ "ctrl": { "id": "103", "code": 200, "text": "ok", "params": { "seq": 15 } } }
+// {ctrl} 发布确认
+{ "ctrl": { "id": "103", "code": 202, "text": "accepted", "params": { "seq": 15, "cid": "device-a:00000103" } } }
 
 // {data} 聊天消息广播
-{ "data": { "topic": "grpYiqEXb4QY6s", "from": "usr2il9suCbuko", "seq": 15, "content": "Hello World" } }
+{ "data": { "topic": "grpYiqEXb4QY6s", "from": "usr2il9suCbuko", "cid": "device-a:00000103", "seq": 15, "kind": "text", "content": "Hello World" } }
+
+// 一页追赶完成。下一页使用 since=cursor+1，直到 hasMore=false
+{ "ctrl": { "id": "104", "code": 208, "text": "delivered", "params": { "what": "data", "count": 100, "low": 16, "high": 240, "cursor": 115, "hasMore": true } } }
+
+// 相同 cid 重试不会再次落库、广播、增加未读或触发推送
+{ "ctrl": { "id": "105", "code": 208, "text": "delivered", "params": { "seq": 15, "cid": "device-a:00000103", "duplicate": true } } }
+
+// 已读/送达状态已持久化；重复状态返回 208 及当前游标
+{ "ctrl": { "id": "read-15", "code": 200, "text": "ok", "params": { "what": "read", "seq": 15 } } }
 
 // {pres} 在线状态变更通知
 { "pres": { "topic": "me", "src": "usr2il9suCbuko", "what": "on" } }

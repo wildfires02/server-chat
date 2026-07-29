@@ -21,21 +21,30 @@ import (
 )
 
 const (
-	defaultServeURL     = "/v0/file/s/"
+	// defaultServeURL 指定默认ServeURL。
+	defaultServeURL = "/v0/file/s/"
+	// defaultCacheControl 指定默认缓存Control。
 	defaultCacheControl = "max-age=86400"
 
+	// handlerName 指定处理器名称。
 	handlerName = "fs"
 )
 
+// fileConfig 保存文件配置的数据和运行状态。
 type fileConfig struct {
 	// FileUploadDirectory: 在集群模式下，FileUploadDirectory 必须对集群所有节点均可访问。
-	FileUploadDirectory string   `json:"upload_dir"`
-	ServeURL            string   `json:"serve_url"`
-	CorsOrigins         []string `json:"cors_origins"`
-	CacheControl        string   `json:"cache_control"`
+	FileUploadDirectory string `json:"upload_dir"`
+	// ServeURL 保存ServeURL。
+	ServeURL string `json:"serve_url"`
+	// CorsOrigins 保存CorsOrigins列表。
+	CorsOrigins []string `json:"cors_origins"`
+	// CacheControl 保存缓存Control。
+	CacheControl string `json:"cache_control"`
 }
 
+// fshandler 保存fshandler的数据和运行状态。
 type fshandler struct {
+	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
 	fileConfig
 	// corsOrigins 解析后的允许跨域源配置切片
 	corsOrigins []media.AllowedOrigin
@@ -208,6 +217,7 @@ func etagFromPath(path string) string {
 		EncodeToString(hasher.Sum(make([]byte, 0, hasher.Size()))))
 }
 
+// init 注册当前包提供的实现并初始化包级状态。
 func init() {
 	store.RegisterMediaHandler(handlerName, &fshandler{})
 }

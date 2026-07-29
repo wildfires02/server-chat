@@ -1,3 +1,4 @@
+// Package main 实现监控指标抓取和导出工具。
 package main
 
 import (
@@ -13,10 +14,13 @@ import (
 	"github.com/prometheus/common/version"
 )
 
+// monitoringService 表示monitoringService领域值。
 type monitoringService int
 
 const (
-	promService   monitoringService = 1
+	// promService 指定promService。
+	promService monitoringService = 1
+	// influxService 指定influxService。
 	influxService monitoringService = 2
 )
 
@@ -25,12 +29,15 @@ const (
 	minPushInterval = 10
 )
 
+// promHTTPLogger 保存promHTTPLogger的数据和运行状态。
 type promHTTPLogger struct{}
 
+// Println 完成Println所需的内部处理。
 func (l promHTTPLogger) Println(v ...interface{}) {
 	log.Println(v...)
 }
 
+// parseMetricList 将输入解析为MetricList。
 func parseMetricList(list string) []string {
 	metrics := strings.Split(list, ",")
 	for i, m := range metrics {
@@ -54,6 +61,7 @@ func parseMetricList(list string) []string {
 //	-ldflags "-X main.buildstamp=`git describe --tags`"
 var buildstamp = "undef"
 
+// main 解析启动参数、初始化依赖并运行当前服务或命令。
 func main() {
 	log.Printf("IM metrics exporter.")
 

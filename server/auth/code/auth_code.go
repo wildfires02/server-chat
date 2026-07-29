@@ -18,11 +18,16 @@ import (
 
 // authenticator 验证码认证提供者结构体。
 type authenticator struct {
-	name         string
-	codeLength   int
+	// name 保存名称。
+	name string
+	// codeLength 保存codeLength。
+	codeLength int
+	// maxCodeValue 保存maxCode值。
 	maxCodeValue *big.Int
-	lifetime     time.Duration
-	maxRetries   int
+	// lifetime 保存lifetime时间。
+	lifetime time.Duration
+	// maxRetries 保存maxRetries。
+	maxRetries int
 }
 
 // Init 初始化验证码认证提供者：解析 JSON 配置并设置内部状态。
@@ -199,6 +204,7 @@ func sanitizeKey(key string) string {
 	return strings.ReplaceAll(key, "%", "/")
 }
 
+// realName 指定real名称。
 const realName = "code"
 
 // GetRealName 返回认证器的硬编码内部名称 ("code")。
@@ -206,6 +212,7 @@ func (authenticator) GetRealName() string {
 	return realName
 }
 
+// init 注册当前包提供的实现并初始化包级状态。
 func init() {
 	store.RegisterAuthScheme(realName, &authenticator{})
 }

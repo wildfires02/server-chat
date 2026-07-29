@@ -1,3 +1,4 @@
+// Package drafty 实现即时通信服务端的协议、路由和业务逻辑。
 package drafty
 
 import (
@@ -5,6 +6,7 @@ import (
 	"testing"
 )
 
+// validInputs 保存validInputs的共享实例或运行状态。
 var validInputs = []string{
 	`"This is a plain text string."`,
 	`{
@@ -63,6 +65,7 @@ var validInputs = []string{
 	}`,
 }
 
+// invalidInputs 保存invalidInputs的共享实例或运行状态。
 var invalidInputs = []string{
 	`{
 		"txt":"This should fail",
@@ -95,6 +98,7 @@ var invalidInputs = []string{
 	}`,
 }
 
+// TestPlainText 验证 Plain Text 相关行为。
 func TestPlainText(t *testing.T) {
 	expect := []string{
 		"This is a plain text string.",
@@ -138,6 +142,31 @@ func TestPlainText(t *testing.T) {
 	}
 }
 
+// TestSearchText 验证全文索引文本会归一化正文并保留可搜索的文件名。
+func TestSearchText(t *testing.T) {
+	content := map[string]any{
+		"txt": "Ａ版本说明 ",
+		"fmt": []any{map[string]any{"at": -1, "len": 0, "key": 0}},
+		"ent": []any{map[string]any{
+			"tp": "EX",
+			"data": map[string]any{
+				"name": "发布清单.pdf",
+				"mime": "application/pdf",
+				"ref":  "https://example.test/file",
+				"size": float64(10),
+			},
+		}},
+	}
+	got, err := SearchText(content)
+	if err != nil {
+		t.Fatalf("SearchText failed: %v", err)
+	}
+	if want := "A版本说明  发布清单.pdf"; got != want {
+		t.Fatalf("SearchText: want %q, got %q", want, got)
+	}
+}
+
+// TestPreview 验证 Preview 相关行为。
 func TestPreview(t *testing.T) {
 	expect := []string{
 		`{"txt":"This is a plain"}`,
@@ -178,6 +207,71 @@ func TestPreview(t *testing.T) {
 		res, err := Preview(val, 15)
 		if err == nil {
 			t.Errorf("invalid input %d did not cause an error '%s'", i, res)
+		}
+	}
+}
+
+// TestAnalyzeMessageKindsAndAttachments 验证 Analyze Message Kinds And Attachments 相关行为。
+func TestAnalyzeMessageKindsAndAttachments(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		kind        string
+		attachments []string
+	}{
+		{name: "text", input: `"hello"`, kind: "text"},
+		{name: "rich text", input: `{"txt":"hello","fmt":[{"at":0,"len":5,"tp":"ST"}]}`, kind: "drafty"},
+		{
+			name: "image",
+			input: `{"txt":" ","fmt":[{"at":0,"len":1,"key":0}],
+				"ent":[{"tp":"IM","data":{"mime":"image/jpeg","ref":"/v0/file/s/a.jpg","width":10,"height":10}}]}`,
+			kind: "image", attachments: []string{"/v0/file/s/a.jpg"},
+		},
+		{
+			name: "voice",
+			input: `{"fmt":[{"at":-1,"key":0}],
+				"ent":[{"tp":"AU","data":{"mime":"audio/ogg","ref":"/v0/file/s/a.ogg","voice":true,"duration":1200}}]}`,
+			kind: "voice", attachments: []string{"/v0/file/s/a.ogg"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var input any
+			if err := json.Unmarshal([]byte(tc.input), &input); err != nil {
+				t.Fatal(err)
+			}
+			info, err := Analyze(input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if info.Kind != tc.kind {
+				t.Fatalf("kind: want %q, got %q", tc.kind, info.Kind)
+			}
+			if len(info.Attachments) != len(tc.attachments) {
+				t.Fatalf("attachments: want %#v, got %#v", tc.attachments, info.Attachments)
+			}
+			for i := range tc.attachments {
+				if info.Attachments[i] != tc.attachments[i] {
+					t.Fatalf("attachments: want %#v, got %#v", tc.attachments, info.Attachments)
+				}
+			}
+		})
+	}
+}
+
+// TestAnalyzeRejectsInvalidMedia 验证 Analyze Rejects Invalid Media 相关行为。
+func TestAnalyzeRejectsInvalidMedia(t *testing.T) {
+	inputs := []string{
+		`""`,
+		`{"txt":"","ent":[]}`,
+		`{"fmt":[{"at":-1,"key":0}],"ent":[{"tp":"IM","data":{"mime":"video/mp4","ref":"/bad"}}]}`,
+		`{"txt":"x","ent":[{"tp":"LN","data":{"url":"https://example.com"}}]}`,
+	}
+	for _, encoded := range inputs {
+		var input any
+		_ = json.Unmarshal([]byte(encoded), &input)
+		if _, err := Analyze(input); err == nil {
+			t.Fatalf("invalid content was accepted: %s", encoded)
 		}
 	}
 }

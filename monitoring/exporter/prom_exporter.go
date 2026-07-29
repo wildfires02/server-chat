@@ -1,3 +1,4 @@
+// Package main 实现监控指标抓取和导出工具。
 package main
 
 import (
@@ -9,43 +10,72 @@ import (
 
 // PromExporter 从 IM 服务端收集 Prometheus 格式的指标。
 type PromExporter struct {
-	address   string
-	timeout   time.Duration
+	// address 保存address。
+	address string
+	// timeout 保存超时时间。
+	timeout time.Duration
+	// namespace 保存namespace。
 	namespace string
 
+	// scraper 保存scraper。
 	scraper *Scraper
 
-	up            *prometheus.Desc
-	version       *prometheus.Desc
-	topicsLive    *prometheus.Desc
-	topicsTotal   *prometheus.Desc
-	sessionsLive  *prometheus.Desc
+	// up 保存up。
+	up *prometheus.Desc
+	// version 保存版本。
+	version *prometheus.Desc
+	// topicsLive 保存topicsLive。
+	topicsLive *prometheus.Desc
+	// topicsTotal 保存topicsTotal。
+	topicsTotal *prometheus.Desc
+	// sessionsLive 保存sessionsLive。
+	sessionsLive *prometheus.Desc
+	// sessionsTotal 保存sessionsTotal。
 	sessionsTotal *prometheus.Desc
 
+	// numGoroutines 保存numGoroutines。
 	numGoroutines *prometheus.Desc
 
+	// incomingMessagesWebsockTotal 保存incomingMessagesWebsockTotal。
 	incomingMessagesWebsockTotal *prometheus.Desc
+	// outgoingMessagesWebsockTotal 保存outgoingMessagesWebsockTotal。
 	outgoingMessagesWebsockTotal *prometheus.Desc
 
+	// incomingMessagesLongpollTotal 保存incomingMessagesLongpollTotal。
 	incomingMessagesLongpollTotal *prometheus.Desc
+	// outgoingMessagesLongpollTotal 保存outgoingMessagesLongpollTotal。
 	outgoingMessagesLongpollTotal *prometheus.Desc
 
+	// incomingMessagesGrpcTotal 保存incomingMessagesgRPCTotal。
 	incomingMessagesGrpcTotal *prometheus.Desc
+	// outgoingMessagesGrpcTotal 保存outgoingMessagesgRPCTotal。
 	outgoingMessagesGrpcTotal *prometheus.Desc
 
+	// fileDownloadsTotal 保存文件DownloadsTotal。
 	fileDownloadsTotal *prometheus.Desc
-	fileUploadsTotal   *prometheus.Desc
+	// fileUploadsTotal 保存文件UploadsTotal。
+	fileUploadsTotal *prometheus.Desc
 
+	// ctrlCodesTotal2xx 保存ctrlCodesTotal2xx。
 	ctrlCodesTotal2xx *prometheus.Desc
+	// ctrlCodesTotal3xx 保存ctrlCodesTotal3xx。
 	ctrlCodesTotal3xx *prometheus.Desc
+	// ctrlCodesTotal4xx 保存ctrlCodesTotal4xx。
 	ctrlCodesTotal4xx *prometheus.Desc
+	// ctrlCodesTotal5xx 保存ctrlCodesTotal5xx。
 	ctrlCodesTotal5xx *prometheus.Desc
 
-	clusterLeader             *prometheus.Desc
-	clusterSize               *prometheus.Desc
-	clusterNodesLive          *prometheus.Desc
-	malloced                  *prometheus.Desc
-	requestLatencyMsCount     *prometheus.Desc
+	// clusterLeader 保存集群Leader。
+	clusterLeader *prometheus.Desc
+	// clusterSize 保存集群Size。
+	clusterSize *prometheus.Desc
+	// clusterNodesLive 保存集群NodesLive。
+	clusterNodesLive *prometheus.Desc
+	// malloced 保存malloced。
+	malloced *prometheus.Desc
+	// requestLatencyMsCount 保存请求LatencyMs数量。
+	requestLatencyMsCount *prometheus.Desc
+	// outgoingMessageBytesCount 保存outgoing消息Bytes数量。
 	outgoingMessageBytesCount *prometheus.Desc
 }
 
@@ -262,6 +292,7 @@ func (e *PromExporter) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(e.up, prometheus.GaugeValue, up)
 }
 
+// parseStats 将输入解析为Stats。
 func (e *PromExporter) parseStats(ch chan<- prometheus.Metric, stats map[string]interface{}) error {
 	err := firstError(
 		e.parseAndUpdate(ch, e.version, prometheus.GaugeValue, stats, "Version"),
@@ -300,6 +331,7 @@ func (e *PromExporter) parseStats(ch chan<- prometheus.Metric, stats map[string]
 	return err
 }
 
+// parseAndUpdate 将输入解析为AndUpdate。
 func (e *PromExporter) parseAndUpdate(ch chan<- prometheus.Metric, desc *prometheus.Desc, valueType prometheus.ValueType,
 	stats map[string]interface{}, key string) error {
 	v, err := parseNumeric(stats, key)
@@ -310,6 +342,7 @@ func (e *PromExporter) parseAndUpdate(ch chan<- prometheus.Metric, desc *prometh
 	return nil
 }
 
+// parseAndUpdateHisto 将输入解析为AndUpdateHisto。
 func (e *PromExporter) parseAndUpdateHisto(ch chan<- prometheus.Metric, desc *prometheus.Desc,
 	stats map[string]interface{}, key string) error {
 	h, err := parseHisto(stats, key)
@@ -320,6 +353,7 @@ func (e *PromExporter) parseAndUpdateHisto(ch chan<- prometheus.Metric, desc *pr
 	return nil
 }
 
+// firstError 完成first错误所需的内部处理。
 func firstError(errs ...error) error {
 	for _, v := range errs {
 		if v != nil {

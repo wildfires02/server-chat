@@ -1,3 +1,4 @@
+// Package ringhash_test 实现即时通信服务端的协议、路由和业务逻辑。
 package ringhash_test
 
 import (
@@ -9,6 +10,7 @@ import (
 	"chat/server/ringhash"
 )
 
+// TestHashing 验证 Hashing 相关行为。
 func TestHashing(t *testing.T) {
 	ring := ringhash.New(3, crc32.ChecksumIEEE)
 	ring.Add("A", "B", "C")
@@ -60,6 +62,7 @@ func TestHashing(t *testing.T) {
 	}
 }
 
+// TestConsistency 验证 Consistency 相关行为。
 func TestConsistency(t *testing.T) {
 	t.Run("Basic consistency across node insertion order", func(t *testing.T) {
 		ring1 := ringhash.New(3, nil)
@@ -95,6 +98,7 @@ func TestConsistency(t *testing.T) {
 	})
 }
 
+// TestSignature 验证 Signature 相关行为。
 func TestSignature(t *testing.T) {
 	fnvHashfunc := func(data []byte) uint32 {
 		hash := fnv.New32a()
@@ -164,11 +168,19 @@ func TestSignature(t *testing.T) {
 	}
 }
 
-func BenchmarkGet8(b *testing.B)   { benchmarkGet(b, 8) }
-func BenchmarkGet32(b *testing.B)  { benchmarkGet(b, 32) }
+// BenchmarkGet8 衡量 Get 8 相关操作的性能。
+func BenchmarkGet8(b *testing.B) { benchmarkGet(b, 8) }
+
+// BenchmarkGet32 衡量 Get 32 相关操作的性能。
+func BenchmarkGet32(b *testing.B) { benchmarkGet(b, 32) }
+
+// BenchmarkGet128 衡量 Get 128 相关操作的性能。
 func BenchmarkGet128(b *testing.B) { benchmarkGet(b, 128) }
+
+// BenchmarkGet512 衡量 Get 512 相关操作的性能。
 func BenchmarkGet512(b *testing.B) { benchmarkGet(b, 512) }
 
+// benchmarkGet 完成benchmarkGet所需的内部处理。
 func benchmarkGet(b *testing.B, keycount int) {
 	ring := ringhash.New(53, nil)
 

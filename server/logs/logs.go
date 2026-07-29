@@ -14,10 +14,13 @@ import (
 
 // ZapLogger 封装 zap.SugaredLogger，提供与 log.Logger 兼容的方法接口 (Println, Printf, Fatal, Fatalf, Fatalln, Panicln 等)。
 type ZapLogger struct {
+	// sugar 保存sugar。
 	sugar *zap.SugaredLogger
+	// level 保存level。
 	level zapcore.Level
 }
 
+// newZapLogger 创建并初始化ZapLogger。
 func newZapLogger(sugar *zap.SugaredLogger, level zapcore.Level) *ZapLogger {
 	return &ZapLogger{
 		sugar: sugar.WithOptions(zap.AddCallerSkip(1)),
@@ -100,6 +103,7 @@ type RotateConfig struct {
 	LocalTime  bool   `json:"local_time"`  // 归档文件名是否使用本地时间戳，默认 true
 }
 
+// init 注册当前包提供的实现并初始化包级状态。
 func init() {
 	// 初始化默认兜底日志对象，避免包级别变量为 nil
 	Init(os.Stderr, "stdFlags")
@@ -200,7 +204,15 @@ func InitWithRotate(output io.Writer, logFlags string, rotate *RotateConfig) {
 
 // 快捷调用的格式化日志输出函数
 func Debugf(template string, args ...any) { Sugar.Debugf(template, args...) }
-func Infof(template string, args ...any)  { Sugar.Infof(template, args...) }
-func Warnf(template string, args ...any)  { Sugar.Warnf(template, args...) }
+
+// Infof 完成Infof所需的内部处理。
+func Infof(template string, args ...any) { Sugar.Infof(template, args...) }
+
+// Warnf 完成Warnf所需的内部处理。
+func Warnf(template string, args ...any) { Sugar.Warnf(template, args...) }
+
+// Errorf 完成Errorf所需的内部处理。
 func Errorf(template string, args ...any) { Sugar.Errorf(template, args...) }
+
+// Fatalf 完成Fatalf所需的内部处理。
 func Fatalf(template string, args ...any) { Sugar.Fatalf(template, args...) }

@@ -1,3 +1,4 @@
+// Package main 实现示例聊天机器人。
 package main
 
 import (
@@ -26,46 +27,74 @@ import (
 )
 
 const (
-	appName    = "Tino-chatbot-go"
+	// appName 指定app名称。
+	appName = "Tino-chatbot-go"
+	// appVersion 指定app版本。
 	appVersion = "1.0.0"
 )
 
+// Bot 保存Bot的数据和运行状态。
 type Bot struct {
+	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
 	pbx.UnimplementedPluginServer
 
-	host       string
-	listen     string
-	ssl        bool
-	sslHost    string
+	// host 保存host。
+	host string
+	// listen 保存listen。
+	listen string
+	// ssl 保存ssl。
+	ssl bool
+	// sslHost 保存sslHost。
+	sslHost string
+	// quotesFile 保存quotes文件。
 	quotesFile string
+	// cookieFile 保存cookie文件。
 	cookieFile string
+	// loginBasic 保存登录Basic。
 	loginBasic string
+	// loginToken 保存登录令牌。
 	loginToken string
 
-	quotes   []string
+	// quotes 保存quotes列表。
+	quotes []string
+	// quotesMu 保存quotesMu。
 	quotesMu sync.RWMutex
 
-	botUID   string
+	// botUID 保存bot用户标识。
+	botUID string
+	// botUIDMu 保存bot用户标识Mu。
 	botUIDMu sync.RWMutex
 
+	// stream 保存数据流。
 	stream pbx.Node_MessageLoopClient
+	// sendMu 保存sendMu。
 	sendMu sync.Mutex
 
-	futures   map[string]futureBundle
+	// futures 按键索引futures。
+	futures map[string]futureBundle
+	// futuresMu 保存futuresMu。
 	futuresMu sync.RWMutex
 
-	subs   map[string]bool
+	// subs 按键索引subs。
+	subs map[string]bool
+	// subsMu 保存subsMu。
 	subsMu sync.RWMutex
 
+	// nextTID 保存nextTID。
 	nextTID int64
-	tidMu   sync.Mutex
+	// tidMu 保存tidMu。
+	tidMu sync.Mutex
 }
 
+// futureBundle 保存futureBundle的数据和运行状态。
 type futureBundle struct {
+	// onSuccess 完成onSuccess所需的内部处理。
 	onSuccess func(params map[string][]byte)
-	onError   func(code int32, text string)
+	// onError 完成on错误所需的内部处理。
+	onError func(code int32, text string)
 }
 
+// getNextTID 查询并返回NextTID。
 func (b *Bot) getNextTID() string {
 	b.tidMu.Lock()
 	defer b.tidMu.Unlock()
@@ -73,12 +102,14 @@ func (b *Bot) getNextTID() string {
 	return fmt.Sprintf("%d", b.nextTID)
 }
 
+// addFuture 向当前集合添加Future。
 func (b *Bot) addFuture(tid string, onSuccess func(map[string][]byte), onError func(int32, string)) {
 	b.futuresMu.Lock()
 	b.futures[tid] = futureBundle{onSuccess: onSuccess, onError: onError}
 	b.futuresMu.Unlock()
 }
 
+// execFuture 完成execFuture所需的内部处理。
 func (b *Bot) execFuture(tid string, code int32, text string, params map[string][]byte) {
 	b.futuresMu.Lock()
 	bundle, ok := b.futures[tid]
@@ -101,6 +132,7 @@ func (b *Bot) execFuture(tid string, code int32, text string, params map[string]
 	}
 }
 
+// loadQuotes 查询并返回Quotes。
 func (b *Bot) loadQuotes(filePath string) error {
 	f, err := os.Open(filePath)
 	if err != nil {
@@ -126,6 +158,7 @@ func (b *Bot) loadQuotes(filePath string) error {
 	return nil
 }
 
+// getRandomQuote 查询并返回RandomQuote。
 func (b *Bot) getRandomQuote() string {
 	b.quotesMu.RLock()
 	defer b.quotesMu.RUnlock()
@@ -135,6 +168,7 @@ func (b *Bot) getRandomQuote() string {
 	return b.quotes[rand.Intn(len(b.quotes))]
 }
 
+// sendMsg 处理Msg消息或事件。
 func (b *Bot) sendMsg(msg *pbx.ClientMsg) error {
 	b.sendMu.Lock()
 	defer b.sendMu.Unlock()
@@ -159,6 +193,7 @@ func (b *Bot) Account(ctx context.Context, req *pbx.AccountEvent) (*pbx.Unused, 
 	return &pbx.Unused{}, nil
 }
 
+// startPluginServer 启动并运行Plugin服务端处理流程。
 func (b *Bot) startPluginServer() error {
 	lis, err := net.Listen("tcp", b.listen)
 	if err != nil {
@@ -176,6 +211,7 @@ func (b *Bot) startPluginServer() error {
 	return nil
 }
 
+// hello 完成hello所需的内部处理。
 func (b *Bot) hello() {
 	tid := b.getNextTID()
 	b.addFuture(tid, func(params map[string][]byte) {
@@ -196,6 +232,7 @@ func (b *Bot) hello() {
 	})
 }
 
+// login 完成登录所需的内部处理。
 func (b *Bot) login(scheme string, secret []byte) {
 	tid := b.getNextTID()
 	b.addFuture(tid, func(params map[string][]byte) {
@@ -217,6 +254,7 @@ func (b *Bot) login(scheme string, secret []byte) {
 	})
 }
 
+// onLogin 完成on登录所需的内部处理。
 func (b *Bot) onLogin(params map[string][]byte) {
 	if params != nil {
 		if userBytes, ok := params["user"]; ok {
@@ -231,6 +269,7 @@ func (b *Bot) onLogin(params map[string][]byte) {
 	b.saveAuthCookie(params)
 }
 
+// subscribe 完成subscribe所需的内部处理。
 func (b *Bot) subscribe(topic string) {
 	tid := b.getNextTID()
 	b.addFuture(tid, func(params map[string][]byte) {
@@ -250,6 +289,7 @@ func (b *Bot) subscribe(topic string) {
 	})
 }
 
+// leave 完成leave所需的内部处理。
 func (b *Bot) leave(topic string) {
 	tid := b.getNextTID()
 	b.addFuture(tid, func(params map[string][]byte) {
@@ -269,6 +309,7 @@ func (b *Bot) leave(topic string) {
 	})
 }
 
+// publish 处理publish消息或事件。
 func (b *Bot) publish(topic, text string) {
 	tid := b.getNextTID()
 	contentBytes, _ := json.Marshal(text)
@@ -289,18 +330,20 @@ func (b *Bot) publish(topic, text string) {
 	})
 }
 
+// noteRead 完成事件通知Read所需的内部处理。
 func (b *Bot) noteRead(topic string, seqID int32) {
 	_ = b.sendMsg(&pbx.ClientMsg{
 		Message: &pbx.ClientMsg_Note{
 			Note: &pbx.ClientNote{
-				Topic:  topic,
-				What:   pbx.InfoNote_READ,
+				Topic: topic,
+				What:  pbx.InfoNote_READ,
 				SeqId: seqID,
 			},
 		},
 	})
 }
 
+// saveAuthCookie 保存认证Cookie。
 func (b *Bot) saveAuthCookie(params map[string][]byte) {
 	if params == nil || b.cookieFile == "" {
 		return
@@ -320,6 +363,7 @@ func (b *Bot) saveAuthCookie(params map[string][]byte) {
 	}
 }
 
+// readAuthCookie 查询并返回认证Cookie。
 func (b *Bot) readAuthCookie() (string, []byte, error) {
 	data, err := os.ReadFile(b.cookieFile)
 	if err != nil {
@@ -344,6 +388,7 @@ func (b *Bot) readAuthCookie() (string, []byte, error) {
 	return schema, []byte(secretStr), nil
 }
 
+// handleIncomingMsg 处理IncomingMsg消息或事件。
 func (b *Bot) handleIncomingMsg(msg *pbx.ServerMsg) {
 	if msg == nil {
 		return
@@ -358,6 +403,7 @@ func (b *Bot) handleIncomingMsg(msg *pbx.ServerMsg) {
 	}
 }
 
+// handleDataMsg 处理数据Msg消息或事件。
 func (b *Bot) handleDataMsg(data *pbx.ServerData) {
 	b.botUIDMu.RLock()
 	botID := b.botUID
@@ -372,6 +418,7 @@ func (b *Bot) handleDataMsg(data *pbx.ServerData) {
 	}
 }
 
+// handlePresMsg 处理PresMsg消息或事件。
 func (b *Bot) handlePresMsg(pres *pbx.ServerPres) {
 	if pres.Topic == "me" {
 		b.subsMu.RLock()
@@ -386,6 +433,7 @@ func (b *Bot) handlePresMsg(pres *pbx.ServerPres) {
 	}
 }
 
+// main 解析启动参数、初始化依赖并运行当前服务或命令。
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
@@ -400,17 +448,17 @@ func main() {
 	flag.Parse()
 
 	bot := &Bot{
-		host:        *host,
-		listen:      *listen,
-		ssl:         *ssl,
-		sslHost:     *sslHost,
-		quotesFile:  *quotesFile,
-		cookieFile:  *loginCookie,
-		loginBasic:  *loginBasic,
-		loginToken:  *loginToken,
-		futures:     make(map[string]futureBundle),
-		subs:        make(map[string]bool),
-		nextTID:     100,
+		host:       *host,
+		listen:     *listen,
+		ssl:        *ssl,
+		sslHost:    *sslHost,
+		quotesFile: *quotesFile,
+		cookieFile: *loginCookie,
+		loginBasic: *loginBasic,
+		loginToken: *loginToken,
+		futures:    make(map[string]futureBundle),
+		subs:       make(map[string]bool),
+		nextTID:    100,
 	}
 
 	if err := bot.loadQuotes(*quotesFile); err != nil {

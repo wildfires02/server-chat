@@ -29,39 +29,62 @@ import (
 )
 
 const (
-	defaultServeURL     = "/v0/file/s/"
+	// defaultServeURL 指定默认ServeURL。
+	defaultServeURL = "/v0/file/s/"
+	// defaultCacheControl 指定默认缓存Control。
 	defaultCacheControl = "no-cache, must-revalidate"
 
+	// handlerName 指定处理器名称。
 	handlerName = "s3"
 	// 生成预签名 GET URL 的默认有效秒数
 	defaultPresignDuration = 120
 )
 
+// awsconfig 保存awsconfig的数据和运行状态。
 type awsconfig struct {
-	AccessKeyId     string   `json:"access_key_id"`
-	SecretAccessKey string   `json:"secret_access_key"`
-	Region          string   `json:"region"`
-	DisableSSL      bool     `json:"disable_ssl"`
-	ForcePathStyle  bool     `json:"force_path_style"`
-	Endpoint        string   `json:"endpoint"`
-	BucketName      string   `json:"bucket"`
-	CorsOrigins     []string `json:"cors_origins"`
-	ServeURL        string   `json:"serve_url"`
-	PresignTTL      int      `json:"presign_ttl"`
-	CacheControl    string   `json:"cache_control"`
+	// AccessKeyId 保存Access键标识。
+	AccessKeyId string `json:"access_key_id"`
+	// SecretAccessKey 保存密钥Access键。
+	SecretAccessKey string `json:"secret_access_key"`
+	// Region 保存Region。
+	Region string `json:"region"`
+	// DisableSSL 保存DisableSSL。
+	DisableSSL bool `json:"disable_ssl"`
+	// ForcePathStyle 保存ForcePathStyle。
+	ForcePathStyle bool `json:"force_path_style"`
+	// Endpoint 保存Endpoint。
+	Endpoint string `json:"endpoint"`
+	// BucketName 保存Bucket名称。
+	BucketName string `json:"bucket"`
+	// CorsOrigins 保存CorsOrigins列表。
+	CorsOrigins []string `json:"cors_origins"`
+	// ServeURL 保存ServeURL。
+	ServeURL string `json:"serve_url"`
+	// PresignTTL 保存PresignTTL。
+	PresignTTL int `json:"presign_ttl"`
+	// CacheControl 保存缓存Control。
+	CacheControl string `json:"cache_control"`
 }
 
+// awshandler 保存awshandler的数据和运行状态。
 type awshandler struct {
-	svc         *s3.Client
-	presign     *s3.PresignClient
-	conf        awsconfig
+	// svc 保存svc。
+	svc *s3.Client
+	// presign 保存presign。
+	presign *s3.PresignClient
+	// conf 保存conf。
+	conf awsconfig
+	// corsOrigins 保存corsOrigins列表。
 	corsOrigins []media.AllowedOrigin
 }
 
 // readerCounter 用于通过 io.Reader 实时统计读取字节数的计数器。
 type readerCounter struct {
+	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
 	io.Reader
-	count  int64
+	// count 保存数量。
+	count int64
+	// reader 保存reader。
 	reader io.Reader
 }
 
@@ -358,6 +381,7 @@ func (ah *awshandler) getFileRecord(fid types.Uid) (*types.FileDef, error) {
 	return fd, nil
 }
 
+// init 注册当前包提供的实现并初始化包级状态。
 func init() {
 	store.RegisterMediaHandler(handlerName, &awshandler{})
 }

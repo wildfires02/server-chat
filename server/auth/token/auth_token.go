@@ -17,9 +17,13 @@ import (
 
 // authenticator 令牌认证提供者的结构体定义。
 type authenticator struct {
-	name         string
-	hmacSalt     []byte
-	lifetime     time.Duration
+	// name 保存名称。
+	name string
+	// hmacSalt 保存hmacSalt列表。
+	hmacSalt []byte
+	// lifetime 保存lifetime时间。
+	lifetime time.Duration
+	// serialNumber 保存serialNumber。
 	serialNumber int
 }
 
@@ -191,6 +195,7 @@ func (authenticator) GetResetParams(uid types.Uid) (map[string]any, error) {
 	return nil, nil
 }
 
+// realName 指定real名称。
 const realName = "token"
 
 // GetRealName 返回认证器的硬编码内部名称 ("token")。
@@ -198,6 +203,7 @@ func (authenticator) GetRealName() string {
 	return realName
 }
 
+// init 注册当前包提供的实现并初始化包级状态。
 func init() {
 	store.RegisterAuthScheme(realName, &authenticator{})
 }

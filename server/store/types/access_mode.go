@@ -1,3 +1,4 @@
+// Package types 提供领域模型及持久化访问层。
 package types
 
 import (
@@ -325,7 +326,9 @@ func (m AccessMode) IsDefined() bool {
 
 // DefaultAccess 是每个 Topic 的默认访问模式
 type DefaultAccess struct {
+	// Auth 保存认证。
 	Auth AccessMode
+	// Anon 保存Anon。
 	Anon AccessMode
 }
 

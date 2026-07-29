@@ -1,3 +1,4 @@
+// Package store 提供领域模型及持久化访问层。
 package store
 
 import (
@@ -60,13 +61,21 @@ func (fileMapper) DeleteUnused(olderThan time.Time, limit int) error {
 func (fileMapper) LinkAttachments(topic string, msgId types.Uid, attachments []string) error {
 	// 将附件 URL 转换为文件 ID。
 	var fids []string
+	if len(attachments) > 0 && mediaHandler == nil {
+		// 未配置本地媒体后端时，所有新引用均视为外部文件；编辑已有消息仍需
+		// 清理过去由本地后端管理的附件关联。
+		if !msgId.IsZero() {
+			return adp.FileLinkAttachments(topic, types.ZeroUid, msgId, nil)
+		}
+		return nil
+	}
 	for _, url := range attachments {
 		if fid := mediaHandler.GetIdFromUrl(url); !fid.IsZero() {
 			fids = append(fids, fid.String())
 		}
 	}
 
-	if len(fids) > 0 {
+	if len(fids) > 0 || !msgId.IsZero() {
 		userId := types.ZeroUid
 		if types.GetTopicCat(topic) == types.TopicCatMe {
 			userId = types.ParseUserId(topic)
@@ -92,6 +101,7 @@ type PersistentCacheInterface interface {
 // pcacheMapper 是实现 PersistentCacheInterface 的具体类型。
 type pcacheMapper struct{}
 
+// PCache 保存P缓存的共享实例或运行状态。
 var PCache PersistentCacheInterface
 
 // Get 读取持久缓存条目。

@@ -1,3 +1,4 @@
+// Package main 实现服务端命令行客户端。
 package main
 
 import (
@@ -15,10 +16,13 @@ import (
 )
 
 const (
-	AppName    = "cli"
+	// AppName 指定App名称。
+	AppName = "cli"
+	// AppVersion 指定App版本。
 	AppVersion = "3.1.0"
 )
 
+// main 解析启动参数、初始化依赖并运行当前服务或命令。
 func main() {
 	host := flag.String("host", "localhost:16060", "Address of IM gRPC server")
 	webHost := flag.String("web-host", "localhost:6060", "Address of IM web server (for file uploads)")

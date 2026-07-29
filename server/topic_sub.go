@@ -1,3 +1,4 @@
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -13,21 +14,27 @@ import (
 // unregisterSession 实现收到 Topic.unreg Channel 离开请求后的处理逻辑
 func (t *Topic) unregisterSession(msg *ClientComMessage) {
 	if t.currentCall != nil {
-		shouldTerminateCall := false
-		if msg.sess.isMultiplex() {
-			// 检查通话关联的 Session 是否在 msg.sess 上多路复用
-			for _, p := range t.currentCall.parties {
-				if p.sess.isProxy() && p.sess.multi == msg.sess {
-					shouldTerminateCall = true
-					break
+		if t.currentCall.provider == constCallProviderAgora {
+			// 群组通话只移除断开的 Session；其余成员继续使用 Agora
+			// 频道，最后一个参与者离开时再结束整个通话。
+			t.disconnectAgoraCallSessions(msg)
+		} else {
+			shouldTerminateCall := false
+			if msg.sess.isMultiplex() {
+				// 检查通话关联的 Session 是否在 msg.sess 上多路复用
+				for _, p := range t.currentCall.parties {
+					if p.sess.isProxy() && p.sess.multi == msg.sess {
+						shouldTerminateCall = true
+						break
+					}
 				}
+			} else if _, found := t.currentCall.parties[msg.sess.sid]; found {
+				// 普通 Session 从 Topic 断开，终止通话
+				shouldTerminateCall = true
 			}
-		} else if _, found := t.currentCall.parties[msg.sess.sid]; found {
-			// 普通 Session 从 Topic 断开，终止通话
-			shouldTerminateCall = true
-		}
-		if shouldTerminateCall {
-			t.terminateCallInProgress(false)
+			if shouldTerminateCall {
+				t.terminateCallInProgress(false)
+			}
 		}
 	}
 	t.handleLeaveRequest(msg, msg.sess)
@@ -291,6 +298,10 @@ func (t *Topic) subscriptionReply(asChan bool, msg *ClientComMessage) error {
 				msg.sess.queueOut(ErrMalformedReply(msg, now))
 				return errors.New("不得指定用户 ID")
 			}
+			if msgsub.Set.Sub.Role != "" {
+				msg.sess.queueOut(ErrMalformedReply(msg, now))
+				return errors.New("订阅请求不能修改成员角色")
+			}
 			mode = msgsub.Set.Sub.Mode
 		}
 
@@ -362,6 +373,7 @@ func (t *Topic) subscriptionReply(asChan bool, msg *ClientComMessage) error {
 	return nil
 }
 
+// thisUserSub 完成this用户订阅所需的内部处理。
 func (t *Topic) thisUserSub(sess *Session, pkt *ClientComMessage, asUid types.Uid, asChan bool, want string,
 	private any) (*MsgAccessMode, error) {
 
@@ -414,13 +426,16 @@ func (t *Topic) thisUserSub(sess *Session, pkt *ClientComMessage, asUid types.Ui
 				return nil, err
 			}
 
-			oldGiven = types.ModeCChnReader
-			userData.modeGiven = types.ModeCChnReader
-
 			if sub != nil {
 				oldWant = sub.ModeWant
+				oldGiven = sub.ModeGiven
+				// 管理员可将频道读者设置为 banned。必须尊重持久化的
+				// ModeGiven，不能在重新订阅时无条件恢复读权限。
+				userData.modeGiven = sub.ModeGiven
 			} else {
 				oldWant = types.ModeCChnReader
+				oldGiven = types.ModeCChnReader
+				userData.modeGiven = types.ModeCChnReader
 			}
 
 			if modeWant != types.ModeUnset {
@@ -641,6 +656,8 @@ func (t *Topic) thisUserSub(sess *Session, pkt *ClientComMessage, asUid types.Ui
 			Want:  userData.modeWant.String(),
 			Given: userData.modeGiven.String(),
 			Mode:  (userData.modeGiven & userData.modeWant).String(),
+			Role: topicRoleFromAccess(userData.modeGiven&userData.modeWant,
+				t.isChan, userData.isChan),
 		}
 	}
 
@@ -657,6 +674,7 @@ func (t *Topic) thisUserSub(sess *Session, pkt *ClientComMessage, asUid types.Ui
 	return modeChanged, nil
 }
 
+// anotherUserSub 完成another用户订阅所需的内部处理。
 func (t *Topic) anotherUserSub(sess *Session, asUid, target types.Uid, asChan bool,
 	pkt *ClientComMessage) (*MsgAccessMode, error) {
 
@@ -700,6 +718,11 @@ func (t *Topic) anotherUserSub(sess *Session, asUid, target types.Uid, asChan bo
 	if modeGiven.IsOwner() && t.owner != asUid {
 		sess.queueOut(ErrPermissionDeniedReply(pkt, now))
 		return nil, errors.New("非群主尝试转让群主权限")
+	}
+	if modeGiven != types.ModeUnset && t.owner != asUid &&
+		!hostMode.BetterEqual(modeGiven&^types.ModeOwner) {
+		sess.queueOut(ErrPermissionDeniedReply(pkt, now))
+		return nil, errors.New("管理员无法授予自己不具备的权限")
 	}
 
 	oldWant := types.ModeUnset
@@ -757,6 +780,9 @@ func (t *Topic) anotherUserSub(sess *Session, asUid, target types.Uid, asChan bo
 			sess.queueOut(ErrUnknownReply(pkt, now))
 			return nil, err
 		}
+		if t.cat == types.TopicCatGrp {
+			t.subCnt++
+		}
 
 		userData = perUserData{
 			modeGiven: sub.ModeGiven,
@@ -807,6 +833,8 @@ func (t *Topic) anotherUserSub(sess *Session, asUid, target types.Uid, asChan bo
 			Given: userData.modeGiven.String(),
 			Want:  userData.modeWant.String(),
 			Mode:  (userData.modeGiven & userData.modeWant).String(),
+			Role: topicRoleFromAccess(userData.modeGiven&userData.modeWant,
+				t.isChan, userData.isChan),
 		}
 	}
 
@@ -897,6 +925,9 @@ func (t *Topic) replyLeaveUnsub(sess *Session, msg *ClientComMessage, asUid type
 func (t *Topic) evictUser(uid types.Uid, unsub bool, skip string) {
 	now := types.TimeNow()
 	pud, ok := t.perUser[uid]
+	// 在删除频道读者的 perUser 记录前保存其客户端可见 Topic 名称。
+	// 否则后续 t.original 会把驱逐通知错误地写成 grp...。
+	original := t.original(uid)
 
 	if unsub {
 		if t.cat == types.TopicCatP2P {
@@ -920,7 +951,7 @@ func (t *Topic) evictUser(uid types.Uid, unsub bool, skip string) {
 		}
 	}
 
-	msg := NoErrEvicted("", t.original(uid), now)
+	msg := NoErrEvicted("", original, now)
 	msg.Ctrl.Params = map[string]any{"unsub": unsub}
 	msg.SkipSid = skip
 	msg.uid = uid

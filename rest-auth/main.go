@@ -1,3 +1,4 @@
+// Package main 提供当前命令或模块的实现。
 package main
 
 import (
@@ -12,57 +13,92 @@ import (
 	"sync"
 )
 
+// UserPublicPhoto 保存用户公开资料Photo的数据和运行状态。
 type UserPublicPhoto struct {
+	// Data 保存数据。
 	Data string `json:"data,omitempty"`
+	// Type 保存Type。
 	Type string `json:"type,omitempty"`
 }
 
+// UserPublic 保存用户公开资料的数据和运行状态。
 type UserPublic struct {
-	Fn    string           `json:"fn,omitempty"`
+	// Fn 保存Fn。
+	Fn string `json:"fn,omitempty"`
+	// Photo 保存Photo。
 	Photo *UserPublicPhoto `json:"photo,omitempty"`
 }
 
+// UserData 保存用户数据的数据和运行状态。
 type UserData struct {
-	Anon     string      `json:"anon,omitempty"`
-	Auth     string      `json:"auth,omitempty"`
-	AuthLvl  string      `json:"authlvl,omitempty"`
-	Features string      `json:"features,omitempty"`
-	Password string      `json:"password,omitempty"`
-	Private  string      `json:"private,omitempty"`
-	Public   *UserPublic `json:"public,omitempty"`
-	Tags     []string    `json:"tags,omitempty"`
-	UID      string      `json:"uid,omitempty"`
+	// Anon 保存Anon。
+	Anon string `json:"anon,omitempty"`
+	// Auth 保存认证。
+	Auth string `json:"auth,omitempty"`
+	// AuthLvl 保存认证Lvl。
+	AuthLvl string `json:"authlvl,omitempty"`
+	// Features 保存Features。
+	Features string `json:"features,omitempty"`
+	// Password 保存密码。
+	Password string `json:"password,omitempty"`
+	// Private 保存Private。
+	Private string `json:"private,omitempty"`
+	// Public 保存公开资料。
+	Public *UserPublic `json:"public,omitempty"`
+	// Tags 保存Tags列表。
+	Tags []string `json:"tags,omitempty"`
+	// UID 保存用户标识。
+	UID string `json:"uid,omitempty"`
 }
 
+// Rec 保存Rec的数据和运行状态。
 type Rec struct {
-	UID      string   `json:"uid,omitempty"`
-	AuthLvl  string   `json:"authlvl,omitempty"`
-	Features string   `json:"features,omitempty"`
-	Tags     []string `json:"tags,omitempty"`
+	// UID 保存用户标识。
+	UID string `json:"uid,omitempty"`
+	// AuthLvl 保存认证Lvl。
+	AuthLvl string `json:"authlvl,omitempty"`
+	// Features 保存Features。
+	Features string `json:"features,omitempty"`
+	// Tags 保存Tags列表。
+	Tags []string `json:"tags,omitempty"`
 }
 
+// NewAcc 保存NewAcc的数据和运行状态。
 type NewAcc struct {
-	Auth    string      `json:"auth,omitempty"`
-	Anon    string      `json:"anon,omitempty"`
-	Public  *UserPublic `json:"public,omitempty"`
-	Private string      `json:"private,omitempty"`
+	// Auth 保存认证。
+	Auth string `json:"auth,omitempty"`
+	// Anon 保存Anon。
+	Anon string `json:"anon,omitempty"`
+	// Public 保存公开资料。
+	Public *UserPublic `json:"public,omitempty"`
+	// Private 保存Private。
+	Private string `json:"private,omitempty"`
 }
 
+// AuthRequest 保存认证请求的数据和运行状态。
 type AuthRequest struct {
+	// Secret 保存密钥。
 	Secret string `json:"secret"`
 }
 
+// LinkRequest 保存Link请求的数据和运行状态。
 type LinkRequest struct {
-	Rec    *Rec   `json:"rec"`
+	// Rec 保存Rec。
+	Rec *Rec `json:"rec"`
+	// Secret 保存密钥。
 	Secret string `json:"secret"`
 }
 
 var (
+	// dummyData 保存dummy数据的共享实例或运行状态。
 	dummyData = make(map[string]*UserData)
-	dataMu    sync.RWMutex
-	dataFile  = "dummy_data.json"
+	// dataMu 保存数据Mu的共享实例或运行状态。
+	dataMu sync.RWMutex
+	// dataFile 保存数据文件的共享实例或运行状态。
+	dataFile = "dummy_data.json"
 )
 
+// parseSecret 将输入解析为密钥。
 func parseSecret(encodedSecret string) (string, string) {
 	data, err := base64.StdEncoding.DecodeString(encodedSecret)
 	if err != nil {
@@ -75,6 +111,7 @@ func parseSecret(encodedSecret string) (string, string) {
 	return parts[0], ""
 }
 
+// loadDummyData 查询并返回Dummy数据。
 func loadDummyData(path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -85,6 +122,7 @@ func loadDummyData(path string) error {
 	return json.Unmarshal(data, &dummyData)
 }
 
+// saveDummyData 保存Dummy数据。
 func saveDummyData(path string) error {
 	dataMu.RLock()
 	data, err := json.MarshalIndent(dummyData, "", "  ")
@@ -95,12 +133,14 @@ func saveDummyData(path string) error {
 	return os.WriteFile(path, data, 0644)
 }
 
+// jsonResponse 完成json响应所需的内部处理。
 func jsonResponse(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(data)
 }
 
+// handleIndex 处理索引消息或事件。
 func handleIndex(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		jsonResponse(w, http.StatusNotFound, map[string]string{"err": "not found"})
@@ -110,6 +150,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(`Sample IM REST/JSON-RPC authentication service.`))
 }
 
+// handleUnsupported 处理Unsupported消息或事件。
 func handleUnsupported(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"err": "method not allowed"})
@@ -118,6 +159,7 @@ func handleUnsupported(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusOK, map[string]string{"err": "unsupported"})
 }
 
+// handleAuth 处理认证消息或事件。
 func handleAuth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"err": "method not allowed"})
@@ -173,6 +215,7 @@ func handleAuth(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusOK, resp)
 }
 
+// handleLink 处理Link消息或事件。
 func handleLink(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"err": "method not allowed"})
@@ -211,6 +254,7 @@ func handleLink(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusOK, map[string]interface{}{})
 }
 
+// handleRtags 处理Rtags消息或事件。
 func handleRtags(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"err": "method not allowed"})
@@ -223,6 +267,7 @@ func handleRtags(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// main 解析启动参数、初始化依赖并运行当前服务或命令。
 func main() {
 	port := flag.Int("port", 8080, "Port to listen on")
 	flag.StringVar(&dataFile, "data", "dummy_data.json", "Path to dummy data file")

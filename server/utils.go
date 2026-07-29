@@ -1,5 +1,6 @@
 // 通用数据操作工具函数。
 
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -38,20 +39,25 @@ var prefixedTagRegexp = regexp.MustCompile(`^([a-z]\w{1,15}):([-_+.!?#@\pL\pN]{1
 // 通用标签：与标签主体相同的限制
 var tagRegexp = regexp.MustCompile(`^[-_+.!?#@\pL\pN]{1,96}$`)
 
+// nullValue 指定null值。
 const nullValue = "\u2421"
 
 // boundedWaitGroup 是限制最大并发数限制的 WaitGroup 包装结构体。
 type boundedWaitGroup struct {
-	wg  sync.WaitGroup
+	// wg 保存wg。
+	wg sync.WaitGroup
+	// sem 传递sem相关的异步事件。
 	sem chan struct{}
 }
 
+// newBoundedWaitGroup 创建并初始化BoundedWaitGroup。
 func newBoundedWaitGroup(cap int) *boundedWaitGroup {
 	return &boundedWaitGroup{
 		sem: make(chan struct{}, cap),
 	}
 }
 
+// Add 创建或追加 Add 对应的数据。
 func (b *boundedWaitGroup) Add(delta int) {
 	if b == nil {
 		return
@@ -62,6 +68,7 @@ func (b *boundedWaitGroup) Add(delta int) {
 	}
 }
 
+// Done 完成Done所需的内部处理。
 func (b *boundedWaitGroup) Done() {
 	if b == nil {
 		return
@@ -73,6 +80,7 @@ func (b *boundedWaitGroup) Done() {
 	b.wg.Done()
 }
 
+// Wait 完成Wait所需的内部处理。
 func (b *boundedWaitGroup) Wait() {
 	if b == nil {
 		return
@@ -198,6 +206,7 @@ func msgOpts2storeOpts(req *MsgGetOpts) *types.QueryOpt {
 			Since:           req.SinceId,
 			Before:          req.BeforeId,
 			IdRanges:        rangeSerialize(req.IdRanges),
+			Forward:         req.Forward,
 		}
 	}
 	return opts
@@ -211,10 +220,12 @@ func isNullValue(i any) bool {
 	return false
 }
 
+// decodeStoreError 将输入解析为存储错误。
 func decodeStoreError(err error, id string, ts time.Time, params map[string]any) *ServerComMessage {
 	return decodeStoreErrorExplicitTs(err, id, "", ts, ts, params)
 }
 
+// decodeStoreErrorExplicitTs 将输入解析为存储错误ExplicitTs。
 func decodeStoreErrorExplicitTs(err error, id, topic string, serverTs, incomingReqTs time.Time,
 	params map[string]any) *ServerComMessage {
 
@@ -378,6 +389,7 @@ func base10Version(hex int) int64 {
 	return int64(major*10000 + minor*100 + trailer)
 }
 
+// versionToString 完成版本ToString所需的内部处理。
 func versionToString(vers int) string {
 	str := strconv.Itoa(vers>>16) + "." + strconv.Itoa((vers>>8)&0xff)
 	if vers&0xff != 0 {
@@ -544,6 +556,7 @@ func normalizeTags(src []string, maxTags int) types.StringSlice {
 	return types.StringSlice(dst)
 }
 
+// validateTag 校验标签的输入和约束。
 func validateTag(tag string) (string, string) {
 	// 检查是否标签已有前缀，例如 basic:alice
 	if parts := prefixedTagRegexp.FindStringSubmatch(tag); len(parts) == 3 {
@@ -792,6 +805,7 @@ func platformFromUA(ua string) string {
 	return ""
 }
 
+// parseTLSConfig 将输入解析为TLS配置。
 func parseTLSConfig(tlsEnabled bool, jsconfig json.RawMessage) (*tls.Config, error) {
 	type tlsAutocertConfig struct {
 		// autocert 支持的域名
@@ -958,10 +972,13 @@ func isUnixAddr(addr string) bool {
 }
 
 var (
-	privateIPBlocks     []*net.IPNet
+	// privateIPBlocks 保存privateIPBlocks的共享实例或运行状态。
+	privateIPBlocks []*net.IPNet
+	// privateIPBlocksOnce 保存privateIPBlocksOnce的共享实例或运行状态。
 	privateIPBlocksOnce sync.Once
 )
 
+// isRoutableIP 判断是否满足RoutableIP条件。
 func isRoutableIP(ipStr string) bool {
 	ip := net.ParseIP(ipStr)
 	if ip == nil {

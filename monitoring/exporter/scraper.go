@@ -1,3 +1,4 @@
+// Package main 实现监控指标抓取和导出工具。
 package main
 
 import (
@@ -23,12 +24,18 @@ type Scraper struct {
 
 // 直方图结构体。
 type histogram struct {
-	count   uint64
-	sum     float64
+	// count 保存数量。
+	count uint64
+	// sum 保存sum。
+	sum float64
+	// buckets 按键索引buckets。
 	buckets map[float64]uint64
 }
 
+// errKeyNotFound 保存err键NotFound的共享实例或运行状态。
 var errKeyNotFound = errors.New("key not found")
+
+// errMalformed 保存errMalformed的共享实例或运行状态。
 var errMalformed = errors.New("input malformed")
 
 // CollectRaw 从配置的 IM 实例收集所有指标，
@@ -66,6 +73,7 @@ func (s *Scraper) Scrape() (map[string]interface{}, error) {
 	return stats, err
 }
 
+// parseStatsRaw 将输入解析为StatsRaw。
 func (s *Scraper) parseStatsRaw(stats map[string]interface{}) (map[string]interface{}, error) {
 	metrics := make(map[string]interface{})
 	for _, key := range s.simpleMetrics {

@@ -1,3 +1,4 @@
+// Package types 提供领域模型及持久化访问层。
 package types
 
 import (
@@ -196,6 +197,7 @@ func ChnToGrp(chn string) string {
 // UidSlice 是按升序排列的 Uid 切片。
 type UidSlice []Uid
 
+// find 查询并返回find。
 func (us UidSlice) find(uid Uid) (int, bool) {
 	l := len(us)
 	if l == 0 || us[0] > uid {

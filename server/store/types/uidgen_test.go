@@ -1,3 +1,4 @@
+// Package types 提供领域模型及持久化访问层。
 package types
 
 import (
@@ -369,6 +370,7 @@ func TestUidGeneratorDifferentWorkerIds(t *testing.T) {
 	}
 }
 
+// TestUidGeneratorInitErrorConditions 验证 Uid Generator Init Error Conditions 相关行为。
 func TestUidGeneratorInitErrorConditions(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -390,6 +392,7 @@ func TestUidGeneratorInitErrorConditions(t *testing.T) {
 	}
 }
 
+// TestUidGeneratorInitKeyValidation 验证 Uid Generator Init Key Validation 相关行为。
 func TestUidGeneratorInitKeyValidation(t *testing.T) {
 	testCases := []struct {
 		name string
@@ -413,6 +416,7 @@ func TestUidGeneratorInitKeyValidation(t *testing.T) {
 	}
 }
 
+// TestUidGeneratorInitValidKeys 验证 Uid Generator Init Valid Keys 相关行为。
 func TestUidGeneratorInitValidKeys(t *testing.T) {
 	validKeys := []struct {
 		name string
@@ -435,6 +439,7 @@ func TestUidGeneratorInitValidKeys(t *testing.T) {
 	}
 }
 
+// TestUidGeneratorInitPartialFailure 验证 Uid Generator Init Partial Failure 相关行为。
 func TestUidGeneratorInitPartialFailure(t *testing.T) {
 	ug := &UidGenerator{}
 
@@ -456,6 +461,7 @@ func TestUidGeneratorInitPartialFailure(t *testing.T) {
 	}
 }
 
+// TestUidGeneratorInitMultipleWorkers 验证 Uid Generator Init Multiple Workers 相关行为。
 func TestUidGeneratorInitMultipleWorkers(t *testing.T) {
 	key := []byte("testkey1testkey2")
 	generators := make([]*UidGenerator, 10)
@@ -484,6 +490,7 @@ func TestUidGeneratorInitMultipleWorkers(t *testing.T) {
 	}
 }
 
+// TestUidGeneratorInitIdempotency 验证 Uid Generator Init Idempotency 相关行为。
 func TestUidGeneratorInitIdempotency(t *testing.T) {
 	ug := &UidGenerator{}
 	key := []byte("testkey1testkey2")
@@ -521,6 +528,7 @@ func TestUidGeneratorInitIdempotency(t *testing.T) {
 	}
 }
 
+// TestUidGeneratorInitConcurrent 验证 Uid Generator Init Concurrent 相关行为。
 func TestUidGeneratorInitConcurrent(t *testing.T) {
 	const numGoroutines = 20
 	key := []byte("testkey1testkey2")
@@ -559,6 +567,7 @@ func TestUidGeneratorInitConcurrent(t *testing.T) {
 	}
 }
 
+// TestUidGeneratorInitBoundaryWorkerIDs 验证 Uid Generator Init Boundary Worker I Ds 相关行为。
 func TestUidGeneratorInitBoundaryWorkerIDs(t *testing.T) {
 	key := []byte("testkey1testkey2")
 
@@ -594,6 +603,7 @@ func TestUidGeneratorInitBoundaryWorkerIDs(t *testing.T) {
 	}
 }
 
+// BenchmarkUidGeneratorGet 衡量 Uid Generator Get 相关操作的性能。
 func BenchmarkUidGeneratorGet(b *testing.B) {
 	ug := &UidGenerator{}
 	key := []byte("testkey1testkey2")
@@ -607,6 +617,7 @@ func BenchmarkUidGeneratorGet(b *testing.B) {
 	}
 }
 
+// BenchmarkUidGeneratorGetStr 衡量 Uid Generator Get Str 相关操作的性能。
 func BenchmarkUidGeneratorGetStr(b *testing.B) {
 	ug := &UidGenerator{}
 	key := []byte("testkey1testkey2")
@@ -620,6 +631,7 @@ func BenchmarkUidGeneratorGetStr(b *testing.B) {
 	}
 }
 
+// BenchmarkUidGeneratorDecodeUid 衡量 Uid Generator Decode Uid 相关操作的性能。
 func BenchmarkUidGeneratorDecodeUid(b *testing.B) {
 	ug := &UidGenerator{}
 	key := []byte("testkey1testkey2")
@@ -635,6 +647,7 @@ func BenchmarkUidGeneratorDecodeUid(b *testing.B) {
 	}
 }
 
+// BenchmarkUidGeneratorEncodeInt64 衡量 Uid Generator Encode Int 64 相关操作的性能。
 func BenchmarkUidGeneratorEncodeInt64(b *testing.B) {
 	ug := &UidGenerator{}
 	key := []byte("testkey1testkey2")

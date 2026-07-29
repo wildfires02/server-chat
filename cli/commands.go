@@ -1,3 +1,4 @@
+// Package main 实现服务端命令行客户端。
 package main
 
 import (
@@ -10,21 +11,36 @@ import (
 	"chat/pbx"
 )
 
+// ParsedCmd 保存ParsedCmd的数据和运行状态。
 type ParsedCmd struct {
-	ID           string
-	Name         string
-	IsLocal      bool
+	// ID 保存标识。
+	ID string
+	// Name 保存名称。
+	Name string
+	// IsLocal 指示是否启用或满足IsLocal。
+	IsLocal bool
+	// IsSynchronous 指示是否启用或满足IsSynchronous。
 	IsSynchronous bool
-	VarName      string
-	FailOnError  bool
-	AsRoot       bool
-	Msg          *pbx.ClientMsg
-	MacroCmds    []string
-	SleepMs      int
-	LogValue     string
-	UseUser      string
-	UseTopic     string
-	IsExit       bool
+	// VarName 保存Var名称。
+	VarName string
+	// FailOnError 保存FailOn错误。
+	FailOnError bool
+	// AsRoot 保存AsRoot。
+	AsRoot bool
+	// Msg 保存Msg。
+	Msg *pbx.ClientMsg
+	// MacroCmds 保存MacroCmds列表。
+	MacroCmds []string
+	// SleepMs 保存SleepMs。
+	SleepMs int
+	// LogValue 保存Log值。
+	LogValue string
+	// UseUser 指示是否启用或满足Use用户。
+	UseUser string
+	// UseTopic 指示是否启用或满足UseTopic。
+	UseTopic string
+	// IsExit 指示是否启用或满足IsExit。
+	IsExit bool
 }
 
 // ParseCommandLine parses raw input line into a ParsedCmd or list of expanded macro commands.
@@ -121,7 +137,7 @@ func ParseCommandLine(line string, msgID int64, defaultUser, defaultTopic, apiKe
 				Hi: &pbx.ClientHi{
 					Id:         idStr,
 					UserAgent:  "cli-go/3.1.0",
-					Ver:        "0.22.0",
+					Ver:        "0.29",
 					Lang:       "EN",
 					Background: true,
 				},
@@ -162,6 +178,7 @@ func ParseCommandLine(line string, msgID int64, defaultUser, defaultTopic, apiKe
 	}
 }
 
+// parseLoginCmd 将输入解析为登录Cmd。
 func parseLoginCmd(cmd *ParsedCmd, args []string, idStr string) (*ParsedCmd, error) {
 	fs := flag.NewFlagSet("login", flag.ContinueOnError)
 	scheme := fs.String("scheme", "basic", "Auth scheme (basic, token)")
@@ -198,6 +215,7 @@ func parseLoginCmd(cmd *ParsedCmd, args []string, idStr string) (*ParsedCmd, err
 	return cmd, nil
 }
 
+// parseAccCmd 将输入解析为AccCmd。
 func parseAccCmd(cmd *ParsedCmd, args []string, idStr, defaultUser string) (*ParsedCmd, error) {
 	fs := flag.NewFlagSet("acc", flag.ContinueOnError)
 	uname := fs.String("uname", "", "Username for basic login")
@@ -294,6 +312,7 @@ func parseAccCmd(cmd *ParsedCmd, args []string, idStr, defaultUser string) (*Par
 	return cmd, nil
 }
 
+// parseSubCmd 将输入解析为订阅Cmd。
 func parseSubCmd(cmd *ParsedCmd, args []string, idStr, defaultTopic string) (*ParsedCmd, error) {
 	topic := defaultTopic
 	if len(args) > 0 {
@@ -311,6 +330,7 @@ func parseSubCmd(cmd *ParsedCmd, args []string, idStr, defaultTopic string) (*Pa
 	return cmd, nil
 }
 
+// parseLeaveCmd 将输入解析为LeaveCmd。
 func parseLeaveCmd(cmd *ParsedCmd, args []string, idStr, defaultTopic string) (*ParsedCmd, error) {
 	topic := defaultTopic
 	if len(args) > 0 {
@@ -328,6 +348,7 @@ func parseLeaveCmd(cmd *ParsedCmd, args []string, idStr, defaultTopic string) (*
 	return cmd, nil
 }
 
+// parsePubCmd 将输入解析为PubCmd。
 func parsePubCmd(cmd *ParsedCmd, args []string, idStr, defaultTopic string) (*ParsedCmd, error) {
 	fs := flag.NewFlagSet("pub", flag.ContinueOnError)
 	topicFlag := fs.String("topic", "", "Target topic")
@@ -339,7 +360,9 @@ func parsePubCmd(cmd *ParsedCmd, args []string, idStr, defaultTopic string) (*Pa
 	pos := fs.Args()
 	topic := *topicFlag
 	if topic == "" {
-		if len(pos) > 0 && (strings.HasPrefix(pos[0], "usr") || strings.HasPrefix(pos[0], "grp") || strings.HasPrefix(pos[0], "me") || strings.HasPrefix(pos[0], "sys") || strings.HasPrefix(pos[0], "p2p")) {
+		if len(pos) > 0 && (strings.HasPrefix(pos[0], "usr") || strings.HasPrefix(pos[0], "grp") ||
+			strings.HasPrefix(pos[0], "chn") || strings.HasPrefix(pos[0], "me") ||
+			strings.HasPrefix(pos[0], "sys") || strings.HasPrefix(pos[0], "p2p")) {
 			topic = pos[0]
 			pos = pos[1:]
 		} else {
@@ -362,11 +385,22 @@ func parsePubCmd(cmd *ParsedCmd, args []string, idStr, defaultTopic string) (*Pa
 	return cmd, nil
 }
 
+// parseGetCmd 将输入解析为GetCmd。
 func parseGetCmd(cmd *ParsedCmd, args []string, idStr, defaultTopic string) (*ParsedCmd, error) {
 	fs := flag.NewFlagSet("get", flag.ContinueOnError)
 	desc := fs.Bool("desc", false, "Fetch topic description")
 	sub := fs.Bool("sub", false, "Fetch topic subscriptions")
 	data := fs.Bool("data", false, "Fetch topic messages")
+	subTopic := fs.String("sub_topic", "", "Filter subscriptions by topic; use chn... to list channel readers")
+	subUser := fs.String("sub_user", "", "Filter subscriptions by user ID")
+	searchText := fs.String("search", "", "Search public peers or messages by keyword")
+	searchScope := fs.String("scope", "", "Search scope: peers or topic")
+	searchFrom := fs.String("from", "", "Only return messages sent by this user ID")
+	searchKinds := fs.String("kinds", "", "Comma-separated message kinds")
+	searchMinDate := fs.Int64("min_date", 0, "Minimum message creation time in Unix milliseconds")
+	searchMaxDate := fs.Int64("max_date", 0, "Maximum message creation time in Unix milliseconds")
+	searchCursor := fs.String("cursor", "", "Opaque cursor returned by the previous search page")
+	limit := fs.Int("limit", 0, "Maximum number of results")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, err
@@ -383,13 +417,35 @@ func parseGetCmd(cmd *ParsedCmd, args []string, idStr, defaultTopic string) (*Pa
 		query.What += "desc "
 		query.Desc = &pbx.GetOpts{}
 	}
-	if *sub {
+	if *sub || *subTopic != "" || *subUser != "" {
 		query.What += "sub "
-		query.Sub = &pbx.GetOpts{}
+		query.Sub = &pbx.GetOpts{
+			Topic: *subTopic,
+			User:  *subUser,
+			Limit: int32(*limit),
+		}
 	}
 	if *data {
 		query.What += "data "
 		query.Data = &pbx.GetOpts{}
+	}
+	if *searchText != "" {
+		query.What += "search "
+		search := &pbx.SearchOpts{
+			Query:      *searchText,
+			Scope:      *searchScope,
+			FromUserId: *searchFrom,
+			MinDate:    *searchMinDate,
+			MaxDate:    *searchMaxDate,
+			Cursor:     *searchCursor,
+			Limit:      int32(*limit),
+		}
+		for _, kind := range strings.Split(*searchKinds, ",") {
+			if kind = strings.TrimSpace(kind); kind != "" {
+				search.Kinds = append(search.Kinds, kind)
+			}
+		}
+		query.Search = search
 	}
 	query.What = strings.TrimSpace(query.What)
 	if query.What == "" {
@@ -410,6 +466,7 @@ func parseGetCmd(cmd *ParsedCmd, args []string, idStr, defaultTopic string) (*Pa
 	return cmd, nil
 }
 
+// parseSetCmd 将输入解析为SetCmd。
 func parseSetCmd(cmd *ParsedCmd, args []string, idStr, defaultTopic string) (*ParsedCmd, error) {
 	fs := flag.NewFlagSet("set", flag.ContinueOnError)
 	fn := fs.String("fn", "", "Public name")
@@ -417,9 +474,15 @@ func parseSetCmd(cmd *ParsedCmd, args []string, idStr, defaultTopic string) (*Pa
 	private := fs.String("private", "", "Private comment")
 	note := fs.String("note", "", "Account description")
 	asRoot := fs.Bool("as_root", false, "Execute as root")
+	user := fs.String("user", "", "Target topic member user ID")
+	mode := fs.String("mode", "", "Raw ACL mode for the target member")
+	role := fs.String("role", "", "Member role: admin/member/readonly/banned/publisher/subscriber")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, err
+	}
+	if *mode != "" && *role != "" {
+		return nil, fmt.Errorf("set: mode and role are mutually exclusive")
 	}
 
 	pos := fs.Args()
@@ -447,6 +510,13 @@ func parseSetCmd(cmd *ParsedCmd, args []string, idStr, defaultTopic string) (*Pa
 		}
 		query.Desc.Private = privBytes
 	}
+	if *user != "" || *mode != "" || *role != "" {
+		query.Sub = &pbx.SetSub{
+			UserId: *user,
+			Mode:   *mode,
+			Role:   *role,
+		}
+	}
 
 	msg := &pbx.ClientMsg{
 		Message: &pbx.ClientMsg_Set{
@@ -468,13 +538,18 @@ func parseSetCmd(cmd *ParsedCmd, args []string, idStr, defaultTopic string) (*Pa
 	return cmd, nil
 }
 
+// parseDelCmd 将输入解析为DelCmd。
 func parseDelCmd(cmd *ParsedCmd, args []string, idStr, defaultTopic string) (*ParsedCmd, error) {
 	fs := flag.NewFlagSet("del", flag.ContinueOnError)
 	user := fs.String("user", "", "Delete user ID")
+	member := fs.String("member", "", "Remove member subscription from the selected topic")
 	asRoot := fs.Bool("as_root", false, "Delete as root")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, err
+	}
+	if *user != "" && *member != "" {
+		return nil, fmt.Errorf("del: user and member are mutually exclusive")
 	}
 
 	pos := fs.Args()
@@ -487,14 +562,17 @@ func parseDelCmd(cmd *ParsedCmd, args []string, idStr, defaultTopic string) (*Pa
 	if *user != "" {
 		what = pbx.ClientDel_USER
 		topic = *user
+	} else if *member != "" {
+		what = pbx.ClientDel_SUB
 	}
 
 	msg := &pbx.ClientMsg{
 		Message: &pbx.ClientMsg_Del{
 			Del: &pbx.ClientDel{
-				Id:    idStr,
-				Topic: topic,
-				What:  what,
+				Id:     idStr,
+				Topic:  topic,
+				What:   what,
+				UserId: *member,
 			},
 		},
 	}
@@ -509,6 +587,7 @@ func parseDelCmd(cmd *ParsedCmd, args []string, idStr, defaultTopic string) (*Pa
 	return cmd, nil
 }
 
+// parseNoteCmd 将输入解析为事件通知Cmd。
 func parseNoteCmd(cmd *ParsedCmd, args []string, _, defaultTopic string) (*ParsedCmd, error) {
 	topic := defaultTopic
 	if len(args) > 0 {

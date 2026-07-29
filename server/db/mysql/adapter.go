@@ -15,24 +15,28 @@ import (
 	"strings"
 	"time"
 
-	ms "github.com/go-sql-driver/mysql"
-	"github.com/jmoiron/sqlx"
 	"chat/server/auth"
 	"chat/server/db/common"
 	"chat/server/store"
 	t "chat/server/store/types"
+	ms "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
 )
 
 // adapter 保存 MySQL 连接数据。
 type adapter struct {
-	db     *sqlx.DB
-	dsn    string
+	// db 保存数据库。
+	db *sqlx.DB
+	// dsn 保存dsn。
+	dsn string
+	// dbName 保存数据库名称。
 	dbName string
 	// 最大返回记录数
 	maxResults int
 	// Maximum number of 消息 records to return
 	maxMessageResults int
-	version           int
+	// version 保存版本。
+	version int
 
 	// 单次查询超时。
 	sqlTimeout time.Duration
@@ -41,12 +45,17 @@ type adapter struct {
 }
 
 const (
-	adpVersion  = 116
+	// adpVersion 指定adp版本。
+	adpVersion = 119
+	// adapterName 指定adapter名称。
 	adapterName = "mysql"
 
-	defaultDSN      = "root:@tcp(localhost:3306)/im?parseTime=true"
+	// defaultDSN 指定默认DSN。
+	defaultDSN = "root:@tcp(localhost:3306)/im?parseTime=true"
+	// defaultDatabase 指定默认Database。
 	defaultDatabase = "im"
 
+	// defaultMaxResults 指定默认MaxResults。
 	defaultMaxResults = 1024
 	// 此值受 Session 发送队列上限 (128) 限制。
 	defaultMaxMessageResults = 100
@@ -56,6 +65,7 @@ const (
 	txTimeoutMultiplier = 1.5
 )
 
+// configType 保存配置Type的数据和运行状态。
 type configType struct {
 	// 数据库连接设置。
 	// 参见 https://pkg.go.dev/github.com/go-sql-driver/mysql#Config
@@ -78,6 +88,7 @@ type configType struct {
 	SqlTimeout int `json:"sql_timeout,omitempty"`
 }
 
+// getContext 查询并返回上下文。
 func (a *adapter) getContext() (context.Context, context.CancelFunc) {
 	if a.sqlTimeout > 0 {
 		return context.WithTimeout(context.Background(), a.sqlTimeout)
@@ -85,6 +96,7 @@ func (a *adapter) getContext() (context.Context, context.CancelFunc) {
 	return context.Background(), nil
 }
 
+// getContextForTx 查询并返回上下文ForTx。
 func (a *adapter) getContextForTx() (context.Context, context.CancelFunc) {
 	if a.txTimeout > 0 {
 		return context.WithTimeout(context.Background(), a.txTimeout)
@@ -219,6 +231,7 @@ func (a *adapter) GetDbVersion() (int, error) {
 	return vers, nil
 }
 
+// updateDbVersion 更新数据库版本。
 func (a *adapter) updateDbVersion(v int) error {
 	ctx, cancel := a.getContext()
 	if cancel != nil {
@@ -322,99 +335,99 @@ func (a *adapter) CreateDb(reset bool) error {
 
 	if _, err = tx.Exec(
 		`CREATE TABLE users(
-			id        BIGINT NOT NULL,
-			createdat DATETIME(3) NOT NULL,
-			updatedat DATETIME(3) NOT NULL,
-			state     SMALLINT NOT NULL DEFAULT 0,
-			stateat   DATETIME(3),
-			access    JSON,
-			lastseen  DATETIME,
-			useragent VARCHAR(255) DEFAULT '',
-			public    JSON,
-			trusted   JSON,
-			tags      JSON,
+			id        BIGINT NOT NULL COMMENT '用户唯一ID',
+			createdat DATETIME(3) NOT NULL COMMENT '用户创建时间',
+			updatedat DATETIME(3) NOT NULL COMMENT '用户最近更新时间',
+			state     SMALLINT NOT NULL DEFAULT 0 COMMENT '用户生命周期状态',
+			stateat   DATETIME(3) COMMENT '状态最近变更时间',
+			access    JSON COMMENT '用户默认访问权限',
+			lastseen  DATETIME COMMENT '用户最近在线时间',
+			useragent VARCHAR(255) DEFAULT '' COMMENT '最近在线客户端User-Agent',
+			public    JSON COMMENT '对其他用户可见的公开资料',
+			trusted   JSON COMMENT '仅可信客户端可见的资料',
+			tags      JSON COMMENT '用于发现和搜索的反规范化标签',
 			PRIMARY KEY(id),
 			INDEX users_state_stateat(state, stateat),
 			INDEX users_lastseen_updatedat(lastseen, updatedat)
-		)`); err != nil {
+		) COMMENT='用户账号及公开资料'`); err != nil {
 		return err
 	}
 
 	// 已索引的用户标签。
 	if _, err = tx.Exec(
 		`CREATE TABLE usertags(
-			id     INT NOT NULL AUTO_INCREMENT,
-			userid BIGINT NOT NULL,
-			tag    VARCHAR(96) NOT NULL,
+			id     INT NOT NULL AUTO_INCREMENT COMMENT '标签关联记录ID',
+			userid BIGINT NOT NULL COMMENT '关联用户ID',
+			tag    VARCHAR(96) NOT NULL COMMENT '标准化用户搜索标签',
 			PRIMARY KEY(id),
 			FOREIGN KEY(userid) REFERENCES users(id),
 			INDEX usertags_tag(tag),
 			UNIQUE INDEX usertags_userid_tag(userid, tag)
-		)`); err != nil {
+		) COMMENT='用户与可搜索标签的索引关联'`); err != nil {
 		return err
 	}
 
 	// 已索引的设备。归一化到单独的表中。
 	if _, err = tx.Exec(
 		`CREATE TABLE devices(
-			id       INT NOT NULL AUTO_INCREMENT,
-			userid   BIGINT NOT NULL,
-			hash     CHAR(16) NOT NULL,
-			deviceid TEXT NOT NULL,
-			platform VARCHAR(32),
-			lastseen DATETIME NOT NULL,
-			lang     VARCHAR(8),
+			id       INT NOT NULL AUTO_INCREMENT COMMENT '设备记录ID',
+			userid   BIGINT NOT NULL COMMENT '设备所属用户ID',
+			hash     CHAR(16) NOT NULL COMMENT '设备标识的短哈希索引',
+			deviceid TEXT NOT NULL COMMENT '推送服务使用的完整设备标识',
+			platform VARCHAR(32) COMMENT '客户端平台名称',
+			lastseen DATETIME NOT NULL COMMENT '设备最近活跃时间',
+			lang     VARCHAR(8) COMMENT '设备首选语言',
 			PRIMARY KEY(id),
 			FOREIGN KEY(userid) REFERENCES users(id),
 			UNIQUE INDEX devices_hash(hash)
-		)`); err != nil {
+		) COMMENT='用户登录设备与推送目标'`); err != nil {
 		return err
 	}
 
 	// 基础认证方案的认证记录。
 	if _, err = tx.Exec(
 		`CREATE TABLE auth(
-			id      INT NOT NULL AUTO_INCREMENT,
-			uname   VARCHAR(32) NOT NULL,
-			userid  BIGINT NOT NULL,
-			scheme  VARCHAR(16) NOT NULL,
-			authlvl INT NOT NULL,
-			secret  VARCHAR(255) NOT NULL,
-			expires DATETIME,
+			id      INT NOT NULL AUTO_INCREMENT COMMENT '认证记录ID',
+			uname   VARCHAR(32) NOT NULL COMMENT '认证方案内唯一登录名',
+			userid  BIGINT NOT NULL COMMENT '认证记录所属用户ID',
+			scheme  VARCHAR(16) NOT NULL COMMENT '认证方案名称',
+			authlvl INT NOT NULL COMMENT '认证等级',
+			secret  VARCHAR(255) NOT NULL COMMENT '认证方案保存的凭据摘要或密文',
+			expires DATETIME COMMENT '认证记录过期时间',
 			PRIMARY KEY(id),
 			FOREIGN KEY(userid) REFERENCES users(id),
 			UNIQUE INDEX auth_userid_scheme(userid, scheme),
 			UNIQUE INDEX auth_uname(uname)
-		)`); err != nil {
+		) COMMENT='用户认证方案与登录凭据'`); err != nil {
 		return err
 	}
 
 	// Topic 管理
 	if _, err = tx.Exec(
 		`CREATE TABLE topics(
-			id        INT NOT NULL AUTO_INCREMENT,
-			createdat DATETIME(3) NOT NULL,
-			updatedat DATETIME(3) NOT NULL,
-			state     SMALLINT NOT NULL DEFAULT 0,
-			stateat   DATETIME(3),
-			touchedat DATETIME(3),
-			name      CHAR(25) NOT NULL,
-			usebt     TINYINT DEFAULT 0,
-			owner     BIGINT NOT NULL DEFAULT 0,
-			access    JSON,
-			seqid     INT NOT NULL DEFAULT 0,
-			delid     INT DEFAULT 0,
-			subcnt		INT DEFAULT 0,
-			public    JSON,
-			trusted   JSON,
-			tags      JSON,
-			aux       JSON,
+			id        INT NOT NULL AUTO_INCREMENT COMMENT 'Topic内部记录ID',
+			createdat DATETIME(3) NOT NULL COMMENT 'Topic创建时间',
+			updatedat DATETIME(3) NOT NULL COMMENT 'Topic元数据最近更新时间',
+			state     SMALLINT NOT NULL DEFAULT 0 COMMENT 'Topic生命周期状态',
+			stateat   DATETIME(3) COMMENT '状态最近变更时间',
+			touchedat DATETIME(3) COMMENT '最近一条消息通过Topic的时间',
+			name      CHAR(25) NOT NULL COMMENT 'Topic全局唯一名称',
+			usebt     TINYINT DEFAULT 0 COMMENT '是否使用广播频道语义',
+			owner     BIGINT NOT NULL DEFAULT 0 COMMENT 'Topic所有者用户ID',
+			access    JSON COMMENT '匿名和认证用户的默认访问权限',
+			seqid     INT NOT NULL DEFAULT 0 COMMENT '最新服务端消息序列号',
+			delid     INT DEFAULT 0 COMMENT '最新删除操作序列号',
+			subcnt		INT DEFAULT 0 COMMENT '当前有效订阅者数量',
+			public    JSON COMMENT '订阅者可见的公共资料',
+			trusted   JSON COMMENT '可信客户端可见的资料',
+			tags      JSON COMMENT '用于发现和搜索的反规范化标签',
+			aux       JSON COMMENT '服务端扩展元数据',
 			PRIMARY KEY(id),
 			UNIQUE INDEX topics_name(name),
 			INDEX topics_owner(owner),
 			INDEX topics_state_stateat(state, stateat),
 			INDEX topics_name_state_seqid(name, state, seqid)
-		)`); err != nil {
+		) COMMENT='会话、群组和频道的核心状态'`); err != nil {
 		return err
 	}
 
@@ -426,98 +439,126 @@ func (a *adapter) CreateDb(reset bool) error {
 	// 已索引的 Topic 标签。
 	if _, err = tx.Exec(
 		`CREATE TABLE topictags(
-			id    INT NOT NULL AUTO_INCREMENT,
-			topic CHAR(25) NOT NULL,
-			tag   VARCHAR(96) NOT NULL,
+			id    INT NOT NULL AUTO_INCREMENT COMMENT '标签关联记录ID',
+			topic CHAR(25) NOT NULL COMMENT '关联Topic名称',
+			tag   VARCHAR(96) NOT NULL COMMENT '标准化Topic搜索标签',
 			PRIMARY KEY(id),
 			FOREIGN KEY(topic) REFERENCES topics(name),
 			INDEX topictags_tag(tag),
 			UNIQUE INDEX topictags_topic_tag(topic, tag)
-		)`); err != nil {
+		) COMMENT='Topic与可搜索标签的索引关联'`); err != nil {
 		return err
 	}
 
 	// 订阅
 	if _, err = tx.Exec(
 		`CREATE TABLE subscriptions(
-			id        INT NOT NULL AUTO_INCREMENT,
-			createdat DATETIME(3) NOT NULL,
-			updatedat DATETIME(3) NOT NULL,
-			deletedat DATETIME(3),
-			userid    BIGINT NOT NULL,
-			topic     CHAR(25) NOT NULL,
-			delid     INT DEFAULT 0,
-			recvseqid INT DEFAULT 0,
-			readseqid INT DEFAULT 0,
-			modewant  CHAR(8),
-			modegiven CHAR(8),
-			private   JSON,
+			id        INT NOT NULL AUTO_INCREMENT COMMENT '订阅记录ID',
+			createdat DATETIME(3) NOT NULL COMMENT '订阅创建时间',
+			updatedat DATETIME(3) NOT NULL COMMENT '订阅最近更新时间',
+			deletedat DATETIME(3) COMMENT '订阅软删除时间',
+			userid    BIGINT NOT NULL COMMENT '订阅用户ID',
+			topic     CHAR(25) NOT NULL COMMENT '订阅Topic名称',
+			delid     INT DEFAULT 0 COMMENT '用户已同步的最新删除操作序列号',
+			recvseqid INT DEFAULT 0 COMMENT '用户已送达的最新消息序列号',
+			readseqid INT DEFAULT 0 COMMENT '用户已读的最新消息序列号',
+			modewant  CHAR(8) COMMENT '用户请求的访问模式',
+			modegiven CHAR(8) COMMENT 'Topic授予的访问模式',
+			private   JSON COMMENT '仅该订阅用户可见的私有资料',
 			PRIMARY KEY(id),
 			FOREIGN KEY(userid) REFERENCES users(id),
 			UNIQUE INDEX subscriptions_topic_userid(topic, userid),
 			INDEX subscriptions_topic(topic),
 			INDEX subscriptions_deletedat(deletedat),
 			INDEX subscriptions_userid_topic_deletedat(userid, topic, deletedat)
-		)`); err != nil {
+		) COMMENT='用户与Topic之间的订阅、权限及同步游标'`); err != nil {
 		return err
 	}
 
 	// 消息
 	if _, err = tx.Exec(
 		`CREATE TABLE messages(
-			id        INT NOT NULL AUTO_INCREMENT,
-			createdat DATETIME(3) NOT NULL,
-			updatedat DATETIME(3) NOT NULL,
-			deletedat DATETIME(3),
-			delid     INT DEFAULT 0,
-			seqid     INT NOT NULL,
-			topic     CHAR(25) NOT NULL,` +
-			"`from`   BIGINT NOT NULL," +
-			`head     JSON,
-			content   JSON,
+			id        INT NOT NULL AUTO_INCREMENT COMMENT '消息内部记录ID',
+			createdat DATETIME(3) NOT NULL COMMENT '消息创建时间',
+			updatedat DATETIME(3) NOT NULL COMMENT '消息最近编辑时间',
+			deletedat DATETIME(3) COMMENT '消息删除时间',
+			delid     INT DEFAULT 0 COMMENT '硬删除操作序列号；0表示未硬删除',
+			seqid     INT NOT NULL COMMENT '消息在Topic内的服务端序列号',
+			topic     CHAR(25) NOT NULL COMMENT '消息所属Topic名称',` +
+			"`from`   BIGINT NOT NULL COMMENT '发送者用户ID'," +
+			`clientid VARCHAR(64) COMMENT '客户端生成的发布幂等键',
+			clientkey CHAR(43) COMMENT '发送者与clientid生成的唯一索引键',
+			head     JSON COMMENT '客户端扩展头和服务端消息元数据',
+			content   JSON COMMENT '纯文本或Drafty消息正文',
+			searchtext MEDIUMTEXT COMMENT '从消息正文提取并经NFKC归一化的全文搜索文本',
 			PRIMARY KEY(id),
 			FOREIGN KEY(topic) REFERENCES topics(name),
-			UNIQUE INDEX messages_topic_seqid(topic, seqid)
-		)`); err != nil {
+			UNIQUE INDEX messages_topic_seqid(topic, seqid),
+			UNIQUE INDEX messages_topic_clientkey(topic, clientkey),
+			INDEX messages_topic_updatedat_seqid(topic,updatedat,seqid)
+		) COMMENT='已进入Topic序列的持久化消息'`); err != nil {
+		return err
+	}
+
+	if _, err = tx.Exec(
+		`CREATE TABLE scheduledmessages(
+			id        BIGINT NOT NULL COMMENT '服务端生成的定时消息唯一ID',
+			createdat DATETIME(3) NOT NULL COMMENT '定时消息创建时间',
+			updatedat DATETIME(3) NOT NULL COMMENT '定时消息最近更新时间',
+			publishat DATETIME(3) NOT NULL COMMENT '计划投递时间',
+			topic     CHAR(25) NOT NULL COMMENT '目标Topic名称',
+			` + "`from`" + ` BIGINT NOT NULL COMMENT '发送者用户ID',
+			clientid  VARCHAR(64) NOT NULL COMMENT '发送者范围内的客户端幂等键',
+			noecho    TINYINT NOT NULL DEFAULT 0 COMMENT '投递时是否跳过发起会话',
+			head      JSON COMMENT '已校验的消息头快照',
+			content   JSON COMMENT '已校验的消息正文快照',
+			attachmenturls JSON COMMENT '投递普通消息时使用的附件URL列表',
+			attachments JSON COMMENT '垃圾回收保护使用的文件ID列表',
+			PRIMARY KEY(id),
+			FOREIGN KEY(topic) REFERENCES topics(name) ON DELETE CASCADE,
+			FOREIGN KEY(` + "`from`" + `) REFERENCES users(id) ON DELETE CASCADE,
+			UNIQUE INDEX scheduled_topic_from_clientid(topic,` + "`from`" + `,clientid),
+			INDEX scheduled_publishat(publishat)
+		) COMMENT='尚未进入Topic序列的持久化定时消息队列'`); err != nil {
 		return err
 	}
 
 	// 删除日志
 	if _, err = tx.Exec(
 		`CREATE TABLE dellog(
-			id         INT NOT NULL AUTO_INCREMENT,
-			topic      CHAR(25) NOT NULL,
-			deletedfor BIGINT NOT NULL DEFAULT 0,
-			delid      INT NOT NULL,
-			low        INT NOT NULL,
-			hi         INT NOT NULL,
+			id         INT NOT NULL AUTO_INCREMENT COMMENT '删除日志记录ID',
+			topic      CHAR(25) NOT NULL COMMENT '删除操作所属Topic',
+			deletedfor BIGINT NOT NULL DEFAULT 0 COMMENT '软删除目标用户ID；0表示所有用户',
+			delid      INT NOT NULL COMMENT '删除操作序列号',
+			low        INT NOT NULL COMMENT '被删除消息范围下界（包含）',
+			hi         INT NOT NULL COMMENT '被删除消息范围上界（不包含）',
 			PRIMARY KEY(id),
 			FOREIGN KEY(topic) REFERENCES topics(name),
 			INDEX dellog_topic_delid_deletedfor(topic,delid,deletedfor),
 			INDEX dellog_topic_deletedfor_low_hi(topic,deletedfor,low,hi),
 			INDEX dellog_deletedfor(deletedfor)
-		)`); err != nil {
+		) COMMENT='消息软删除与硬删除的同步日志'`); err != nil {
 		return err
 	}
 
 	// 用户 credentials
 	if _, err = tx.Exec(
 		`CREATE TABLE credentials(
-			id        INT NOT NULL AUTO_INCREMENT,
-			createdat DATETIME(3) NOT NULL,
-			updatedat DATETIME(3) NOT NULL,
-			deletedat DATETIME(3),
-			method    VARCHAR(16) NOT NULL,
-			value     VARCHAR(128) NOT NULL,
-			synthetic VARCHAR(192) NOT NULL,
-			userid    BIGINT NOT NULL,
-			resp      VARCHAR(255),
-			done      TINYINT NOT NULL DEFAULT 0,
-			retries   INT NOT NULL DEFAULT 0,
+			id        INT NOT NULL AUTO_INCREMENT COMMENT '凭据记录ID',
+			createdat DATETIME(3) NOT NULL COMMENT '凭据创建时间',
+			updatedat DATETIME(3) NOT NULL COMMENT '凭据最近更新时间',
+			deletedat DATETIME(3) COMMENT '凭据软删除时间',
+			method    VARCHAR(16) NOT NULL COMMENT '凭据类型，如email或tel',
+			value     VARCHAR(128) NOT NULL COMMENT '规范化后的凭据值',
+			synthetic VARCHAR(192) NOT NULL COMMENT '用于全局唯一约束的合成键',
+			userid    BIGINT NOT NULL COMMENT '凭据所属用户ID',
+			resp      VARCHAR(255) COMMENT '验证挑战的期望响应摘要',
+			done      TINYINT NOT NULL DEFAULT 0 COMMENT '凭据是否已完成验证',
+			retries   INT NOT NULL DEFAULT 0 COMMENT '验证失败重试次数',
 			PRIMARY KEY(id),
 			FOREIGN KEY(userid) REFERENCES users(id),
 			UNIQUE credentials_uniqueness(synthetic)
-		)`); err != nil {
+		) COMMENT='用户邮箱、手机号等可验证身份凭据'`); err != nil {
 		return err
 	}
 
@@ -525,47 +566,59 @@ func (a *adapter) CreateDb(reset bool) error {
 	// 不要在 userid 上添加外键。不需要，而且会破坏用户删除。
 	if _, err = tx.Exec(
 		`CREATE TABLE fileuploads(
-			id        BIGINT NOT NULL,
-			createdat DATETIME(3) NOT NULL,
-			updatedat DATETIME(3) NOT NULL,
-			userid    BIGINT,
-			status    INT NOT NULL,
-			mimetype  VARCHAR(255) NOT NULL,
-			size      BIGINT NOT NULL,
-			etag      VARCHAR(128),
-			location  VARCHAR(2048) NOT NULL,
+			id        BIGINT NOT NULL COMMENT '上传文件唯一ID',
+			createdat DATETIME(3) NOT NULL COMMENT '上传记录创建时间',
+			updatedat DATETIME(3) NOT NULL COMMENT '上传状态最近更新时间',
+			userid    BIGINT COMMENT '上传文件的用户ID',
+			status    INT NOT NULL COMMENT '上传和垃圾回收状态',
+			mimetype  VARCHAR(255) NOT NULL COMMENT '文件MIME类型',
+			size      BIGINT NOT NULL COMMENT '文件字节大小',
+			etag      VARCHAR(128) COMMENT '对象存储内容校验标签',
+			location  VARCHAR(2048) NOT NULL COMMENT '媒体后端中的文件位置',
 			PRIMARY KEY(id),
 			INDEX fileuploads_status(status)
-		)`); err != nil {
+		) COMMENT='媒体后端中的上传文件元数据'`); err != nil {
 		return err
 	}
 
 	// 上传文件与所附加的 Topic、用户或消息之间的链接。
 	if _, err = tx.Exec(
 		`CREATE TABLE filemsglinks(
-			id        INT NOT NULL AUTO_INCREMENT,
-			createdat DATETIME(3) NOT NULL,
-			fileid    BIGINT NOT NULL,
-			msgid     INT,
-			topic     CHAR(25),
-			userid    BIGINT,
+			id        INT NOT NULL AUTO_INCREMENT COMMENT '文件关联记录ID',
+			createdat DATETIME(3) NOT NULL COMMENT '关联创建时间',
+			fileid    BIGINT NOT NULL COMMENT '关联文件ID',
+			msgid     INT COMMENT '关联消息内部记录ID',
+			topic     CHAR(25) COMMENT '关联Topic名称',
+			userid    BIGINT COMMENT '关联用户ID',
 			PRIMARY KEY(id),
 			FOREIGN KEY(fileid) REFERENCES fileuploads(id) ON DELETE CASCADE,
 			FOREIGN KEY(msgid) REFERENCES messages(id) ON DELETE CASCADE,
 			FOREIGN KEY(topic) REFERENCES topics(name) ON DELETE CASCADE,
 			FOREIGN KEY(userid) REFERENCES users(id) ON DELETE CASCADE
-		)`); err != nil {
+		) COMMENT='文件与消息、Topic或用户资料的引用关联'`); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(
+		`CREATE TABLE scheduledfilelinks(
+			id BIGINT NOT NULL AUTO_INCREMENT COMMENT '关联记录自增ID',
+			scheduledid BIGINT NOT NULL COMMENT '定时消息ID',
+			fileid BIGINT NOT NULL COMMENT '待投递文件ID',
+			PRIMARY KEY(id),
+			FOREIGN KEY(scheduledid) REFERENCES scheduledmessages(id) ON DELETE CASCADE,
+			FOREIGN KEY(fileid) REFERENCES fileuploads(id) ON DELETE CASCADE,
+			UNIQUE INDEX scheduledfilelinks_pair(scheduledid,fileid)
+		) COMMENT='定时消息与待投递文件的垃圾回收保护关联'`); err != nil {
 		return err
 	}
 
 	if _, err = tx.Exec(
 		`CREATE TABLE kvmeta(` +
-			"`key`       VARCHAR(64) NOT NULL," +
-			"createdat   DATETIME(3)," +
-			"`value`     TEXT," +
+			"`key`       VARCHAR(64) NOT NULL COMMENT '元数据键'," +
+			"createdat   DATETIME(3) COMMENT '元数据创建时间'," +
+			"`value`     TEXT COMMENT '元数据字符串值'," +
 			"PRIMARY KEY(`key`)," +
 			"INDEX kvmeta_createdat_key(createdat, `key`)" +
-			`)`); err != nil {
+			`) COMMENT='数据库版本及全局键值元数据'`); err != nil {
 		return err
 	}
 	if _, err = tx.Exec("INSERT INTO kvmeta(`key`, `value`) VALUES('version',?)", adpVersion); err != nil {
@@ -825,6 +878,80 @@ func (a *adapter) UpgradeDb() error {
 		}
 	}
 
+	if a.version == 116 {
+		// 为客户端发布重试增加跨重启幂等约束。
+		if _, err := a.db.Exec("ALTER TABLE messages ADD COLUMN clientid VARCHAR(64) NULL COMMENT '客户端生成的发布幂等键' AFTER `from`"); err != nil {
+			return err
+		}
+		if _, err := a.db.Exec("ALTER TABLE messages ADD COLUMN clientkey CHAR(43) NULL COMMENT '发送者与clientid生成的唯一索引键' AFTER clientid"); err != nil {
+			return err
+		}
+		if _, err := a.db.Exec("CREATE UNIQUE INDEX messages_topic_clientkey ON messages(topic, clientkey)"); err != nil {
+			return err
+		}
+		if err := bumpVersion(a, 117); err != nil {
+			return err
+		}
+	}
+
+	if a.version == 117 {
+		// 数据库 117→118：增加消息修改游标索引、定时队列及附件保护关联表。
+		if _, err := a.db.Exec("CREATE INDEX messages_topic_updatedat_seqid ON messages(topic,updatedat,seqid)"); err != nil {
+			return err
+		}
+		if _, err := a.db.Exec(`CREATE TABLE scheduledmessages(
+			id BIGINT NOT NULL COMMENT '服务端生成的定时消息唯一ID',
+			createdat DATETIME(3) NOT NULL COMMENT '定时消息创建时间',
+			updatedat DATETIME(3) NOT NULL COMMENT '定时消息最近更新时间',
+			publishat DATETIME(3) NOT NULL COMMENT '计划投递时间',
+			topic CHAR(25) NOT NULL COMMENT '目标Topic名称',
+			` + "`from`" + ` BIGINT NOT NULL COMMENT '发送者用户ID',
+			clientid VARCHAR(64) NOT NULL COMMENT '发送者范围内的客户端幂等键',
+			noecho TINYINT NOT NULL DEFAULT 0 COMMENT '投递时是否跳过发起会话',
+			head JSON COMMENT '已校验的消息头快照',
+			content JSON COMMENT '已校验的消息正文快照',
+			attachmenturls JSON COMMENT '投递普通消息时使用的附件URL列表',
+			attachments JSON COMMENT '垃圾回收保护使用的文件ID列表',
+			PRIMARY KEY(id),
+			FOREIGN KEY(topic) REFERENCES topics(name) ON DELETE CASCADE,
+			FOREIGN KEY(` + "`from`" + `) REFERENCES users(id) ON DELETE CASCADE,
+			UNIQUE INDEX scheduled_topic_from_clientid(topic,` + "`from`" + `,clientid),
+			INDEX scheduled_publishat(publishat)
+		) COMMENT='尚未进入Topic序列的持久化定时消息队列'`); err != nil {
+			return err
+		}
+		if _, err := a.db.Exec(`CREATE TABLE scheduledfilelinks(
+			id BIGINT NOT NULL AUTO_INCREMENT COMMENT '关联记录自增ID',
+			scheduledid BIGINT NOT NULL COMMENT '定时消息ID',
+			fileid BIGINT NOT NULL COMMENT '待投递文件ID',
+			PRIMARY KEY(id),
+			FOREIGN KEY(scheduledid) REFERENCES scheduledmessages(id) ON DELETE CASCADE,
+			FOREIGN KEY(fileid) REFERENCES fileuploads(id) ON DELETE CASCADE,
+			UNIQUE INDEX scheduledfilelinks_pair(scheduledid,fileid)
+		) COMMENT='定时消息与待投递文件的垃圾回收保护关联'`); err != nil {
+			return err
+		}
+		if err := bumpVersion(a, 118); err != nil {
+			return err
+		}
+	}
+
+	if a.version == 118 {
+		// 数据库 118→119：增加跨数据库一致的消息搜索文本。
+		if _, err := a.db.Exec("ALTER TABLE messages ADD COLUMN searchtext MEDIUMTEXT NULL COMMENT '从消息正文提取并经NFKC归一化的全文搜索文本' AFTER content"); err != nil {
+			return err
+		}
+		if _, err := a.db.Exec(`UPDATE messages SET searchtext=CASE
+			WHEN JSON_TYPE(content)='STRING' THEN JSON_UNQUOTE(content)
+			WHEN JSON_TYPE(content)='OBJECT' THEN COALESCE(JSON_UNQUOTE(JSON_EXTRACT(content,'$.txt')),'')
+			ELSE '' END`); err != nil {
+			return err
+		}
+		if err := bumpVersion(a, 119); err != nil {
+			return err
+		}
+	}
+
 	if a.version != adpVersion {
 		return errors.New("Failed to perform database upgrade to version " + strconv.Itoa(adpVersion) +
 			". DB is still at " + strconv.Itoa(a.version))
@@ -841,6 +968,7 @@ func createSystemTopic(tx *sql.Tx) error {
 	return err
 }
 
+// addTags 向当前集合添加Tags。
 func addTags(tx *sqlx.Tx, table, keyName string, keyVal any, tags []string, ignoreDups bool) error {
 	if len(tags) == 0 {
 		return nil
@@ -866,6 +994,7 @@ func addTags(tx *sqlx.Tx, table, keyName string, keyVal any, tags []string, igno
 	return nil
 }
 
+// removeTags 删除或清理Tags。
 func removeTags(tx *sqlx.Tx, table, keyName string, keyVal any, tags []string) error {
 	if len(tags) == 0 {
 		return nil
@@ -1091,6 +1220,7 @@ func (a *adapter) UserGet(uid t.Uid) (*t.User, error) {
 	return nil, err
 }
 
+// UserGetAll 完成用户GetAll所需的内部处理。
 func (a *adapter) UserGetAll(ids ...t.Uid) ([]t.User, error) {
 	uids := make([]any, len(ids))
 	for i, id := range ids {
@@ -1176,6 +1306,14 @@ func (a *adapter) UserDelete(uid t.Uid, hard bool) error {
 	}
 
 	now := t.TimeNow()
+	if _, err = tx.ExecContext(ctx, "DELETE FROM scheduledmessages WHERE `from`=?", decoded_uid); err != nil {
+		return err
+	}
+	for _, topic := range ownTopics {
+		if _, err = tx.ExecContext(ctx, "DELETE FROM scheduledmessages WHERE topic=?", topic); err != nil {
+			return err
+		}
+	}
 
 	if hard {
 		// 删除用户的设备
@@ -1197,7 +1335,7 @@ func (a *adapter) UserDelete(uid t.Uid, hard bool) error {
 		// 无法删除用户在所有 Topic 中的消息，因为无法通知 Topic 此类删除。
 		// 只需将消息保留并标记为由“未找到”用户发送。
 
-			// 删除用户作为所有者的 Topic。
+		// 删除用户作为所有者的 Topic。
 		if len(ownTopics) > 0 {
 			// 首先删除这些 Topic 中的所有消息。
 			if _, err = tx.Exec("DELETE dellog FROM dellog JOIN topics ON topics.name=dellog.topic WHERE topics.owner=?",
@@ -1365,7 +1503,7 @@ func (a *adapter) UserUpdate(uid t.Uid, update map[string]any) error {
 			return err
 		}
 		// 现在插入新标签
-			err = addTags(tx, "usertags", "userid", decoded_uid, tags, false)
+		err = addTags(tx, "usertags", "userid", decoded_uid, tags, false)
 		if err != nil {
 			return err
 		}
@@ -1524,6 +1662,7 @@ func (a *adapter) UserGetUnvalidated(lastUpdatedBefore time.Time, limit int) ([]
 	return uids, err
 }
 
+// topicCreate 将输入编码为picCreate。
 func (a *adapter) topicCreate(tx *sqlx.Tx, topic *t.Topic) error {
 	_, err := tx.Exec("INSERT INTO topics(createdat,updatedat,touchedat,state,name,usebt,owner,access,public,trusted,tags,aux) "+
 		"VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -2222,6 +2361,7 @@ func (a *adapter) TopicUpdate(topic string, update map[string]any) error {
 	return tx.Commit()
 }
 
+// TopicOwnerChange 将输入编码为picOwnerChange。
 func (a *adapter) TopicOwnerChange(topic string, newOwner t.Uid) error {
 	ctx, cancel := a.getContext()
 	if cancel != nil {
@@ -2620,6 +2760,128 @@ func (a *adapter) Find(caller, promoPrefix string, req [][]string, opt []string,
 	return subs, err
 }
 
+// FindByName 按公开 alias 子串发现用户，并按 alias 或 Public.fn 发现公开 Topic。
+func (a *adapter) FindByName(caller string, search *t.PeerSearchQuery) ([]t.Subscription, error) {
+	if search == nil || search.Query == "" {
+		return nil, nil
+	}
+	needle := common.EscapeLike(strings.ToLower(search.Query))
+	aliasPattern := strings.ToLower(search.AliasPrefix) + ":%" + needle + "%"
+	namePattern := "%" + needle + "%"
+	stateFilter := ""
+	var userArgs []any
+	if search.ActiveOnly {
+		stateFilter = "u.state=? AND "
+		userArgs = append(userArgs, t.StateOK)
+	}
+	aliasConstraint := "FALSE"
+	if search.AliasPrefix != "" {
+		aliasConstraint = "EXISTS(SELECT 1 FROM usertags ut WHERE ut.userid=u.id AND LOWER(ut.tag) LIKE ? ESCAPE '!')"
+		userArgs = append(userArgs, aliasPattern)
+	}
+	userArgs = append(userArgs, a.maxResults)
+
+	ctx, cancel := a.getContext()
+	if cancel != nil {
+		defer cancel()
+	}
+	userRows, err := a.db.QueryxContext(ctx,
+		"SELECT CAST(u.id AS CHAR) AS topic,u.createdat,u.updatedat,u.access,u.public,u.trusted,u.tags"+
+			" FROM users u WHERE "+stateFilter+aliasConstraint+" LIMIT ?", userArgs...)
+	if err != nil {
+		return nil, err
+	}
+	var found []t.Subscription
+	for userRows.Next() {
+		var rawTopic string
+		var sub t.Subscription
+		var access t.DefaultAccess
+		var public, trusted any
+		var tags t.StringSlice
+		if err = userRows.Scan(&rawTopic, &sub.CreatedAt, &sub.UpdatedAt, &access, &public, &trusted, &tags); err != nil {
+			break
+		}
+		id, parseErr := strconv.ParseInt(rawTopic, 10, 64)
+		if parseErr != nil {
+			continue
+		}
+		sub.Topic = store.EncodeUid(id).UserId()
+		if sub.Topic == caller {
+			continue
+		}
+		decodedPublic := common.FromJSON(public)
+		score, matched := common.RankPeerSearch(sub.Topic, search.Query, search.AliasPrefix, tags, decodedPublic)
+		if score == 0 {
+			continue
+		}
+		sub.SetPublic(decodedPublic)
+		sub.SetTrusted(common.FromJSON(trusted))
+		sub.SetDefaultAccess(access.Auth, access.Anon)
+		sub.SetSearchScore(score)
+		sub.Private = matched
+		found = append(found, sub)
+	}
+	if closeErr := userRows.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	stateFilter = ""
+	var topicArgs []any
+	if search.ActiveOnly {
+		stateFilter = "t.state=? AND "
+		topicArgs = append(topicArgs, t.StateOK)
+	}
+	aliasConstraint = "FALSE"
+	if search.AliasPrefix != "" {
+		aliasConstraint = "EXISTS(SELECT 1 FROM topictags tt WHERE tt.topic=t.name AND LOWER(tt.tag) LIKE ? ESCAPE '!')"
+		topicArgs = append(topicArgs, aliasPattern)
+	}
+	topicArgs = append(topicArgs, namePattern, a.maxResults)
+	topicRows, err := a.db.QueryxContext(ctx,
+		"SELECT t.name,t.createdat,t.updatedat,t.usebt,t.access,t.subcnt,t.public,t.trusted,t.tags"+
+			" FROM topics t WHERE "+stateFilter+"("+aliasConstraint+
+			" OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(t.public,'$.fn')),'')) LIKE ? ESCAPE '!') LIMIT ?",
+		topicArgs...)
+	if err != nil {
+		return nil, err
+	}
+	defer topicRows.Close()
+	for topicRows.Next() {
+		var sub t.Subscription
+		var isChan bool
+		var access t.DefaultAccess
+		var subCnt int
+		var public, trusted any
+		var tags t.StringSlice
+		if err = topicRows.Scan(&sub.Topic, &sub.CreatedAt, &sub.UpdatedAt, &isChan, &access,
+			&subCnt, &public, &trusted, &tags); err != nil {
+			break
+		}
+		decodedPublic := common.FromJSON(public)
+		score, matched := common.RankPeerSearch(sub.Topic, search.Query, search.AliasPrefix, tags, decodedPublic)
+		if score == 0 {
+			continue
+		}
+		if isChan {
+			sub.Topic = t.GrpToChn(sub.Topic)
+		}
+		sub.SetSubCnt(subCnt)
+		sub.SetPublic(decodedPublic)
+		sub.SetTrusted(common.FromJSON(trusted))
+		sub.SetDefaultAccess(access.Auth, access.Anon)
+		sub.SetSearchScore(score)
+		sub.Private = matched
+		found = append(found, sub)
+	}
+	if err == nil {
+		err = topicRows.Err()
+	}
+	return found, err
+}
+
 // FindOne returns the first Topic or 用户 which matches the given tag.
 func (a *adapter) FindOne(tag string) (string, error) {
 	var args []any
@@ -2669,16 +2931,22 @@ func (a *adapter) FindOne(tag string) (string, error) {
 
 // 消息
 func (a *adapter) MessageSave(msg *t.Message) error {
+	msg.InitClientKey()
 	ctx, cancel := a.getContext()
 	if cancel != nil {
 		defer cancel()
 	}
 	// 存储 assignes 消息 ID, but we don't use it. 消息 IDs are not used anywhere.
 	// Using a sequential ID provided by the 数据库.
+	var clientID any
+	if msg.ClientId != "" {
+		clientID = msg.ClientId
+	}
 	res, err := a.db.ExecContext(ctx,
-		"INSERT INTO messages(createdAt,updatedAt,seqid,topic,`from`,head,content) VALUES(?,?,?,?,?,?,?)",
+		"INSERT INTO messages(createdAt,updatedAt,seqid,topic,`from`,clientid,clientkey,head,content,searchtext) VALUES(?,?,?,?,?,?,?,?,?,?)",
 		msg.CreatedAt, msg.UpdatedAt, msg.SeqId, msg.Topic,
-		store.DecodeUid(t.ParseUid(msg.From)), msg.Head, common.ToJSON(msg.Content))
+		store.DecodeUid(t.ParseUid(msg.From)), clientID, common.NullableString(msg.ClientKey), msg.Head,
+		common.ToJSON(msg.Content), msg.SearchText)
 	if err == nil {
 		id, _ := res.LastInsertId()
 		// Replacing ID given by 存储 by ID given by the DB.
@@ -2687,12 +2955,209 @@ func (a *adapter) MessageSave(msg *t.Message) error {
 	return err
 }
 
+// MessageSaveAtomic 在同一事务中推进 Topic 游标并保存消息。
+func (a *adapter) MessageSaveAtomic(msg *t.Message) error {
+	msg.InitClientKey()
+	ctx, cancel := a.getContextForTx()
+	if cancel != nil {
+		defer cancel()
+	}
+	tx, err := a.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err = tx.ExecContext(ctx,
+		"UPDATE topics SET seqid=?,touchedat=? WHERE name=?",
+		msg.SeqId, msg.CreatedAt, msg.Topic); err != nil {
+		return err
+	}
+	var clientID any
+	if msg.ClientId != "" {
+		clientID = msg.ClientId
+	}
+	res, err := tx.ExecContext(ctx,
+		"INSERT INTO messages(createdAt,updatedAt,seqid,topic,`from`,clientid,clientkey,head,content,searchtext) VALUES(?,?,?,?,?,?,?,?,?,?)",
+		msg.CreatedAt, msg.UpdatedAt, msg.SeqId, msg.Topic,
+		store.DecodeUid(t.ParseUid(msg.From)), clientID, common.NullableString(msg.ClientKey), msg.Head,
+		common.ToJSON(msg.Content), msg.SearchText)
+	if err != nil {
+		return err
+	}
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	id, _ := res.LastInsertId()
+	msg.SetUid(t.Uid(id))
+	return nil
+}
+
+// MessageGetByClientId 按 Topic、发送者和客户端幂等键查询已投递消息。
+func (a *adapter) MessageGetByClientId(topic string, from t.Uid, clientID string) (*t.Message, error) {
+	if clientID == "" {
+		return nil, nil
+	}
+	ctx, cancel := a.getContext()
+	if cancel != nil {
+		defer cancel()
+	}
+	var msg t.Message
+	err := a.db.GetContext(ctx, &msg,
+		"SELECT createdat,updatedat,deletedat,delid,seqid,topic,`from`,clientid,head,content"+
+			" FROM messages WHERE topic=? AND clientkey=? LIMIT 1",
+		topic, t.MessageClientKey(from, clientID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	msg.From = common.EncodeUidString(msg.From).String()
+	msg.Content = common.FromJSON(msg.Content)
+	return &msg, nil
+}
+
+// MessageGet 按 Topic 和 SeqId 查询一条未硬删除消息。
+func (a *adapter) MessageGet(topic string, seqID int) (*t.Message, error) {
+	ctx, cancel := a.getContext()
+	if cancel != nil {
+		defer cancel()
+	}
+	var msg t.Message
+	var id int64
+	err := a.db.QueryRowxContext(ctx,
+		"SELECT id,createdat,updatedat,deletedat,delid,seqid,topic,`from`,COALESCE(clientid,'') AS clientid,head,content"+
+			" FROM messages WHERE topic=? AND seqid=? AND delid=0 LIMIT 1",
+		topic, seqID).Scan(
+		&id, &msg.CreatedAt, &msg.UpdatedAt, &msg.DeletedAt, &msg.DelId, &msg.SeqId,
+		&msg.Topic, &msg.From, &msg.ClientId, &msg.Head, &msg.Content)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	msg.SetUid(t.Uid(id))
+	msg.From = common.EncodeUidString(msg.From).String()
+	msg.Content = common.FromJSON(msg.Content)
+	return &msg, nil
+}
+
+// MessageUpdate 更新现存消息的正文、消息头和修改时间。
+func (a *adapter) MessageUpdate(msg *t.Message) error {
+	ctx, cancel := a.getContext()
+	if cancel != nil {
+		defer cancel()
+	}
+	res, err := a.db.ExecContext(ctx,
+		"UPDATE messages SET updatedat=?,head=?,content=?,searchtext=? WHERE topic=? AND seqid=? AND delid=0",
+		msg.UpdatedAt, msg.Head, common.ToJSON(msg.Content), msg.SearchText, msg.Topic, msg.SeqId)
+	if err != nil {
+		return err
+	}
+	if count, _ := res.RowsAffected(); count == 0 {
+		return t.ErrNotFound
+	}
+	return nil
+}
+
+// MessageSchedule 将消息快照写入持久化定时队列。
+func (a *adapter) MessageSchedule(msg *t.ScheduledMessage) error {
+	ctx, cancel := a.getContext()
+	if cancel != nil {
+		defer cancel()
+	}
+	_, err := a.db.ExecContext(ctx,
+		"INSERT INTO scheduledmessages(id,createdat,updatedat,publishat,topic,`from`,clientid,noecho,head,content,attachmenturls,attachments)"+
+			" VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+		store.DecodeUid(msg.Uid()), msg.CreatedAt, msg.UpdatedAt, msg.PublishAt, msg.Topic,
+		store.DecodeUid(t.ParseUid(msg.From)), msg.ClientId, msg.NoEcho, msg.Head,
+		common.ToJSON(msg.Content), msg.AttachmentURLs, msg.Attachments)
+	return err
+}
+
+// MessageGetScheduledByClientId 按发送者范围内的幂等键查询待投递消息。
+func (a *adapter) MessageGetScheduledByClientId(topic string, from t.Uid, clientID string) (*t.ScheduledMessage, error) {
+	if clientID == "" {
+		return nil, nil
+	}
+	ctx, cancel := a.getContext()
+	if cancel != nil {
+		defer cancel()
+	}
+	var msg t.ScheduledMessage
+	var id, fromID int64
+	err := a.db.QueryRowxContext(ctx,
+		"SELECT id,createdat,updatedat,publishat,topic,`from`,clientid,noecho,head,content,attachmenturls,attachments"+
+			" FROM scheduledmessages WHERE topic=? AND `from`=? AND clientid=? LIMIT 1",
+		topic, store.DecodeUid(from), clientID).Scan(
+		&id, &msg.CreatedAt, &msg.UpdatedAt, &msg.PublishAt, &msg.Topic, &fromID,
+		&msg.ClientId, &msg.NoEcho, &msg.Head, &msg.Content, &msg.AttachmentURLs, &msg.Attachments)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	msg.SetUid(store.EncodeUid(id))
+	msg.From = store.EncodeUid(fromID).String()
+	msg.Content = common.FromJSON(msg.Content)
+	return &msg, nil
+}
+
+// MessageGetDueScheduled 按计划时间升序读取一批已到期消息。
+func (a *adapter) MessageGetDueScheduled(now time.Time, limit int) ([]t.ScheduledMessage, error) {
+	if limit <= 0 {
+		limit = a.maxMessageResults
+	}
+	ctx, cancel := a.getContext()
+	if cancel != nil {
+		defer cancel()
+	}
+	rows, err := a.db.QueryxContext(ctx,
+		"SELECT id,createdat,updatedat,publishat,topic,`from`,clientid,noecho,head,content,attachmenturls,attachments"+
+			" FROM scheduledmessages WHERE publishat<=? ORDER BY publishat LIMIT ?",
+		now, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []t.ScheduledMessage
+	for rows.Next() {
+		var msg t.ScheduledMessage
+		var id, fromID int64
+		if err = rows.Scan(&id, &msg.CreatedAt, &msg.UpdatedAt, &msg.PublishAt, &msg.Topic, &fromID,
+			&msg.ClientId, &msg.NoEcho, &msg.Head, &msg.Content, &msg.AttachmentURLs, &msg.Attachments); err != nil {
+			return nil, err
+		}
+		msg.SetUid(store.EncodeUid(id))
+		msg.From = store.EncodeUid(fromID).String()
+		msg.Content = common.FromJSON(msg.Content)
+		out = append(out, msg)
+	}
+	return out, rows.Err()
+}
+
+// MessageDeleteScheduled 删除指定发送者拥有的定时消息。
+func (a *adapter) MessageDeleteScheduled(id, topic string, from t.Uid) error {
+	ctx, cancel := a.getContext()
+	if cancel != nil {
+		defer cancel()
+	}
+	_, err := a.db.ExecContext(ctx, "DELETE FROM scheduledmessages WHERE id=? AND topic=? AND `from`=?",
+		store.DecodeUid(t.ParseUid(id)), topic, store.DecodeUid(from))
+	return err
+}
+
 // MessageGetAll returns 消息 matching the query.
 func (a *adapter) MessageGetAll(topic string, forUser t.Uid, opts *t.QueryOpt) ([]t.Message, error) {
 	var limit = a.maxMessageResults
+	order := "DESC"
 
 	args := []any{store.DecodeUid(forUser), topic}
 	seqIdConstraint := ""
+	modifiedConstraint := ""
 	if opts != nil {
 		seqIdConstraint = "AND m.seqid "
 		if len(opts.IdRanges) > 0 {
@@ -2717,9 +3182,21 @@ func (a *adapter) MessageGetAll(topic string, forUser t.Uid, opts *t.QueryOpt) (
 		if opts.Limit > 0 && opts.Limit < limit {
 			limit = opts.Limit
 		}
+		if opts.Forward {
+			order = "ASC"
+		}
+		if opts.IfModifiedSince != nil {
+			modifiedConstraint = " AND m.updatedat>?"
+			args = append(args, *opts.IfModifiedSince)
+			order = "ASC"
+		}
 	}
 
 	args = append(args, limit)
+	orderBy := "m.seqid " + order
+	if opts != nil && opts.IfModifiedSince != nil {
+		orderBy = "m.updatedat " + order + ",m.seqid " + order
+	}
 
 	ctx, cancel := a.getContext()
 	if cancel != nil {
@@ -2728,11 +3205,11 @@ func (a *adapter) MessageGetAll(topic string, forUser t.Uid, opts *t.QueryOpt) (
 
 	rows, err := a.db.QueryxContext(
 		ctx,
-		"SELECT m.createdat,m.updatedat,m.deletedat,m.delid,m.seqid,m.topic,m.`from`,m.head,m.content"+
+		"SELECT m.createdat,m.updatedat,m.deletedat,m.delid,m.seqid,m.topic,m.`from`,COALESCE(m.clientid,'') AS clientid,m.head,m.content"+
 			" FROM messages AS m LEFT JOIN dellog AS d"+
 			" ON d.topic=m.topic AND m.seqid BETWEEN d.low AND d.hi-1 AND d.deletedfor=?"+
-			" WHERE m.delid=0 AND m.topic=? "+seqIdConstraint+" AND d.deletedfor IS NULL"+
-			" ORDER BY m.seqid DESC LIMIT ?",
+			" WHERE m.delid=0 AND m.topic=? "+seqIdConstraint+modifiedConstraint+" AND d.deletedfor IS NULL"+
+			" ORDER BY "+orderBy+" LIMIT ?",
 		args...)
 	if err != nil {
 		return nil, err
@@ -2754,6 +3231,72 @@ func (a *adapter) MessageGetAll(topic string, forUser t.Uid, opts *t.QueryOpt) (
 	}
 
 	return msgs, err
+}
+
+// MessageSearch 在单个 Topic 内执行正文子串搜索并应用用户软删除过滤。
+func (a *adapter) MessageSearch(topic string, forUser t.Uid, search *t.MessageSearchQuery) ([]t.Message, error) {
+	if search == nil || search.Query == "" {
+		return nil, nil
+	}
+	limit := search.Limit
+	if limit <= 0 || limit > a.maxMessageResults {
+		limit = a.maxMessageResults
+	}
+	args := []any{store.DecodeUid(forUser), topic, "%" + common.EscapeLike(strings.ToLower(search.Query)) + "%"}
+	where := "m.delid=0 AND m.topic=? AND LOWER(COALESCE(m.searchtext,'')) LIKE ? ESCAPE '!' AND d.deletedfor IS NULL"
+	if !search.From.IsZero() {
+		where += " AND m.`from`=?"
+		args = append(args, store.DecodeUid(search.From))
+	}
+	if len(search.Kinds) > 0 {
+		where += " AND JSON_UNQUOTE(JSON_EXTRACT(m.head,'$.\"x-kind\"')) IN (?" +
+			strings.Repeat(",?", len(search.Kinds)-1) + ")"
+		for _, kind := range search.Kinds {
+			args = append(args, kind)
+		}
+	}
+	if search.MinDate != nil {
+		where += " AND m.createdat>=?"
+		args = append(args, *search.MinDate)
+	}
+	if search.MaxDate != nil {
+		where += " AND m.createdat<?"
+		args = append(args, *search.MaxDate)
+	}
+	if search.BeforeSeq > 0 {
+		where += " AND m.seqid<?"
+		args = append(args, search.BeforeSeq)
+	}
+	args = append(args, limit)
+
+	ctx, cancel := a.getContext()
+	if cancel != nil {
+		defer cancel()
+	}
+	rows, err := a.db.QueryxContext(ctx,
+		"SELECT m.createdat,m.updatedat,m.deletedat,m.delid,m.seqid,m.topic,m.`from`,"+
+			"COALESCE(m.clientid,'') AS clientid,m.head,m.content,m.searchtext"+
+			" FROM messages m LEFT JOIN dellog d"+
+			" ON d.topic=m.topic AND m.seqid BETWEEN d.low AND d.hi-1 AND d.deletedfor=?"+
+			" WHERE "+where+" ORDER BY m.seqid DESC LIMIT ?", args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	found := make([]t.Message, 0, limit)
+	for rows.Next() {
+		var msg t.Message
+		if err = rows.StructScan(&msg); err != nil {
+			break
+		}
+		msg.From = common.EncodeUidString(msg.From).String()
+		msg.Content = common.FromJSON(msg.Content)
+		found = append(found, msg)
+	}
+	if err == nil {
+		err = rows.Err()
+	}
+	return found, err
 }
 
 // Get ranges of deleted 消息
@@ -2835,6 +3378,7 @@ func (a *adapter) MessageGetDeleted(topic string, forUser t.Uid, opts *t.QueryOp
 	return dmsgs, err
 }
 
+// messageDeleteList 完成消息删除List所需的内部处理。
 func messageDeleteList(tx *sqlx.Tx, topic string, toDel *t.DelMessage) error {
 	var err error
 
@@ -2971,6 +3515,7 @@ func (a *adapter) MessageDeleteList(topic string, toDel *t.DelMessage) (err erro
 	return tx.Commit()
 }
 
+// deviceHasher 完成设备Hasher所需的内部处理。
 func deviceHasher(deviceID string) string {
 	// 生成自定义键作为设备 ID 的 64 位哈希，以确保
 	// 键的长度可预测
@@ -3054,6 +3599,7 @@ func (a *adapter) DeviceGetAll(uids ...t.Uid) (map[t.Uid][]t.DeviceDef, int, err
 	return result, count, err
 }
 
+// deviceDelete 完成设备删除所需的内部处理。
 func deviceDelete(tx *sqlx.Tx, uid t.Uid, deviceID string) error {
 	var err error
 	var res sql.Result
@@ -3456,7 +4002,7 @@ func (a *adapter) FileDeleteUnused(olderThan time.Time, limit int) ([]string, er
 
 	// Garbage collecting entries which as either marked as deleted, or lack 消息 references, or have no 用户 assigned.
 	query := "SELECT fu.id,fu.location FROM fileuploads AS fu LEFT JOIN filemsglinks AS fml ON fml.fileid=fu.id " +
-		"WHERE fml.id IS NULL"
+		"LEFT JOIN scheduledfilelinks AS sfl ON sfl.fileid=fu.id WHERE fml.id IS NULL AND sfl.id IS NULL"
 	var args []any
 	if !olderThan.IsZero() {
 		query += " AND fu.updatedat<?"
@@ -3507,7 +4053,8 @@ func (a *adapter) FileDeleteUnused(olderThan time.Time, limit int) ([]string, er
 
 // FileLinkAttachments connects given Topic or 消息 to the file record IDs from the list.
 func (a *adapter) FileLinkAttachments(topic string, userId, msgId t.Uid, fids []string) error {
-	if len(fids) == 0 || (topic == "" && msgId.IsZero() && userId.IsZero()) {
+	if (topic == "" && msgId.IsZero() && userId.IsZero()) ||
+		(len(fids) == 0 && msgId.IsZero()) {
 		return t.ErrMalformed
 	}
 	now := t.TimeNow()
@@ -3559,16 +4106,17 @@ func (a *adapter) FileLinkAttachments(topic string, userId, msgId t.Uid, fids []
 		}
 	}()
 
-	// Unlink earlier uploads on the same Topic or 用户 allowing them to be garbage-collected.
-	if msgId.IsZero() {
-		sql := "DELETE FROM filemsglinks WHERE " + linkBy + "=?"
-		_, err = tx.Exec(sql, linkId)
-		if err != nil {
-			return err
-		}
+	// Messages are editable too: replace their links instead of accumulating stale files.
+	sql := "DELETE FROM filemsglinks WHERE " + linkBy + "=?"
+	_, err = tx.Exec(sql, linkId)
+	if err != nil {
+		return err
 	}
 
-	sql := "INSERT INTO filemsglinks(createdat,fileid," + linkBy + ") VALUES (?,?,?)"
+	if len(dids) == 0 {
+		return tx.Commit()
+	}
+	sql = "INSERT INTO filemsglinks(createdat,fileid," + linkBy + ") VALUES (?,?,?)"
 	_, err = tx.Exec(sql+strings.Repeat(",(?,?,?)", len(dids)-1), args...)
 	if err != nil {
 		return err
@@ -3577,7 +4125,30 @@ func (a *adapter) FileLinkAttachments(topic string, userId, msgId t.Uid, fids []
 	return tx.Commit()
 }
 
-// PCacheGet 读取持久缓存条目。
+// FileLinkScheduled 建立定时消息与待投递文件的关联，防止文件提前回收。
+func (a *adapter) FileLinkScheduled(scheduledId t.Uid, fids []string) error {
+	if scheduledId.IsZero() || len(fids) == 0 {
+		return t.ErrMalformed
+	}
+	ctx, cancel := a.getContext()
+	if cancel != nil {
+		defer cancel()
+	}
+	for _, fid := range fids {
+		fileID := t.ParseUid(fid)
+		if fileID.IsZero() {
+			return t.ErrMalformed
+		}
+		if _, err := a.db.ExecContext(ctx,
+			"INSERT IGNORE INTO scheduledfilelinks(scheduledid,fileid) VALUES(?,?)",
+			store.DecodeUid(scheduledId), store.DecodeUid(fileID)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// PCacheGet 完成P缓存Get所需的内部处理。
 func (a *adapter) PCacheGet(key string) (string, error) {
 	ctx, cancel := a.getContext()
 	if cancel != nil {
@@ -3663,6 +4234,7 @@ func isDupe(err error) bool {
 	return ok && myerr.Number == 1062
 }
 
+// isMissingTable 判断是否满足MissingTable条件。
 func isMissingTable(err error) bool {
 	if err == nil {
 		return false
@@ -3672,6 +4244,7 @@ func isMissingTable(err error) bool {
 	return ok && myerr.Number == 1146
 }
 
+// isMissingDb 判断是否满足Missing数据库条件。
 func isMissingDb(err error) bool {
 	if err == nil {
 		return false
@@ -3686,6 +4259,7 @@ func GetTestAdapter() *adapter {
 	return &adapter{}
 }
 
+// init 注册当前包提供的实现并初始化包级状态。
 func init() {
 	store.RegisterAdapter(&adapter{})
 }

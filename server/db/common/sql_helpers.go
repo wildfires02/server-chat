@@ -1,3 +1,4 @@
+// Package common 提供数据库持久化、迁移或测试支持。
 package common
 
 import (

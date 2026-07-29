@@ -6,6 +6,7 @@
  *
  *****************************************************************************/
 
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -66,7 +67,9 @@ func topicInit(t *Topic, join *ClientComMessage, h *Hub) {
 		h.topicDel(join.RcptTo)
 
 		logs.Err.Println("init_topic: failed to load or create topic:", join.RcptTo, err)
-		join.sess.queueOut(decodeStoreErrorExplicitTs(err, join.Id, t.xoriginal, timestamp, join.Timestamp, nil))
+		if join.sess != nil {
+			join.sess.queueOut(decodeStoreErrorExplicitTs(err, join.Id, t.xoriginal, timestamp, join.Timestamp, nil))
+		}
 
 		// 重新排队待加入 Topic 的请求。
 		for len(t.reg) > 0 {
@@ -76,7 +79,7 @@ func topicInit(t *Topic, join *ClientComMessage, h *Hub) {
 		// 拒绝所有其它待处理请求
 		for len(t.clientMsg) > 0 {
 			msg := <-t.clientMsg
-			if msg.init {
+			if msg.init && msg.sess != nil {
 				msg.sess.queueOut(ErrLockedExplicitTs(msg.Id, t.xoriginal, timestamp, join.Timestamp))
 			}
 		}
@@ -85,13 +88,13 @@ func topicInit(t *Topic, join *ClientComMessage, h *Hub) {
 			if msg.sess != nil && msg.sess.inflightReqs != nil {
 				msg.sess.inflightReqs.Done()
 			}
-			if msg.init {
+			if msg.init && msg.sess != nil {
 				msg.sess.queueOut(ErrLockedReply(msg, timestamp))
 			}
 		}
 		for len(t.meta) > 0 {
 			msg := <-t.meta
-			if msg.init {
+			if msg.init && msg.sess != nil {
 				msg.sess.queueOut(ErrLockedReply(msg, timestamp))
 			}
 		}

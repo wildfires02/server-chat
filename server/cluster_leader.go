@@ -1,3 +1,4 @@
+// Package main 实现即时通信服务端的协议、路由和业务逻辑。
 package main
 
 import (
@@ -27,7 +28,8 @@ type clusterFailover struct {
 	voteTimeout int
 
 	// Leader 认为活跃的节点列表
-	activeNodes     []string
+	activeNodes []string
+	// activeNodesLock 保护集群Failover的并发读写。
 	activeNodesLock sync.RWMutex
 	// 节点连续失败多少次后被宣布失效
 	nodeFailCountLimit int
@@ -40,6 +42,7 @@ type clusterFailover struct {
 	done chan bool
 }
 
+// clusterFailoverConfig 保存集群Failover配置的数据和运行状态。
 type clusterFailoverConfig struct {
 	// 是否启用故障转移
 	Enabled bool `json:"enabled"`
@@ -81,10 +84,13 @@ type ClusterVoteResponse struct {
 
 // ClusterVote 是 Leader 选举中的投票请求和响应。
 type ClusterVote struct {
-	req  *ClusterVoteRequest
+	// req 保存req。
+	req *ClusterVoteRequest
+	// resp 传递resp相关的异步事件。
 	resp chan ClusterVoteResponse
 }
 
+// failoverInit 完成failoverInit所需的内部处理。
 func (c *Cluster) failoverInit(config *clusterFailoverConfig) bool {
 	if config == nil || !config.Enabled {
 		return false
@@ -194,6 +200,7 @@ func (c *Cluster) sendHealthChecks() {
 	}
 }
 
+// electLeader 完成electLeader所需的内部处理。
 func (c *Cluster) electLeader() {
 	// 增加任期（本节点在本任期中投票给自己）并清空 Leader
 	c.fo.term++

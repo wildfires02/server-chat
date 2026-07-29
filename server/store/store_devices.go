@@ -1,3 +1,4 @@
+// Package store 提供领域模型及持久化访问层。
 package store
 
 import "chat/server/store/types"
@@ -5,8 +6,11 @@ import "chat/server/store/types"
 // DevicePersistenceInterface 定义处理设备 ID 的方法接口。
 // 主要用于生成推送通知。
 type DevicePersistenceInterface interface {
+	// Update 更新Update。
 	Update(uid types.Uid, oldDeviceID string, dev *types.DeviceDef) error
+	// GetAll 查询并返回All。
 	GetAll(uid ...types.Uid) (map[types.Uid][]types.DeviceDef, int, error)
+	// Delete 删除或清理删除。
 	Delete(uid types.Uid, deviceID string) error
 }
 

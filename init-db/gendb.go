@@ -1,3 +1,4 @@
+// Package main 实现数据库初始化与示例数据导入工具。
 package main
 
 import (
@@ -17,6 +18,7 @@ import (
 	"chat/server/store/types"
 )
 
+// genDb 完成gen数据库所需的内部处理。
 func genDb(data *Data, p2pDel bool) {
 	var err error
 	var botAccount string
@@ -422,13 +424,19 @@ func getCreatedTime(delta string) time.Time {
 	return time.Now().UTC().Round(time.Millisecond).Add(dd)
 }
 
+// photoStruct 保存photoStruct的数据和运行状态。
 type photoStruct struct {
+	// Type 保存Type。
 	Type string `json:"type" db:"type"`
+	// Data 保存数据列表。
 	Data []byte `json:"data" db:"data"`
 }
 
+// card 保存card的数据和运行状态。
 type card struct {
-	Fn    string       `json:"fn" db:"fn"`
+	// Fn 保存Fn。
+	Fn string `json:"fn" db:"fn"`
+	// Photo 保存Photo。
 	Photo *photoStruct `json:"photo,omitempty" db:"photo"`
 }
 

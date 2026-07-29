@@ -17,8 +17,11 @@ import (
 
 // ReadSeekCloser 正在被下载的媒体流对象必须实现的读、寻址与关闭接口组合。
 type ReadSeekCloser interface {
+	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
 	io.Reader
+	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
 	io.Seeker
+	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
 	io.Closer
 }
 
@@ -46,12 +49,17 @@ type Handler interface {
 
 // AllowedOrigin 存储解析后的允许跨域源地址配置结构。
 type AllowedOrigin struct {
-	Origin      string
-	URL         url.URL
-	HostParts   []string
+	// Origin 保存Origin。
+	Origin string
+	// URL 保存URL。
+	URL url.URL
+	// HostParts 保存HostParts列表。
+	HostParts []string
+	// HasWildcard 指示是否启用或满足HasWildcard。
 	HasWildcard bool
 }
 
+// fileNamePattern 保存文件名称Pattern的共享实例或运行状态。
 var fileNamePattern = regexp.MustCompile(`^[-_A-Za-z0-9]+`)
 
 // GetIdFromUrl 从 URL 中提取文件 UID 的辅助函数。
