@@ -89,7 +89,6 @@ func largeFileServeHTTP(wrt http.ResponseWriter, req *http.Request) {
 		writeHttpResponse(decodeStoreError(err, "", now, nil), err)
 		return
 	}
-
 	if challenge != nil {
 		writeHttpResponse(InfoChallenge("", now, challenge), nil)
 		return
@@ -98,6 +97,12 @@ func largeFileServeHTTP(wrt http.ResponseWriter, req *http.Request) {
 	if uid.IsZero() {
 		// 未认证
 		writeHttpResponse(ErrAuthRequired("", "", now, now), errors.New("user not authenticated"))
+		return
+	}
+
+	// 文件级 ACL 必须在 S3/代理处理器生成重定向签名之前完成校验。
+	if _, err = store.AuthorizeFileDownload(uid, req.URL.String()); err != nil {
+		writeHttpResponse(decodeStoreError(err, "", now, nil), err)
 		return
 	}
 
@@ -146,11 +151,13 @@ func largeFileServeHTTP(wrt http.ResponseWriter, req *http.Request) {
 
 	wrt.Header().Set("Content-Type", fd.MimeType)
 	asAttachment, _ := strconv.ParseBool(req.URL.Query().Get("asatt"))
+	preview, _ := strconv.ParseBool(req.URL.Query().Get("preview"))
+	inlinePDF := preview && strings.EqualFold(fd.MimeType, "application/pdf")
 	// 作为安全措施，强制 html 文件下载。
 	asAttachment = asAttachment ||
 		strings.Contains(fd.MimeType, "html") ||
 		strings.Contains(fd.MimeType, "xml") ||
-		strings.HasPrefix(fd.MimeType, "application/") ||
+		(strings.HasPrefix(fd.MimeType, "application/") && !inlinePDF) ||
 		// 'message'、'model' 和 'multipart' 目前不会出现，但仍进行检查，
 		// 以防 DetectContentType 更改其逻辑。
 		strings.HasPrefix(fd.MimeType, "message/") ||
@@ -159,6 +166,9 @@ func largeFileServeHTTP(wrt http.ResponseWriter, req *http.Request) {
 		strings.HasPrefix(fd.MimeType, "text/")
 	if asAttachment {
 		wrt.Header().Set("Content-Disposition", "attachment")
+	} else if inlinePDF {
+		wrt.Header().Set("Content-Disposition", "inline")
+		wrt.Header().Set("X-Content-Type-Options", "nosniff")
 	}
 
 	http.ServeContent(wrt, req, "", fd.UpdatedAt, rsc)
@@ -318,6 +328,7 @@ func largeFileReceiveHTTP(wrt http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
+	queueFileProcessing(fdef, url)
 
 	params := map[string]string{"url": url}
 	if globals.mediaGcPeriod > 0 {
@@ -353,7 +364,6 @@ func (*grpcNodeServer) LargeFileServe(req *pbx.FileDownReq, stream pbx.Node_Larg
 		writeResponse(decodeStoreError(err, msgID, now, nil), err)
 		return nil
 	}
-
 	if challenge != nil {
 		writeResponse(InfoChallenge(msgID, now, challenge), nil)
 		return nil
@@ -362,6 +372,11 @@ func (*grpcNodeServer) LargeFileServe(req *pbx.FileDownReq, stream pbx.Node_Larg
 	if uid.IsZero() {
 		// 未认证
 		writeResponse(ErrAuthRequired(msgID, "", now, now), errors.New("user not authenticated"))
+		return nil
+	}
+
+	if _, err = store.AuthorizeFileDownload(uid, req.GetUri()); err != nil {
+		writeResponse(decodeStoreError(err, msgID, now, nil), err)
 		return nil
 	}
 
@@ -524,6 +539,7 @@ func (*grpcNodeServer) LargeFileReceive(stream pbx.Node_LargeFileReceiveServer) 
 		}
 		return nil
 	}
+	queueFileProcessing(fdef, url)
 
 	err = stream.SendAndClose(&pbx.FileUpResp{
 		Id:   msgID,
@@ -559,6 +575,9 @@ func largeFileRunGarbageCollection(period time.Duration, blockSize int) chan<- b
 			case <-gcTicker:
 				if err := store.Files.DeleteUnused(time.Now().Add(-time.Hour), blockSize); err != nil {
 					logs.Warn.Println("media gc:", err)
+				}
+				if err := expireResumableUploads(time.Now().Add(-24 * time.Hour)); err != nil {
+					logs.Warn.Println("resumable upload gc:", err)
 				}
 			case <-stop:
 				return

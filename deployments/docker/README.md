@@ -1,14 +1,13 @@
 # Docker 交付说明
 
 Docker 目录只提供开发、CI 和镜像构建能力。生产集群使用
-[`../kubernetes/`](../kubernetes/) 或 [`../systemd/`](../systemd/)，不得把
-Compose 当作生产高可用方案。
+[`../kubernetes/`](../kubernetes/)，不得把 Compose 当作生产高可用方案。
 
 ## 镜像特性
 
 - 构建阶段固定为 Go 1.26.5 + Alpine 3.23，运行阶段固定为 Alpine 3.23.5。
 - 服务以 UID/GID `10001` 非 root 运行，日志输出到 stdout/stderr。
-- 容器直接读取规范 YAML，并使用统一的 `IM_`/双下划线环境变量覆盖。
+- `im-server` 容器直接读取 `/etc/im/im.yaml`，运行时不接受参数或环境变量覆盖。
 - 业务容器默认 `IM_DB_INIT_MODE=skip`，不会在启动时自动建库或迁移。
 - 数据库初始化、升级和重置由显式的一次性容器执行。
 

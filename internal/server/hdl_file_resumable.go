@@ -1,0 +1,348 @@
+package server
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"path"
+	"strconv"
+	"strings"
+	"time"
+
+	"chat/server/logs"
+	"chat/server/store"
+	"chat/server/store/types"
+)
+
+const resumableUploadPrefix = "uploadsession:"
+
+type resumableUploadState struct {
+	Id          string                 `json:"id"`
+	Owner       string                 `json:"owner"`
+	MimeType    string                 `json:"mime"`
+	Length      int64                  `json:"length"`
+	Offset      int64                  `json:"offset"`
+	Chunks      []resumableUploadChunk `json:"chunks,omitempty"`
+	ResultURL   string                 `json:"result_url,omitempty"`
+	CreatedAt   time.Time              `json:"created_at"`
+	UpdatedAt   time.Time              `json:"updated_at"`
+	CompletedAt *time.Time             `json:"completed_at,omitempty"`
+}
+
+func saveResumableUpload(state *resumableUploadState) error {
+	state.UpdatedAt = types.TimeNow()
+	raw, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	return store.PCache.Upsert(resumableUploadPrefix+state.Id, string(raw), false)
+}
+
+func loadResumableUpload(id string) (*resumableUploadState, error) {
+	raw, err := store.PCache.Get(resumableUploadPrefix + id)
+	if err != nil {
+		return nil, err
+	}
+	var state resumableUploadState
+	if err = json.Unmarshal([]byte(raw), &state); err != nil {
+		return nil, err
+	}
+	if state.Id != id || state.Owner == "" || state.Length <= 0 ||
+		state.Offset < 0 || state.Offset > state.Length {
+		return nil, types.ErrMalformed
+	}
+	return &state, nil
+}
+
+func deleteResumableUpload(state *resumableUploadState) error {
+	if state == nil {
+		return nil
+	}
+	if err := resumableChunks.Delete(state.Chunks); err != nil {
+		return err
+	}
+	return store.PCache.Delete(resumableUploadPrefix + state.Id)
+}
+
+func writeResumableError(wrt http.ResponseWriter, message *ServerComMessage) {
+	wrt.Header().Set("Content-Type", "application/json; charset=utf-8")
+	wrt.WriteHeader(message.Ctrl.Code)
+	_ = json.NewEncoder(wrt).Encode(message)
+}
+
+func authenticateResumableRequest(req *http.Request) (types.Uid, *ServerComMessage) {
+	now := types.TimeNow()
+	if valid, _ := checkAPIKey(getAPIKey(req)); !valid {
+		return types.ZeroUid, ErrAPIKeyRequired(now)
+	}
+	authMethod, secret := getHttpAuth(req)
+	uid, challenge, err := authFileRequest(authMethod, secret, req.FormValue("sid"), getRemoteAddr(req))
+	if err != nil {
+		return types.ZeroUid, decodeStoreError(err, "", now, nil)
+	}
+	if challenge != nil {
+		return types.ZeroUid, InfoChallenge("", now, challenge)
+	}
+	if uid.IsZero() {
+		return types.ZeroUid, ErrAuthRequired("", "", now, now)
+	}
+	return uid, nil
+}
+
+// resumableFileHTTP 实现基于 Upload-Length/Upload-Offset 的断点续传。
+func resumableFileHTTP(wrt http.ResponseWriter, req *http.Request) {
+	now := types.TimeNow()
+	wrt.Header().Set("Tus-Resumable", "1.0.0")
+	wrt.Header().Set("Access-Control-Expose-Headers",
+		"Location, Upload-Length, Upload-Offset, Upload-Result-URL, Tus-Resumable")
+	if req.Method == http.MethodOptions {
+		wrt.Header().Set("Allow", "POST, PATCH, HEAD, DELETE, OPTIONS")
+		wrt.WriteHeader(http.StatusNoContent)
+		return
+	}
+	uid, authError := authenticateResumableRequest(req)
+	if authError != nil {
+		writeResumableError(wrt, authError)
+		return
+	}
+	if req.Method == http.MethodPost {
+		createResumableUpload(wrt, req, uid)
+		return
+	}
+
+	id := path.Base(strings.TrimSuffix(req.URL.Path, "/"))
+	if types.ParseUid(id).IsZero() {
+		writeResumableError(wrt, ErrMalformed("", "", now))
+		return
+	}
+	state, err := loadResumableUpload(id)
+	if err != nil {
+		writeResumableError(wrt, decodeStoreError(err, "", now, nil))
+		return
+	}
+	if state.Owner != uid.String() {
+		writeResumableError(wrt, ErrPermissionDenied("", "", now))
+		return
+	}
+
+	if req.Method == http.MethodHead {
+		wrt.Header().Set("Upload-Length", strconv.FormatInt(state.Length, 10))
+		wrt.Header().Set("Upload-Offset", strconv.FormatInt(state.Offset, 10))
+		if state.ResultURL != "" {
+			wrt.Header().Set("Upload-Result-URL", state.ResultURL)
+		}
+		wrt.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if req.Method != http.MethodPatch && req.Method != http.MethodDelete {
+		writeResumableError(wrt, ErrOperationNotAllowed("", "", now))
+		return
+	}
+	lease, err := acquireResumableUploadLease(id, resumableLeaseTTL)
+	if err != nil {
+		if errors.Is(err, errResumableLeaseBusy) {
+			statsInc("ResumableUploadLeaseConflicts", 1)
+			wrt.Header().Set("Retry-After", "2")
+			writeResumableError(wrt, &ServerComMessage{Ctrl: &MsgServerCtrl{
+				Code: http.StatusLocked, Text: "upload is active on another node", Timestamp: now,
+			}})
+			return
+		}
+		writeResumableError(wrt, decodeStoreError(err, "", now, nil))
+		return
+	}
+	defer releaseResumableUploadLease(id, lease)
+	state, err = loadResumableUpload(id)
+	if err != nil {
+		writeResumableError(wrt, decodeStoreError(err, "", now, nil))
+		return
+	}
+	if state.Owner != uid.String() {
+		writeResumableError(wrt, ErrPermissionDenied("", "", now))
+		return
+	}
+
+	switch req.Method {
+	case http.MethodPatch:
+		appendResumableChunk(wrt, req, state, now)
+	case http.MethodDelete:
+		if err = deleteResumableUpload(state); err != nil {
+			writeResumableError(wrt, decodeStoreError(err, "", now, nil))
+			return
+		}
+		wrt.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func createResumableUpload(wrt http.ResponseWriter, req *http.Request, uid types.Uid) {
+	now := types.TimeNow()
+	length, err := strconv.ParseInt(req.Header.Get("Upload-Length"), 10, 64)
+	if err != nil || length <= 0 {
+		writeResumableError(wrt, ErrMalformed("", "", now))
+		return
+	}
+	if globals.maxFileUploadSize > 0 && length > globals.maxFileUploadSize {
+		writeResumableError(wrt, ErrTooLarge("", "", now))
+		return
+	}
+	state := &resumableUploadState{
+		Id:        store.Store.GetUidString(),
+		Owner:     uid.String(),
+		MimeType:  req.Header.Get("Upload-Mime-Type"),
+		Length:    length,
+		CreatedAt: now,
+	}
+	if err = saveResumableUpload(state); err != nil {
+		writeResumableError(wrt, decodeStoreError(err, "", now, nil))
+		return
+	}
+	location := strings.TrimSuffix(req.URL.Path, "/") + "/" + state.Id
+	wrt.Header().Set("Location", location)
+	wrt.Header().Set("Upload-Length", strconv.FormatInt(length, 10))
+	wrt.Header().Set("Upload-Offset", "0")
+	wrt.WriteHeader(http.StatusCreated)
+}
+
+func appendResumableChunk(
+	wrt http.ResponseWriter,
+	req *http.Request,
+	state *resumableUploadState,
+	now time.Time,
+) {
+	offset, err := strconv.ParseInt(req.Header.Get("Upload-Offset"), 10, 64)
+	if err != nil || offset != state.Offset {
+		wrt.Header().Set("Upload-Offset", strconv.FormatInt(state.Offset, 10))
+		if state.ResultURL != "" {
+			wrt.Header().Set("Upload-Result-URL", state.ResultURL)
+		}
+		writeResumableError(wrt, &ServerComMessage{Ctrl: &MsgServerCtrl{
+			Code: http.StatusConflict, Text: "upload offset mismatch", Timestamp: now,
+		}})
+		return
+	}
+	if state.ResultURL != "" {
+		wrt.Header().Set("Upload-Offset", strconv.FormatInt(state.Offset, 10))
+		wrt.Header().Set("Upload-Result-URL", state.ResultURL)
+		wrt.WriteHeader(http.StatusNoContent)
+		return
+	}
+	remaining := state.Length - state.Offset
+	chunk, err := resumableChunks.Put(state.Owner, req.Body, remaining)
+	if err != nil {
+		if errors.Is(err, errFileUploadTooLarge) {
+			writeResumableError(wrt, ErrTooLarge("", "", now))
+		} else {
+			writeResumableError(wrt, decodeStoreError(err, "", now, nil))
+		}
+		return
+	}
+	state.Chunks = append(state.Chunks, chunk)
+	state.Offset += chunk.Size
+	statsInc("ResumableUploadChunks", 1)
+	if state.Offset < state.Length {
+		if err = saveResumableUpload(state); err != nil {
+			state.Chunks = state.Chunks[:len(state.Chunks)-1]
+			state.Offset -= chunk.Size
+			_ = resumableChunks.Delete([]resumableUploadChunk{chunk})
+			writeResumableError(wrt, decodeStoreError(err, "", now, nil))
+			return
+		}
+		wrt.Header().Set("Upload-Offset", strconv.FormatInt(state.Offset, 10))
+		wrt.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	source, err := resumableChunks.Open(state.Chunks)
+	if err != nil {
+		state.Chunks = state.Chunks[:len(state.Chunks)-1]
+		state.Offset -= chunk.Size
+		_ = resumableChunks.Delete([]resumableUploadChunk{chunk})
+		writeResumableError(wrt, decodeStoreError(err, "", now, nil))
+		return
+	}
+	defer source.Close()
+	reader, mimeType, err := prepareFileUploadReader(source, state.MimeType)
+	if err != nil {
+		_ = deleteResumableUpload(state)
+		writeResumableError(wrt, ErrMalformed("", "", now))
+		return
+	}
+	definition := &types.FileDef{
+		ObjHeader: types.ObjHeader{Id: store.Store.GetUidString()},
+		User:      state.Owner,
+		MimeType:  mimeType,
+	}
+	definition.InitTimes()
+	rawURL, completed, _, err := uploadAndFinalizeFile(
+		store.Store.GetMediaHandler(), store.Files, definition, reader, state.Length,
+	)
+	if err != nil {
+		state.Chunks = state.Chunks[:len(state.Chunks)-1]
+		state.Offset -= chunk.Size
+		_ = resumableChunks.Delete([]resumableUploadChunk{chunk})
+		writeResumableError(wrt, decodeStoreError(err, "", now, nil))
+		return
+	}
+	completedAt := types.TimeNow()
+	state.ResultURL = rawURL
+	state.CompletedAt = &completedAt
+	if err = saveResumableUpload(state); err != nil {
+		writeResumableError(wrt, decodeStoreError(err, "", now, nil))
+		return
+	}
+	if cleanupErr := resumableChunks.Delete(state.Chunks); cleanupErr != nil {
+		logs.Warn.Printf("resumable upload chunk cleanup failed, id=%s: %v", state.Id, cleanupErr)
+	} else {
+		state.Chunks = nil
+		if err = saveResumableUpload(state); err != nil {
+			logs.Warn.Printf("resumable upload completion compaction failed, id=%s: %v", state.Id, err)
+		}
+	}
+	queueFileProcessing(completed, rawURL)
+	wrt.Header().Set("Upload-Offset", strconv.FormatInt(state.Offset, 10))
+	wrt.Header().Set("Upload-Result-URL", rawURL)
+	wrt.WriteHeader(http.StatusNoContent)
+}
+
+func expireResumableUploads(olderThan time.Time) error {
+	for {
+		entries, err := store.PCache.List(resumableUploadPrefix, 1000)
+		if err != nil {
+			return fmt.Errorf("list resumable upload metadata: %w", err)
+		}
+		foundExpired := false
+		removedExpired := false
+		for key, raw := range entries {
+			var state resumableUploadState
+			if jsonErr := json.Unmarshal([]byte(raw), &state); jsonErr != nil ||
+				!strings.HasPrefix(key, resumableUploadPrefix) || !state.CreatedAt.Before(olderThan) {
+				continue
+			}
+			foundExpired = true
+			lease, leaseErr := acquireResumableUploadLease(state.Id, resumableLeaseTTL)
+			if leaseErr != nil {
+				if errors.Is(leaseErr, errResumableLeaseBusy) {
+					continue
+				}
+				return leaseErr
+			}
+			current, loadErr := loadResumableUpload(state.Id)
+			if loadErr == nil && current.CreatedAt.Before(olderThan) {
+				if deleteErr := deleteResumableUpload(current); deleteErr != nil {
+					releaseResumableUploadLease(state.Id, lease)
+					return deleteErr
+				}
+				removedExpired = true
+			}
+			releaseResumableUploadLease(state.Id, lease)
+		}
+		if len(entries) < 1000 || !foundExpired || !removedExpired {
+			break
+		}
+	}
+	if err := store.PCache.Expire(resumableLeasePrefix, olderThan); err != nil {
+		return fmt.Errorf("expire resumable upload leases: %w", err)
+	}
+	return nil
+}

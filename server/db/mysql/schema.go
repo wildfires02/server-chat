@@ -1,5 +1,5 @@
-//go:build mysql
-// +build mysql
+//go:build mysql || (!postgres && !mongodb && !rethinkdb)
+// +build mysql !postgres,!mongodb,!rethinkdb
 
 package mysql
 
@@ -688,6 +688,14 @@ func (a *adapter) UpgradeDb() error {
 			return err
 		}
 		if err := bumpVersion(a, 120); err != nil {
+			return err
+		}
+	}
+
+	if a.version == 120 {
+		// 数据库 120→121：subscriptions_topic_userid 已覆盖官方大群成员游标分页，
+		// 无需新增重复索引，仅同步数据库版本。
+		if err := bumpVersion(a, 121); err != nil {
 			return err
 		}
 	}

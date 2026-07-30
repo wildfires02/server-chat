@@ -66,6 +66,12 @@ func (s *Session) set(msg *ClientComMessage) {
 	if msg.Set.Aux != nil {
 		msg.MetaWhat |= constMsgMetaAux
 	}
+	if msg.Set.Contact != nil {
+		msg.MetaWhat |= constMsgMetaContacts
+	}
+	if msg.Set.Asset != nil {
+		msg.MetaWhat |= constMsgMetaAssets
+	}
 
 	if msg.MetaWhat == 0 {
 		s.queueOut(ErrMalformedReply(msg, msg.Timestamp))
@@ -77,7 +83,7 @@ func (s *Session) set(msg *ClientComMessage) {
 			s.queueOut(ErrServiceUnavailableReply(msg, msg.Timestamp))
 			logs.Err.Println("s.set: sub.meta 管道已满, topic ", msg.RcptTo, s.sid)
 		}
-	} else if msg.MetaWhat&(constMsgMetaTags|constMsgMetaCred|constMsgMetaAux) != 0 {
+	} else if msg.MetaWhat&(constMsgMetaTags|constMsgMetaCred|constMsgMetaAux|constMsgMetaContacts|constMsgMetaAssets) != 0 {
 		logs.Warn.Println("s.set: 设置标签/凭证/扩展字段仅限已订阅 Topic", msg.MetaWhat)
 		s.queueOut(ErrPermissionDeniedReply(msg, msg.Timestamp))
 	} else {

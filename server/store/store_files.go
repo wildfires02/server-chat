@@ -46,7 +46,7 @@ func (fileMapper) Get(fid string) (*types.FileDef, error) {
 
 // DeleteUnused 移除未使用的附件和头像。
 func (fileMapper) DeleteUnused(olderThan time.Time, limit int) error {
-	toDel, err := adp.FileDeleteUnused(olderThan, limit)
+	toDel, err := adp.FileDeleteUnused(olderThan, limit, isFileGCProtected)
 	if err != nil {
 		return err
 	}
@@ -59,8 +59,10 @@ func (fileMapper) DeleteUnused(olderThan time.Time, limit int) error {
 
 // LinkAttachments 将之前上传的附件连接到消息或 Topic，以防止被垃圾回收。
 func (fileMapper) LinkAttachments(topic string, msgId types.Uid, attachments []string) error {
+	attachments = FileURLsWithPreviews(attachments)
 	// 将附件 URL 转换为文件 ID。
 	var fids []string
+	seenFids := make(map[string]bool)
 	if len(attachments) > 0 && mediaHandler == nil {
 		// 未配置本地媒体后端时，所有新引用均视为外部文件；编辑已有消息仍需
 		// 清理过去由本地后端管理的附件关联。
@@ -71,7 +73,11 @@ func (fileMapper) LinkAttachments(topic string, msgId types.Uid, attachments []s
 	}
 	for _, url := range attachments {
 		if fid := mediaHandler.GetIdFromUrl(url); !fid.IsZero() {
-			fids = append(fids, fid.String())
+			id := fid.String()
+			if !seenFids[id] {
+				seenFids[id] = true
+				fids = append(fids, id)
+			}
 		}
 	}
 
@@ -81,7 +87,10 @@ func (fileMapper) LinkAttachments(topic string, msgId types.Uid, attachments []s
 			userId = types.ParseUserId(topic)
 			topic = ""
 		}
-		return adp.FileLinkAttachments(topic, userId, msgId, fids)
+		if err := adp.FileLinkAttachments(topic, userId, msgId, fids); err != nil {
+			return err
+		}
+		return GrantFileAccess(topic, userId, attachments)
 	}
 	return nil
 }
@@ -96,6 +105,10 @@ type PersistentCacheInterface interface {
 	Delete(key string) error
 	// Expire 使指定键前缀的较早条目过期。
 	Expire(keyPrefix string, olderThan time.Time) error
+	// List 按键前缀列出条目，用于恢复持久任务和跨节点上传会话。
+	List(keyPrefix string, limit int) (map[string]string, error)
+	// CompareAndSwap 仅在当前值匹配 oldValue 时原子更新。
+	CompareAndSwap(key, oldValue, newValue string) (bool, error)
 }
 
 // pcacheMapper 是实现 PersistentCacheInterface 的具体类型。
@@ -122,4 +135,14 @@ func (pcacheMapper) Delete(key string) error {
 // Expire 使指定键前缀的较早条目过期。
 func (pcacheMapper) Expire(keyPrefix string, olderThan time.Time) error {
 	return adp.PCacheExpire(keyPrefix, olderThan)
+}
+
+// List 按键前缀列出持久缓存条目。
+func (pcacheMapper) List(keyPrefix string, limit int) (map[string]string, error) {
+	return adp.PCacheList(keyPrefix, limit)
+}
+
+// CompareAndSwap 仅在当前值匹配 oldValue 时原子更新。
+func (pcacheMapper) CompareAndSwap(key, oldValue, newValue string) (bool, error) {
+	return adp.PCacheCompareAndSwap(key, oldValue, newValue)
 }

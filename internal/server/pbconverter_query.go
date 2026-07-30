@@ -2,6 +2,7 @@ package server
 
 import (
 	"chat/api/pbx"
+	"chat/server/store/types"
 )
 
 // pbGetQuerySerialize 完成pbGet查询Serialize所需的内部处理。
@@ -21,6 +22,7 @@ func pbGetQuerySerialize(in *MsgGetQuery) *pbx.GetQuery {
 			Topic:           in.Desc.Topic,
 			Limit:           int32(in.Desc.Limit),
 			Forward:         in.Desc.Forward,
+			Cursor:          in.Desc.Cursor,
 		}
 	}
 	if in.Sub != nil {
@@ -30,6 +32,7 @@ func pbGetQuerySerialize(in *MsgGetQuery) *pbx.GetQuery {
 			Topic:           in.Sub.Topic,
 			Limit:           int32(in.Sub.Limit),
 			Forward:         in.Sub.Forward,
+			Cursor:          in.Sub.Cursor,
 		}
 	}
 	if in.Data != nil {
@@ -73,6 +76,23 @@ func pbGetQuerySerialize(in *MsgGetQuery) *pbx.GetQuery {
 			Limit:      int32(in.Search.Limit),
 		}
 	}
+	if in.Contacts != nil {
+		out.Contacts = &pbx.ContactQuery{
+			Since:           in.Contacts.Since,
+			Limit:           int32(in.Contacts.Limit),
+			Recommendations: in.Contacts.Recommendations,
+		}
+	}
+	if in.Assets != nil {
+		out.Assets = &pbx.AssetQuery{
+			PackId:   in.Assets.PackId,
+			Query:    in.Assets.Query,
+			Kind:     in.Assets.Kind,
+			Since:    in.Assets.Since,
+			Limit:    int32(in.Assets.Limit),
+			AssetIds: append([]string(nil), in.Assets.AssetIds...),
+		}
+	}
 	return out
 }
 
@@ -93,6 +113,7 @@ func pbGetQueryDeserialize(in *pbx.GetQuery) *MsgGetQuery {
 			Topic:           desc.GetTopic(),
 			Limit:           int(desc.GetLimit()),
 			Forward:         desc.GetForward(),
+			Cursor:          desc.GetCursor(),
 		}
 	}
 	if sub := in.GetSub(); sub != nil {
@@ -102,6 +123,7 @@ func pbGetQueryDeserialize(in *pbx.GetQuery) *MsgGetQuery {
 			Topic:           sub.GetTopic(),
 			Limit:           int(sub.GetLimit()),
 			Forward:         sub.GetForward(),
+			Cursor:          sub.GetCursor(),
 		}
 	}
 	if data := in.GetData(); data != nil {
@@ -145,6 +167,23 @@ func pbGetQueryDeserialize(in *pbx.GetQuery) *MsgGetQuery {
 			MaxDate: int64ToTime(search.GetMaxDate()),
 			Cursor:  search.GetCursor(),
 			Limit:   int(search.GetLimit()),
+		}
+	}
+	if contacts := in.GetContacts(); contacts != nil {
+		msg.Contacts = &types.ContactQuery{
+			Since:           contacts.GetSince(),
+			Limit:           int(contacts.GetLimit()),
+			Recommendations: contacts.GetRecommendations(),
+		}
+	}
+	if assets := in.GetAssets(); assets != nil {
+		msg.Assets = &types.AssetQuery{
+			PackId:   assets.GetPackId(),
+			Query:    assets.GetQuery(),
+			Kind:     assets.GetKind(),
+			Since:    assets.GetSince(),
+			Limit:    int(assets.GetLimit()),
+			AssetIds: append([]string(nil), assets.GetAssetIds()...),
 		}
 	}
 
@@ -213,6 +252,9 @@ func pbSetQuerySerialize(in *MsgSetQuery) *pbx.SetQuery {
 	out.Tags = in.Tags
 
 	out.Cred = pbClientCredSerialize(in.Cred)
+	out.Aux = interfaceMapToByteMap(in.Aux)
+	out.Contact = pbContactMutationSerialize(in.Contact)
+	out.Asset = pbAssetMutationSerialize(in.Asset)
 
 	return out
 }
@@ -260,6 +302,24 @@ func pbSetQueryDeserialize(in *pbx.SetQuery) *MsgSetQuery {
 			msg = &MsgSetQuery{}
 		}
 		msg.Cred = pbClientCredDeserialize(cred)
+	}
+	if aux := in.GetAux(); aux != nil {
+		if msg == nil {
+			msg = &MsgSetQuery{}
+		}
+		msg.Aux = byteMapToInterfaceMap(aux)
+	}
+	if contact := in.GetContact(); contact != nil {
+		if msg == nil {
+			msg = &MsgSetQuery{}
+		}
+		msg.Contact = pbContactMutationDeserialize(contact)
+	}
+	if asset := in.GetAsset(); asset != nil {
+		if msg == nil {
+			msg = &MsgSetQuery{}
+		}
+		msg.Asset = pbAssetMutationDeserialize(asset)
 	}
 
 	return msg

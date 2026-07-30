@@ -1,5 +1,5 @@
-//go:build mysql
-// +build mysql
+//go:build mysql || (!postgres && !mongodb && !rethinkdb)
+// +build mysql !postgres,!mongodb,!rethinkdb
 
 // Package mysql 是 MySQL 的数据库适配器。
 package mysql
@@ -42,7 +42,7 @@ type adapter struct {
 
 const (
 	// adpVersion 指定adp版本。
-	adpVersion = 120
+	adpVersion = 121
 	// adapterName 指定adapter名称。
 	adapterName = "mysql"
 

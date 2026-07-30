@@ -1,5 +1,5 @@
 # Docker Compose 三节点开发集群配置。
-# 仅用于本机验证；生产环境使用 configs/im.cluster.yaml 和 Kubernetes/systemd。
+# 仅用于本机验证；生产环境使用 configs/im.cluster.yaml 和 Kubernetes。
 runtime:
   environment: development
   deployment_mode: cluster

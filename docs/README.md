@@ -23,7 +23,6 @@
 | Docker | [Docker 部署](../deployments/docker/README.md) | 本地镜像和容器 |
 | Docker Compose | [Compose 部署](../deployments/docker/compose/README.md) | 开发单机和开发集群 |
 | Kubernetes | [Kubernetes 部署](../deployments/kubernetes/README.md) | 三至五节点生产模板 |
-| systemd | [systemd 部署](../deployments/systemd/README.md) | 非 Kubernetes 多主机 |
 | 集群操作 | [生产集群操作手册](cluster-operations.md) | 发布、排空、轮换、扩缩容、回滚 |
 | 监控 | [监控与健康检查](monitoring.md) | 健康端点、运行指标、导出器 |
 | 故障排查 | [常见问题](faq.md) | 常见安装和运行问题 |
@@ -38,10 +37,17 @@
 | 服务端协议 | [API.md](API.md) |
 | 常用调用示例 | [api-examples.md](api-examples.md) |
 | 富文本消息 | [drafty.md](drafty.md) |
+| 全部产品功能需求与服务端设计 | [im-product-requirements.md](im-product-requirements.md) |
+| 联系人、文件处理与素材协议参考 | [contacts-files-assets.md](contacts-files-assets.md) |
 | 用户和主题描述 | [thecard.md](thecard.md) |
 | 音视频通话流程 | [call-establishment.md](call-establishment.md) |
 | 国际化 | [translations.md](translations.md) |
+| 双向自动翻译与多供应商配置 | [automatic-translation.md](automatic-translation.md) |
 | Protobuf 源文件 | [`api/pbx/*.proto`](../api/pbx/) |
+
+[`im-product-requirements.md`](im-product-requirements.md) 是产品功能需求的唯一入口。
+`API.md`、`contacts-files-assets.md` 等页面只说明已实现协议和技术操作，不再维护另一套
+功能需求清单。
 
 `API.md` 是字段语义和协议行为的权威说明；`api-examples.md` 只提供常用请求
 样例，不能替代完整协议。

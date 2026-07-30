@@ -186,7 +186,7 @@ func (a *adapter) FileLinkAttachments(topic string, userId, msgId t.Uid, fids []
 }
 
 // FileDeleteUnused 删除孤立的文件上传。
-func (a *adapter) FileDeleteUnused(olderThan time.Time, limit int) ([]string, error) {
+func (a *adapter) FileDeleteUnused(olderThan time.Time, limit int, protected func(string) bool) ([]string, error) {
 	q := rdb.DB(a.dbName).Table("fileuploads").GetAllByIndex("UseCount", 0)
 	if !olderThan.IsZero() {
 		q = q.Filter(rdb.Row.Field("UpdatedAt").Lt(olderThan))
@@ -195,23 +195,36 @@ func (a *adapter) FileDeleteUnused(olderThan time.Time, limit int) ([]string, er
 		q = q.Limit(limit)
 	}
 
-	cursor, err := q.Field("Location").Run(a.conn)
+	cursor, err := q.Pluck("Id", "Location").Run(a.conn)
 	if err != nil {
 		return nil, err
 	}
 	defer cursor.Close()
 
 	var locations []string
-	var loc string
-	for cursor.Next(&loc) {
-		locations = append(locations, loc)
+	var ids []any
+	var record struct {
+		Id       string
+		Location string
+	}
+	for cursor.Next(&record) {
+		if protected != nil && protected(record.Id) {
+			continue
+		}
+		ids = append(ids, record.Id)
+		if record.Location != "" {
+			locations = append(locations, record.Location)
+		}
 	}
 
 	if err = cursor.Err(); err != nil {
 		return nil, err
 	}
 
-	_, err = q.Delete().RunWrite(a.conn)
+	if len(ids) == 0 {
+		return locations, nil
+	}
+	_, err = rdb.DB(a.dbName).Table("fileuploads").GetAll(ids...).Delete().RunWrite(a.conn)
 
 	return locations, err
 }

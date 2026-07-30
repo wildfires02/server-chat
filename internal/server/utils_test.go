@@ -11,13 +11,16 @@ import (
 
 // TestMsgOpts2StoreOptsForward 验证 Msg Opts 2 Store Opts Forward 相关行为。
 func TestMsgOpts2StoreOptsForward(t *testing.T) {
+	cursor := types.Uid(77)
 	got := msgOpts2storeOpts(&MsgGetOpts{
 		SinceId:  11,
 		BeforeId: 21,
 		Limit:    5,
 		Forward:  true,
+		Cursor:   cursor.UserId(),
 	})
-	if got == nil || !got.Forward || got.Since != 11 || got.Before != 21 || got.Limit != 5 {
+	if got == nil || !got.Forward || got.Since != 11 || got.Before != 21 ||
+		got.Limit != 5 || got.Cursor != cursor {
 		t.Fatalf("sync options were not preserved: %#v", got)
 	}
 }

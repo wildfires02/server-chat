@@ -2,6 +2,8 @@ package server
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"io"
 	"mime"
@@ -111,6 +113,8 @@ func uploadAndFinalizeFile(
 	if maxSize > 0 {
 		reader = &limitedFileUploadReader{reader: reader, remaining: maxSize}
 	}
+	hasher := sha256.New()
+	reader = io.TeeReader(reader, hasher)
 
 	location, size, err := handler.Upload(definition, reader)
 	if err != nil {
@@ -125,6 +129,14 @@ func uploadAndFinalizeFile(
 	}
 	if completed == nil {
 		completed = definition
+	}
+	if definition.Id != "" {
+		// 摘要由服务端在实际读取上传流时计算，不能信任客户端上报值。
+		_ = store.SetFileProcessingState(definition.Id, store.FileProcessingState{
+			SHA256:        hex.EncodeToString(hasher.Sum(nil)),
+			ScanStatus:    "disabled",
+			ProcessStatus: "ready",
+		})
 	}
 	return location, completed, size, nil
 }

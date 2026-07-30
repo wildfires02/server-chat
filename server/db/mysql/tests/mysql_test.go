@@ -1284,7 +1284,7 @@ func TestTopicDelete(t *testing.T) {
 
 // TestFileDeleteUnused 验证 File Delete Unused 相关行为。
 func TestFileDeleteUnused(t *testing.T) {
-	locs, err := adp.FileDeleteUnused(time.Now().Add(1*time.Minute), 999)
+	locs, err := adp.FileDeleteUnused(time.Now().Add(1*time.Minute), 999, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

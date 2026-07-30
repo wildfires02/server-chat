@@ -15,9 +15,13 @@
 
 ## 必须准备的 Secret
 
-1. 创建 `im-runtime-secrets`，键名参考 `secret.example.yaml`。不要把真实值写入 Git。
-2. 创建 `im-etcd-client-tls` SecretProviderClass，向 `/run/secrets/etcd` 注入 `ca.pem`、`client.pem`、`client-key.pem`。
-3. 创建 `im-cluster-node-tls` SecretProviderClass，按 Pod 身份向 `/run/secrets/cluster` 注入 `ca.pem`、`cert.pem`、`key.pem`。
+1. 创建 `im-node-config` SecretProviderClass，按 Pod 身份生成完整
+   `/etc/im/im.yaml`。文件中必须包含该节点的 `self`、`advertise_addr`、数据库、
+   API 密钥和对象存储配置，不能依赖环境变量覆盖。
+2. 创建 `im-etcd-client-tls` SecretProviderClass，向 `/run/secrets/etcd` 注入
+   `ca.pem`、`client.pem`、`client-key.pem`。
+3. 创建 `im-cluster-node-tls` SecretProviderClass，按 Pod 身份向
+   `/run/secrets/cluster` 注入 `ca.pem`、`cert.pem`、`key.pem`。
 
 集群节点证书必须由同一专用 CA 签发，并分别包含精确 DNS SAN
 `im-0`～`im-4`。不能给 Pod 注入同一私钥，也不能用通配符 SAN；服务端会在
@@ -28,8 +32,8 @@ TLS 握手后再次把证书 SAN 与帧中的节点名比对。
 ## 发布前修改
 
 - 在 overlay 中把 StatefulSet 镜像替换为真实不可变 digest。
-- 在 overlay 中修改由 `base/im.cluster.yaml` 生成的 ConfigMap；配置内容哈希会
-  自动改变 ConfigMap 名称并触发 StatefulSet 滚动。
+- 以 `base/im.cluster.yaml` 为模板，在 Secret Provider 中生成每个 Pod 的完整
+  `im.yaml`；更新配置后显式触发 StatefulSet 滚动。
 - 根据实际命名空间标签收窄 NetworkPolicy 的数据库、etcd 和 HTTPS 出站范围。
 - 给允许访问客户端端口的网关命名空间添加标签
   `im.example.com/client-access=true`；未标记命名空间默认不能访问。

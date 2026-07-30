@@ -106,7 +106,10 @@ Topic 内存状态只能由 Topic 主循环修改。后台任务和连接处理�
 
 ## 3. 公共基础能力
 
-`internal/configutil` 是所有可执行程序和数据库集成测试共用的 YAML 配置解析入口，并负责 `IM_` 环境变量覆盖。配置加载器只接受 `.yaml` 和 `.yml`；解析行为需要新增或修复时，只修改这一处并补充测试。
+`internal/configutil` 是 YAML 配置解析入口。`im-server` 和 `im-admin` 使用
+`DecodeFileConfigOnly`，只接受完整 YAML，不应用环境变量覆盖；数据库工具仍可使用
+兼容加载入口。配置加载器只接受 `.yaml` 和 `.yml`，解析行为需要新增或修复时只修改
+这一处并补充测试。
 
 ## 4. 不纳入人工拆分的文件
 

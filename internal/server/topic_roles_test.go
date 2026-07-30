@@ -325,3 +325,85 @@ func TestOrdinaryGroupMemberCanPublish(t *testing.T) {
 		t.Fatal("ordinary group member did not receive publish acknowledgement")
 	}
 }
+
+// TestOfficialChannelRoleCannotBeChangedThroughChatProtocol 验证官方角色只能由平台分配。
+func TestOfficialChannelRoleCannotBeChangedThroughChatProtocol(t *testing.T) {
+	helper := TopicTestHelper{}
+	helper.setUp(t, 1, types.TopicCatGrp, "grpTest", true)
+	defer helper.tearDown()
+	helper.topic.isChan = true
+	helper.topic.official = &officialTopicPolicy{
+		OrganizationID: "org-main", Owner: helper.uids[0].UserId(),
+		Official: true, OfficialStatus: "verified", ScaleClass: "normal",
+		JoinPolicy: "open", AdminAssignPolicy: "platform",
+		DirectMessagePolicy: "disabled",
+	}
+
+	msg := &ClientComMessage{
+		Id:       "official-role",
+		Original: "grpTest",
+		AsUser:   helper.uids[0].UserId(),
+		Set: &MsgClientSet{
+			Id:    "official-role",
+			Topic: "grpTest",
+			MsgSetQuery: MsgSetQuery{Sub: &MsgSetSub{
+				User: types.Uid(103).UserId(),
+				Role: "publisher",
+			}},
+		},
+		sess: helper.sessions[0],
+	}
+	if err := helper.topic.replySetSub(helper.sessions[0], msg, false); err == nil {
+		t.Fatal("聊天协议不应允许修改官方频道角色")
+	}
+	helper.finish()
+	registerSessionVerifyOutputs(t, helper.results[0], []int{http.StatusForbidden})
+}
+
+// TestOfficialChannelUsesLatestPersistentRole 验证旧缓存中的写权限不能绕过平台降级。
+func TestOfficialChannelUsesLatestPersistentRole(t *testing.T) {
+	helper := TopicTestHelper{}
+	helper.setUp(t, 2, types.TopicCatGrp, "grpTest", true)
+	defer helper.tearDown()
+	helper.topic.isChan = true
+
+	owner, target := helper.uids[0], helper.uids[1]
+	policy := officialTopicPolicy{
+		OrganizationID: "org-main", Owner: owner.UserId(),
+		Official: true, OfficialStatus: "verified", ScaleClass: "normal",
+		JoinPolicy: "open", AdminAssignPolicy: "platform",
+		DirectMessagePolicy: "disabled", CreatedBy: "bootstrap-admin",
+	}
+	helper.topic.official = &policy
+	stale := helper.topic.perUser[target]
+	stale.modeWant = types.ModeCFull
+	stale.modeGiven = types.ModeCFull
+	stale.isChan = false
+	helper.topic.perUser[target] = stale
+
+	auxValue, err := officialPolicyToAuxValue(policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	helper.tt.EXPECT().Get("grpTest").Return(&types.Topic{
+		UseBt: true, Aux: map[string]any{officialTopicAuxKey: auxValue},
+	}, nil)
+	helper.ss.EXPECT().Get("grpTest", target, false).Return(nil, nil)
+	helper.ss.EXPECT().Get("chnTest", target, false).Return(&types.Subscription{
+		User: target.String(), Topic: "chnTest",
+		ModeWant: types.ModeCChnReader, ModeGiven: types.ModeCChnReader,
+	}, nil)
+
+	msg := &ClientComMessage{
+		Id:       "official-stale-writer",
+		Original: "grpTest",
+		AsUser:   target.UserId(),
+		Pub: &MsgClientPub{
+			Id: "official-stale-writer", Topic: "grpTest", Content: "必须拒绝",
+		},
+		sess: helper.sessions[1],
+	}
+	helper.topic.handlePubBroadcast(msg)
+	helper.finish()
+	registerSessionVerifyOutputs(t, helper.results[1], []int{http.StatusForbidden})
+}

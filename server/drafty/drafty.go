@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
 )
@@ -28,12 +29,14 @@ var (
 // ContentInfo 是服务端对 Drafty 消息的可信分类结果。客户端提供的 MIME、
 // kind 和附件列表不能直接作为消息语义使用，必须由 Drafty 实体重新推导。
 type ContentInfo struct {
-	// Kind 是从正文实体推导出的 text、drafty、image、video、voice、audio 或 file。
+	// Kind 是从正文实体推导出的可信消息类型。
 	Kind string
 	// Attachments 是媒体实体中去重后的带外文件引用。
 	Attachments []string
 	// MediaCount 是文档引用的媒体实体数量。
 	MediaCount int
+	// AssetIDs 是贴纸、动态 Emoji 或 GIF 使用的服务端素材 ID。
+	AssetIDs []string
 }
 
 // supportedStyles 是服务器接受的 Drafty 样式白名单。
@@ -47,7 +50,7 @@ var supportedStyles = map[string]bool{
 var supportedEntities = map[string]bool{
 	"AU": true, "BN": true, "CE": true, "EX": true, "FM": true,
 	"HT": true, "IM": true, "LN": true, "MN": true, "VC": true,
-	"VD": true,
+	"VD": true, "SK": true, "AE": true, "GF": true,
 }
 
 // Analyze 校验 Drafty 的范围、实体类型和媒体元数据，并返回服务端推导的
@@ -75,6 +78,7 @@ func Analyze(content any) (*ContentInfo, error) {
 	}
 
 	refs := make(map[string]struct{})
+	assetIDs := make(map[string]struct{})
 	referencedEntities := make(map[int]bool)
 	mediaKind := ""
 	for _, st := range doc.Fmt {
@@ -110,6 +114,12 @@ func Analyze(content any) (*ContentInfo, error) {
 			}
 		case "EX":
 			kind = "file"
+		case "SK":
+			kind = "sticker"
+		case "AE":
+			kind = "animated-emoji"
+		case "GF":
+			kind = "gif"
 		}
 		if kind == "" {
 			continue
@@ -125,6 +135,12 @@ func Analyze(content any) (*ContentInfo, error) {
 			if _, found := refs[ref]; !found {
 				refs[ref] = struct{}{}
 				info.Attachments = append(info.Attachments, ref)
+			}
+		}
+		if assetID, _ := ent.Data["asset_id"].(string); assetID != "" {
+			if _, found := assetIDs[assetID]; !found {
+				assetIDs[assetID] = struct{}{}
+				info.AssetIDs = append(info.AssetIDs, assetID)
 			}
 		}
 	}
@@ -172,8 +188,35 @@ func validateEntity(ent entity) error {
 		if url, _ := data["url"].(string); url == "" {
 			return fmt.Errorf("%w: link has no url", errInvalidContent)
 		}
+	case "SK", "AE", "GF":
+		if data == nil {
+			return fmt.Errorf("%w: %s entity has no data", errInvalidContent, ent.Tp)
+		}
+		assetID, _ := data["asset_id"].(string)
+		if !validAssetID(assetID) {
+			return fmt.Errorf("%w: %s entity has invalid asset_id", errInvalidContent, ent.Tp)
+		}
+		if alt, exists := data["alt"]; exists {
+			value, ok := alt.(string)
+			if !ok || len(value) > 64 || !utf8.ValidString(value) {
+				return fmt.Errorf("%w: %s entity has invalid alt", errInvalidContent, ent.Tp)
+			}
+		}
 	}
 	return nil
+}
+
+func validAssetID(id string) bool {
+	if id == "" || len(id) > 64 {
+		return false
+	}
+	for _, ch := range id {
+		if !((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+			(ch >= '0' && ch <= '9') || ch == '-' || ch == '_') {
+			return false
+		}
+	}
+	return true
 }
 
 // style 保存style的数据和运行状态。
@@ -381,6 +424,9 @@ var tags = map[string]spanfmt{
 	"EM": {"_", false},
 	"EX": {"", true},
 	"ST": {"*", false},
+	"SK": {"", true},
+	"AE": {"", true},
+	"GF": {"", true},
 }
 
 // 应用于树节点的格式化器类型。
@@ -547,6 +593,24 @@ func plainTextFormatter(n *node, ctx any) error {
 		state.txt += "[" + expand[n.sp.tp] + " '" + name + "']"
 	case "VC":
 		state.txt += "[CALL]"
+	case "SK":
+		if alt, ok := nullableMapGet(n.sp.data, "alt"); ok && alt != "" {
+			state.txt += alt
+		} else {
+			state.txt += "[STICKER]"
+		}
+	case "AE":
+		if alt, ok := nullableMapGet(n.sp.data, "alt"); ok && alt != "" {
+			state.txt += alt
+		} else {
+			state.txt += "[ANIMATED EMOJI]"
+		}
+	case "GF":
+		if alt, ok := nullableMapGet(n.sp.data, "alt"); ok && alt != "" {
+			state.txt += alt
+		} else {
+			state.txt += "[GIF]"
+		}
 	default:
 		state.txt += text
 	}
@@ -751,7 +815,7 @@ func decodeAsEntity(content any) (*entity, error) {
 }
 
 // 实体字段的白名单。
-var lightFields = []string{"mime", "name", "width", "height", "size", "url", "ref"}
+var lightFields = []string{"mime", "name", "width", "height", "size", "url", "ref", "asset_id", "alt"}
 
 // copyLight 复制实体，仅保留白名单中的键。
 // 它还确保复制的值为固定长度的基本类型或足够短的字符串/字节切片，

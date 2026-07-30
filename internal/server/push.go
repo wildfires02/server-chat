@@ -85,6 +85,52 @@ func (t *Topic) pushForData(fromUid types.Uid, data *MsgServerData, msgMarkedAsR
 	return nil
 }
 
+// sendPushForData prevents untranslated P2P text from leaking into a
+// recipient's notification. Sender and recipient receipts are split because
+// their payloads may differ while unread accounting must still happen once.
+func (t *Topic) sendPushForData(fromUid types.Uid, data *MsgServerData,
+	msgMarkedAsReadBySender bool) {
+	receipt := t.pushForData(fromUid, data, msgMarkedAsReadBySender)
+	if receipt == nil {
+		return
+	}
+	if t.cat != types.TopicCatP2P || globals.translation == nil {
+		sendPush(receipt)
+		return
+	}
+	toUid := t.p2pOtherUser(fromUid)
+	projected, start := globals.translation.project(t.name, data, "", false,
+		func(translated *MsgServerData) {
+			sendPush(singleRecipientPush(receipt, toUid, translated.Content))
+		})
+	if projected == data || projected.Translation == nil {
+		sendPush(receipt)
+		return
+	}
+	if _, found := receipt.To[fromUid]; found {
+		sendPush(singleRecipientPush(receipt, fromUid, data.Content))
+	}
+	if projected.Translation.Status != "pending" {
+		sendPush(singleRecipientPush(receipt, toUid, projected.Content))
+	}
+	if start != nil {
+		start()
+	}
+}
+
+func singleRecipientPush(receipt *push.Receipt, uid types.Uid, content any) *push.Receipt {
+	recipient, found := receipt.To[uid]
+	if !found {
+		return nil
+	}
+	out := &push.Receipt{
+		To:      map[types.Uid]push.Recipient{uid: recipient},
+		Payload: receipt.Payload,
+	}
+	out.Payload.Content = content
+	return out
+}
+
 // preparePushForSubReceipt 完成preparePushFor订阅Receipt所需的内部处理。
 func (t *Topic) preparePushForSubReceipt(fromUid types.Uid, now time.Time) *push.Receipt {
 	// 推送回执中的 `Topic` 对于群组 Topic 是 `t.xoriginal`，对于 p2p Topic 是 `fromUid`，

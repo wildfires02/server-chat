@@ -72,13 +72,11 @@ COPY --chown=im:im web/static/ /opt/im/static/
 
 ENV TARGET_DB="${TARGET_DB}" \
     IM_CONFIG_FILE=/etc/im/im.yaml \
-    IM_STATIC_DIR=/opt/im/static \
     IM_DB_INIT_MODE=skip \
     IM_DB_SAMPLE_DATA= \
     IM_DB_WAIT_FOR= \
     IM_DB_WAIT_TIMEOUT=120 \
-    IM_RUN_SERVER=true \
-    IM_VALIDATE_CONFIG=true
+    IM_RUN_SERVER=true
 
 WORKDIR /var/lib/im
 USER 10001:10001

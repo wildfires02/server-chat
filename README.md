@@ -25,15 +25,20 @@ docker run -d --name im-mysql-dev \
 mkdir -p bin
 go build -tags mysql -o bin/init-db ./cmd/init-db
 go build -tags mysql -o bin/im-server ./cmd/im-server
+go build -tags mysql -o bin/im-admin ./cmd/im-admin
 
 ./bin/init-db \
   --config=./configs/im.yaml \
   --data=./cmd/init-db/data.json \
   --reset=true
 
-./bin/im-server \
-  --config=./configs/im.yaml \
-  --static_data=-
+./bin/im-admin
+```
+
+另一个终端启动聊天服务：
+
+```bash
+./bin/im-server
 ```
 
 启动后检查：
@@ -52,6 +57,8 @@ curl --fail http://127.0.0.1:6060/readyz
 - 消息编辑、撤回、回复、转发、反应、置顶和定时消息。
 - 本地文件系统与 S3 兼容对象存储。
 - WebRTC 点对点信令和 Agora 群组通话服务端令牌。
+- 独立 `im-admin` 进程：Casbin 角色权限、Domain 绑定、翻译策略、基础产品策略和
+  操作审计。
 - MySQL、PostgreSQL、MongoDB 和 RethinkDB 存储适配器。
 - 开发单机模式，以及基于 etcd、数据库隔离栅栏和 gRPC 有序通道的集群模式。
 
@@ -64,7 +71,6 @@ curl --fail http://127.0.0.1:6060/readyz
 | Docker | [deployments/docker/README.md](deployments/docker/README.md) | 本地镜像和容器运行 |
 | Docker Compose | [deployments/docker/compose/README.md](deployments/docker/compose/README.md) | 开发单机和开发集群 |
 | Kubernetes | [deployments/kubernetes/README.md](deployments/kubernetes/README.md) | 三至五节点生产模板 |
-| systemd | [deployments/systemd/README.md](deployments/systemd/README.md) | 非 Kubernetes 多主机部署 |
 
 生产集群的发布、滚动升级、证书轮换、扩缩容和回滚以
 [生产集群操作手册](docs/cluster-operations.md)为准。
@@ -79,6 +85,7 @@ curl --fail http://127.0.0.1:6060/readyz
 - [接口调用示例](docs/api-examples.md)
 - [监控与健康检查](docs/monitoring.md)
 - [常见问题](docs/faq.md)
+- [统一产品需求与管理后台接口](docs/im-product-requirements.md)
 
 规划、差距分析和历史验收记录位于 `docs/planning/`，不应代替当前操作文档。
 

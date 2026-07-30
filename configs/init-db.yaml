@@ -15,7 +15,7 @@ store_config:
       dsn: postgresql://postgres:postgres@localhost:5432/im?sslmode=disable
     mysql:
       database: im
-      dsn: root@tcp(localhost)/im?parseTime=true&collation=utf8mb4_unicode_ci
+      dsn: root:123456@tcp(127.0.0.1:3306)/im?parseTime=true&collation=utf8mb4_bin
     rethinkdb:
       database: im
       addresses: localhost:28015

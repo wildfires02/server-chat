@@ -197,6 +197,11 @@ func (t *Topic) replySetDesc(sess *Session, asUid types.Uid, asChan bool,
 	// 对订阅的更改。
 	sub := make(map[string]any)
 	if set := msg.Set; set.Desc != nil {
+		if t.isOfficialTopic() && t.cat == types.TopicCatGrp &&
+			(set.Desc.Public != nil || set.Desc.Trusted != nil || set.Desc.DefaultAcs != nil) {
+			sess.queueOut(ErrPermissionDeniedReply(msg, now))
+			return errors.New("官方频道资料和访问策略只能通过平台管理接口修改")
+		}
 		if set.Desc.Trusted != nil && authLevel != auth.LevelRoot {
 			// 只有 ROOT 能更改 Trusted。
 			sess.queueOut(ErrPermissionDeniedReply(msg, now))

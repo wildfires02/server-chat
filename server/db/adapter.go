@@ -204,10 +204,10 @@ type Adapter interface {
 	FileFinishUpload(fd *t.FileDef, success bool, size int64) (*t.FileDef, error)
 	// FileGet 获取指定文件的记录。
 	FileGet(fid string) (*t.FileDef, error)
-	// FileDeleteUnused 删除 UseCount 为零的记录。如果 olderThan 非零，
-	// 则删除 UpdatedAt 早于 olderThan 的未使用记录。
+	// FileDeleteUnused 删除 UseCount 为零且未被 protected 回调保留的记录。
+	// 如果 olderThan 非零，则删除 UpdatedAt 早于 olderThan 的未使用记录。
 	// 返回已删除文件记录的 FileDef.Location 数组，以便同时删除实际文件。
-	FileDeleteUnused(olderThan time.Time, limit int) ([]string, error)
+	FileDeleteUnused(olderThan time.Time, limit int, protected func(fid string) bool) ([]string, error)
 	// FileLinkAttachments 将指定的 Topic 或消息连接到文件记录 ID 列表。
 	FileLinkAttachments(topic string, userId, msgId t.Uid, fids []string) error
 	// FileLinkScheduled 将文件 ID 连接到尚未投递的定时消息。
@@ -223,6 +223,10 @@ type Adapter interface {
 	PCacheDelete(key string) error
 	// PCacheExpire 过期指定键前缀的较早条目。
 	PCacheExpire(keyPrefix string, olderThan time.Time) error
+	// PCacheList 按键前缀列出持久缓存条目。
+	PCacheList(keyPrefix string, limit int) (map[string]string, error)
+	// PCacheCompareAndSwap 仅在当前值匹配 oldValue 时原子更新。
+	PCacheCompareAndSwap(key, oldValue, newValue string) (bool, error)
 
 	// 测试
 

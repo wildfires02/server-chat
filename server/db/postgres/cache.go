@@ -78,3 +78,45 @@ func (a *adapter) PCacheExpire(keyPrefix string, olderThan time.Time) error {
 	_, err := a.db.Exec(ctx, `DELETE FROM kvmeta WHERE "key" LIKE $1 AND createdat<$2`, keyPrefix+"%", olderThan)
 	return err
 }
+
+// PCacheList 按键前缀返回最早写入的条目。
+func (a *adapter) PCacheList(keyPrefix string, limit int) (map[string]string, error) {
+	if keyPrefix == "" || strings.ContainsAny(keyPrefix, "%_") || limit <= 0 {
+		return nil, t.ErrMalformed
+	}
+	ctx, cancel := a.getContext()
+	if cancel != nil {
+		defer cancel()
+	}
+	rows, err := a.db.Query(ctx,
+		`SELECT "key","value" FROM kvmeta WHERE "key" LIKE $1 ORDER BY createdat LIMIT $2`,
+		keyPrefix+"%", limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[string]string)
+	for rows.Next() {
+		var key, value string
+		if err = rows.Scan(&key, &value); err != nil {
+			return nil, err
+		}
+		result[key] = value
+	}
+	return result, rows.Err()
+}
+
+// PCacheCompareAndSwap 在数据库中原子更新匹配的条目。
+func (a *adapter) PCacheCompareAndSwap(key, oldValue, newValue string) (bool, error) {
+	ctx, cancel := a.getContext()
+	if cancel != nil {
+		defer cancel()
+	}
+	result, err := a.db.Exec(ctx,
+		`UPDATE kvmeta SET createdat=$1,"value"=$2 WHERE "key"=$3 AND "value"=$4`,
+		t.TimeNow(), newValue, key, oldValue)
+	if err != nil {
+		return false, err
+	}
+	return result.RowsAffected() == 1, nil
+}

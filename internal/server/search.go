@@ -155,6 +155,7 @@ func (t *Topic) replySearch(sess *Session, asUid types.Uid, asChan bool,
 	}
 
 	result := &MsgSearchResult{Scope: opts.Scope}
+	var startTranslations []func()
 	switch opts.Scope {
 	case types.SearchScopePeers:
 		if t.cat != types.TopicCatFnd || asChan {
@@ -232,10 +233,18 @@ func (t *Topic) replySearch(sess *Session, asUid types.Uid, asChan bool,
 			found = found[:opts.Limit]
 		}
 		result.Messages = make([]*MsgServerData, 0, len(found))
+		startTranslations = make([]func(), 0, len(found))
 		for i := range found {
 			fromID := types.ParseUid(found[i].From).UserId()
-			result.Messages = append(result.Messages,
-				serverDataFromStored(msg.Original, fromID, &found[i]))
+			data := serverDataFromStored(msg.Original, fromID, &found[i])
+			if t.cat == types.TopicCatP2P && globals.translation != nil {
+				var start func()
+				data, start = globals.translation.projectHistoricalData(t.name, data, sess, asUid)
+				if start != nil {
+					startTranslations = append(startTranslations, start)
+				}
+			}
+			result.Messages = append(result.Messages, data)
 		}
 		if hasMore && len(found) > 0 {
 			cursor.BeforeSeq = found[len(found)-1].SeqId
@@ -247,11 +256,16 @@ func (t *Topic) replySearch(sess *Session, asUid types.Uid, asChan bool,
 		return errors.New("unsupported search scope")
 	}
 
-	sess.queueOut(&ServerComMessage{Meta: &MsgServerMeta{
+	if !sess.queueOut(&ServerComMessage{Meta: &MsgServerMeta{
 		Id:        msg.Id,
 		Topic:     msg.Original,
 		Timestamp: &now,
 		Search:    result,
-	}})
+	}}) {
+		return errors.New("session send queue is full")
+	}
+	for _, start := range startTranslations {
+		start()
+	}
 	return nil
 }

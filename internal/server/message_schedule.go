@@ -30,6 +30,13 @@ func (t *Topic) scheduleMessage(
 		(userData.isChan || !(userData.modeWant & userData.modeGiven).IsWriter()) {
 		return types.ErrPermissionDenied
 	}
+	scope := "message"
+	if len(attachments) > 0 {
+		scope = "media"
+	}
+	if err := t.checkOfficialPublish(asUid, scope, msg.Timestamp); err != nil {
+		return err
+	}
 
 	// 已经投递或仍在排队的请求直接返回原结果，避免创建重复消息。
 	if delivered, err := store.Messages.GetByClientId(

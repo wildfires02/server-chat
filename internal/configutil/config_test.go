@@ -51,6 +51,33 @@ func TestDecodeFileRejectsNonYAML(t *testing.T) {
 	}
 }
 
+func TestDecodeFileConfigOnlyIgnoresEnvironment(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "admin.yaml")
+	if err := os.WriteFile(configPath, []byte(`
+listen: ":6061"
+admin:
+  bootstrap_token: file-token
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("IM_LISTEN", ":7061")
+	t.Setenv("IM_ADMIN__BOOTSTRAP_TOKEN", "environment-token")
+
+	var config struct {
+		Listen string `json:"listen"`
+		Admin  struct {
+			BootstrapToken string `json:"bootstrap_token"`
+		} `json:"admin"`
+	}
+	if err := DecodeFileConfigOnly(configPath, &config); err != nil {
+		t.Fatal(err)
+	}
+	if config.Listen != ":6061" || config.Admin.BootstrapToken != "file-token" {
+		t.Fatalf("DecodeFileConfigOnly() 应仅使用 YAML：%+v", config)
+	}
+}
+
 // TestDecodeYAMLObjectRoot 验证独立配置也使用 Viper 支持的对象根节点。
 func TestDecodeYAMLObjectRoot(t *testing.T) {
 	var config struct {

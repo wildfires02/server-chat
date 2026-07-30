@@ -458,4 +458,7 @@ func init() {
 	Devices = deviceMapper{}
 	Files = fileMapper{}
 	PCache = pcacheMapper{}
+	Contacts = &contactMapper{}
+	Assets = &assetMapper{}
+	InternalPins = internalPinMapper{}
 }

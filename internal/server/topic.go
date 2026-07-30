@@ -65,6 +65,16 @@ type Topic struct {
 	// 辅助键值对映射
 	aux map[string]any
 
+	// official 保存平台签发的官方 Topic 策略投影。
+	// 官方大群只在内存中缓存在线、管理和近期活跃成员，全量成员关系保存在订阅表。
+	official *officialTopicPolicy
+	// officialRefreshedAt 是最近一次从 Topic 持久层刷新官方策略的时间。
+	officialRefreshedAt time.Time
+	// moderationCache 是单人禁言状态的短 TTL 缓存，控制持久层读取放大。
+	moderationCache map[types.Uid]officialModerationCache
+	// officialMemberRefreshed 保存官方大群成员 ACL 最近一次按需刷新时间。
+	officialMemberRefreshed map[types.Uid]time.Time
+
 	// Topic 公开数据
 	public any
 	// Topic 受信数据

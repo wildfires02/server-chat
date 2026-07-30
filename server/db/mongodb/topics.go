@@ -3,6 +3,7 @@
 package mongodb
 
 import (
+	"sort"
 	"time"
 
 	"chat/server/db/common"
@@ -312,13 +313,16 @@ func (a *adapter) UsersForTopic(topic string, keepDeleted bool, opts *t.QueryOpt
 				filter["user"] = opts.User.String()
 			}
 			oneUser = opts.User
+		} else if !opts.Cursor.IsZero() && tcat != t.TopicCatP2P {
+			filter["user"] = b.M{"$gt": opts.Cursor.String()}
 		}
 		if opts.Limit > 0 && opts.Limit < limit {
 			limit = opts.Limit
 		}
 	}
 
-	cur, err := a.db.Collection("subscriptions").Find(a.ctx, filter, mdbopts.Find().SetLimit(int64(limit)))
+	cur, err := a.db.Collection("subscriptions").Find(a.ctx, filter,
+		mdbopts.Find().SetSort(b.D{{Key: "user", Value: 1}}).SetLimit(int64(limit)))
 	if err != nil {
 		return nil, err
 	}
@@ -403,6 +407,9 @@ func (a *adapter) UsersForTopic(topic string, keepDeleted bool, opts *t.QueryOpt
 			}
 			subs = xsubs
 		}
+	}
+	if tcat != t.TopicCatP2P {
+		sort.Slice(subs, func(i, j int) bool { return subs[i].User < subs[j].User })
 	}
 
 	return subs, nil

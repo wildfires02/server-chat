@@ -23,7 +23,7 @@ CREATE TABLE kvmeta(
 	INDEX kvmeta_createdat_key(createdat, `key`)
 ) COMMENT='数据库版本及全局键值元数据';
 
-INSERT INTO kvmeta(`key`, `value`) VALUES("version", "120");
+INSERT INTO kvmeta(`key`, `value`) VALUES("version", "121");
 
 CREATE TABLE users(
 	id 			BIGINT NOT NULL COMMENT '用户唯一ID',

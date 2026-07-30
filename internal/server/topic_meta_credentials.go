@@ -93,13 +93,13 @@ func (t *Topic) replyGetAux(sess *Session, asUid types.Uid, msg *ClientComMessag
 		return errors.New("invalid topic category to query aux")
 	}
 
-	if len(t.aux) > 0 {
+	if aux := clientVisibleAux(t.aux); len(aux) > 0 {
 		sess.queueOut(&ServerComMessage{
 			Meta: &MsgServerMeta{
 				Id:        msg.Id,
 				Topic:     t.original(asUid),
 				Timestamp: &now,
-				Aux:       t.aux,
+				Aux:       aux,
 			},
 		})
 		return nil
@@ -119,10 +119,13 @@ func (t *Topic) replySetAux(sess *Session, asUid types.Uid, msg *ClientComMessag
 		sess.queueOut(ErrOperationNotAllowedReply(msg, now))
 		return errors.New("invalid topic category to assign aux")
 	}
-
 	if userData := t.perUser[asUid]; !(userData.modeGiven & userData.modeWant).IsAdmin() {
 		sess.queueOut(ErrPermissionDeniedReply(msg, now))
 		return errors.New("aux update by non-admin")
+	}
+	if _, reserved := msg.Set.Aux[officialTopicAuxKey]; reserved {
+		sess.queueOut(ErrPermissionDeniedReply(msg, now))
+		return errors.New("official topic policy can only be changed by the admin API")
 	}
 
 	if aux, changed := mergeMaps(copyMap(t.aux), msg.Set.Aux); changed {

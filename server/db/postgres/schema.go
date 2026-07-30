@@ -712,6 +712,14 @@ func (a *adapter) UpgradeDb() error {
 		}
 	}
 
+	if a.version == 120 {
+		// 数据库 120→121：subscriptions_topic_userid 已覆盖官方大群成员游标分页，
+		// 无需新增重复索引，仅同步数据库版本。
+		if err := bumpVersion(a, 121); err != nil {
+			return err
+		}
+	}
+
 	if a.version != adpVersion {
 		return errors.New("Failed to perform database upgrade to version " + strconv.Itoa(adpVersion) +
 			". DB is still at " + strconv.Itoa(a.version))

@@ -141,6 +141,13 @@ func newHub() *Hub {
 
 	statsRegisterInt("FileDownloadsTotal")
 	statsRegisterInt("FileUploadsTotal")
+	statsRegisterInt("FileProcessingClaims")
+	statsRegisterInt("FileProcessingLeaseRecoveries")
+	statsRegisterInt("FileProcessingCompleted")
+	statsRegisterInt("FileProcessingRetries")
+	statsRegisterInt("FileProcessingDeadLetters")
+	statsRegisterInt("ResumableUploadChunks")
+	statsRegisterInt("ResumableUploadLeaseConflicts")
 
 	statsRegisterInt("CtrlCodesTotal2xx")
 	statsRegisterInt("CtrlCodesTotal3xx")
@@ -445,6 +452,12 @@ func (h *Hub) topicUnreg(sess *Session, topic string, msg *ClientComMessage, rea
 		if t := h.topicGet(topic); t != nil {
 			// 情况 1.1: Topic 在线
 			if (!asUid.IsZero() && t.owner == asUid) || (t.cat == types.TopicCatP2P && t.subsCount() < 2) {
+				if t.isOfficialTopic() {
+					if sess != nil {
+						sess.queueOut(ErrPermissionDeniedReply(msg, now))
+					}
+					return types.ErrPermissionDenied
+				}
 				// 情况 1.1.1: 请求者是所有者，或者属于 p2p Topic 的最后一个订阅者
 				t.markPaused(true)
 				hard := true
@@ -480,6 +493,27 @@ func (h *Hub) topicUnreg(sess *Session, topic string, msg *ClientComMessage, rea
 			}
 		} else {
 			// 情况 1.2: Topic 离线。
+			if stored, getErr := store.Topics.Get(topic); getErr != nil {
+				if sess != nil {
+					sess.queueOut(ErrUnknownReply(msg, now))
+				}
+				return getErr
+			} else if stored != nil {
+				policy, policyErr := officialPolicyFromAux(topic, stored.Aux)
+				if policyErr != nil {
+					if sess != nil {
+						sess.queueOut(ErrUnknownReply(msg, now))
+					}
+					return policyErr
+				}
+				if policy != nil && policy.Official && msg != nil &&
+					!types.IsChannel(msg.Original) {
+					if sess != nil {
+						sess.queueOut(ErrPermissionDeniedReply(msg, now))
+					}
+					return types.ErrPermissionDenied
+				}
+			}
 
 			// 用户是否为频道订阅者？使用 chnABC 代替 grpABC 且仅获取此用户的订阅。
 			var opts *types.QueryOpt

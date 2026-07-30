@@ -99,6 +99,10 @@ func (t *Topic) setAnotherUserRole(sess *Session, asUid, target types.Uid, asCha
 	pkt *ClientComMessage) (*MsgAccessMode, error) {
 
 	now := types.TimeNow()
+	if t.isOfficialTopic() {
+		sess.queueOut(ErrPermissionDeniedReply(pkt, now))
+		return nil, errors.New("官方频道角色只能通过平台管理接口分配")
+	}
 	if t.cat != types.TopicCatGrp || asChan {
 		sess.queueOut(ErrPermissionDeniedReply(pkt, now))
 		return nil, errors.New("roles can only be managed through a group topic")
@@ -195,7 +199,8 @@ func (t *Topic) setAnotherUserRole(sess *Session, asUid, target types.Uid, asCha
 
 	if current == nil {
 		// 普通群成员和频道发布者受成员上限约束；频道读者保持可扩展订阅语义。
-		if !requested.ChannelSub && t.subsCount() >= globals.maxSubscriberCount {
+		if !requested.ChannelSub && !t.isOfficialLargeGroup() &&
+			t.subsCount() >= globals.maxSubscriberCount {
 			sess.queueOut(ErrPolicyReply(pkt, now))
 			return nil, errors.New("maximum group member count exceeded")
 		}
@@ -279,6 +284,7 @@ func (t *Topic) setAnotherUserRole(sess *Session, asUid, target types.Uid, asCha
 	if requested.Name == "banned" {
 		t.evictUser(target, false, "")
 	}
+	t.evictColdSubscriber(target)
 
 	sub := &types.Subscription{
 		User:      target.String(),

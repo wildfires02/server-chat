@@ -371,6 +371,8 @@ type QueryOpt struct {
 	Before int
 	// 通用参数
 	Limit int
+	// Cursor 是订阅成员分页中最后一个已返回的用户 ID。
+	Cursor Uid
 	// Forward 指示按 SeqId 升序读取，用于断线同步追赶。
 	Forward bool
 	// ID 范围。

@@ -10,8 +10,8 @@ import (
 	gh "github.com/gorilla/handlers"
 )
 
-func startProtocolRuntime(options serverOptions, config configType) *tls.Config {
-	tlsConfig, err := parseTLSConfig(options.tlsEnabled, config.TLS)
+func startProtocolRuntime(config configType) *tls.Config {
+	tlsConfig, err := parseTLSConfig(false, config.TLS)
 	if err != nil {
 		logs.Err.Fatalln(err)
 	}
@@ -19,11 +19,7 @@ func startProtocolRuntime(options serverOptions, config configType) *tls.Config 
 	pluginsInit(config.Plugin)
 	usersInit()
 
-	listenGRPC := options.listenGRPC
-	if listenGRPC == "" {
-		listenGRPC = config.GrpcListen
-	}
-	if globals.grpcServer, err = serveGrpc(listenGRPC, config.GrpcKeepalive, tlsConfig); err != nil {
+	if globals.grpcServer, err = serveGrpc(config.GrpcListen, config.GrpcKeepalive, tlsConfig); err != nil {
 		logs.Err.Fatal(err)
 	}
 	return tlsConfig
@@ -32,13 +28,12 @@ func startProtocolRuntime(options serverOptions, config configType) *tls.Config 
 func registerServerHTTPRoutes(
 	mux *http.ServeMux,
 	curwd string,
-	options serverOptions,
 	config *configType,
 	tlsConfig *tls.Config,
 ) {
 	staticMountPoint := ""
-	if options.staticPath != "" && options.staticPath != "-" {
-		staticPath := toAbsolutePath(curwd, options.staticPath)
+	if config.StaticData != "" && config.StaticData != "-" {
+		staticPath := toAbsolutePath(curwd, config.StaticData)
 		if _, err := os.Stat(staticPath); os.IsNotExist(err) {
 			logs.Err.Fatal("Static content directory is not found", staticPath)
 		}
@@ -56,9 +51,6 @@ func registerServerHTTPRoutes(
 		logs.Info.Println("Static content is disabled")
 	}
 
-	if options.apiPath != "" {
-		config.ApiPath = options.apiPath
-	}
 	config.ApiPath = normalizeHTTPPath(config.ApiPath, defaultApiPath)
 	logs.Info.Printf("API served from root URL path '%s'", config.ApiPath)
 
@@ -78,10 +70,7 @@ func registerServerHTTPRoutes(
 	}
 	logs.Info.Printf("Serving endpoint URL set to '%s'", globals.servingAt)
 
-	statusPath := options.serverStatusPath
-	if statusPath == "" {
-		statusPath = config.ServerStatusPath
-	}
+	statusPath := config.ServerStatusPath
 	if statusPath != "" && statusPath != "-" {
 		logs.Info.Printf("Server status is available at '%s'", statusPath)
 		mux.HandleFunc(statusPath, serveStatus)
@@ -92,9 +81,10 @@ func registerServerHTTPRoutes(
 	if config.Media != nil {
 		mux.Handle(config.ApiPath+"v0/file/u/", gh.CompressHandler(http.HandlerFunc(largeFileReceiveHTTP)))
 		mux.Handle(config.ApiPath+"v0/file/s/", gh.CompressHandler(http.HandlerFunc(largeFileServeHTTP)))
+		mux.Handle(config.ApiPath+"v0/file/meta/", gh.CompressHandler(http.HandlerFunc(largeFileMetaHTTP)))
+		mux.Handle(config.ApiPath+"v0/file/resumable/", gh.CompressHandler(http.HandlerFunc(resumableFileHTTP)))
 		logs.Info.Println("Large media handling enabled", config.Media.UseHandler)
 	}
-
 	if staticMountPoint != "/" {
 		mux.HandleFunc("/", serve404)
 	}

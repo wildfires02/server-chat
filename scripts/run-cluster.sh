@@ -56,21 +56,27 @@ start_cluster() {
     im_die "本机 etcd 未就绪：http://127.0.0.1:2379"
 
   mkdir -p "${RUN_DIR}" "${LOG_DIR}"
-  local index node_name process_id
+  local index node_name process_id node_dir node_config
   for index in "${!NODE_NAMES[@]}"; do
     node_name="${NODE_NAMES[index]}"
     if node_is_running "${node_name}"; then
       im_die "${node_name} 已经运行"
     fi
-    IM_CLUSTER_CONFIG__SELF="${node_name}" \
-    IM_CLUSTER_CONFIG__ADVERTISE_ADDR="127.0.0.1:$((CLUSTER_BASE_PORT + index))" \
-    IM_CLUSTER_CONFIG__TRANSPORT__LISTEN="127.0.0.1:$((CLUSTER_BASE_PORT + index))" \
-      "${SERVER}" \
-        "--config=${CONFIG_FILE}" \
-        "--listen=:$((HTTP_BASE_PORT + index))" \
-        "--grpc_listen=:$((CLIENT_GRPC_BASE_PORT + index))" \
-        "--static_data=${STATIC_DIR}" \
-        >"${LOG_DIR}/${node_name}.log" 2>&1 &
+    node_dir="${RUN_DIR}/${node_name}"
+    node_config="${node_dir}/configs/im.yaml"
+    mkdir -p "${node_dir}/configs"
+    sed \
+      -e "s|^listen:.*|listen: \":$((HTTP_BASE_PORT + index))\"|" \
+      -e "s|^grpc_listen:.*|grpc_listen: \":$((CLIENT_GRPC_BASE_PORT + index))\"|" \
+      -e "s|^static_data:.*|static_data: \"${STATIC_DIR}\"|" \
+      -e "s|^  self:.*|  self: ${node_name}|" \
+      -e "s|^  advertise_addr:.*|  advertise_addr: \"127.0.0.1:$((CLUSTER_BASE_PORT + index))\"|" \
+      -e "s|^    listen:.*|    listen: \"127.0.0.1:$((CLUSTER_BASE_PORT + index))\"|" \
+      "${CONFIG_FILE}" >"${node_config}"
+    (
+      cd "${node_dir}"
+      exec "${SERVER}"
+    ) >"${LOG_DIR}/${node_name}.log" 2>&1 &
     process_id=$!
     printf '%s\n' "${process_id}" >"$(node_pid_file "${node_name}")"
   done

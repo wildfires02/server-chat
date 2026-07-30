@@ -54,22 +54,33 @@ func pbServDataSerialize(data *MsgServerData) *pbx.ServerMsg_Data {
 			Count:    int32(reaction.Count),
 		})
 	}
+	var translation *pbx.Translation
+	if data.Translation != nil {
+		translation = &pbx.Translation{
+			Status:         data.Translation.Status,
+			SourceLanguage: data.Translation.SourceLanguage,
+			TargetLanguage: data.Translation.TargetLanguage,
+			Provider:       data.Translation.Provider,
+			Original:       interfaceToBytes(data.Translation.Original),
+		}
+	}
 	return &pbx.ServerMsg_Data{
 		Data: &pbx.ServerData{
-			Topic:      data.Topic,
-			FromUserId: data.From,
-			Timestamp:  timeToInt64(&data.Timestamp),
-			EditedAt:   timeToInt64(data.EditedAt),
-			DeletedAt:  timeToInt64(data.DeletedAt),
-			SeqId:      int32(data.SeqId),
-			Head:       interfaceMapToByteMap(data.Head),
-			Content:    interfaceToBytes(data.Content),
-			ClientId:   data.ClientId,
-			Kind:       data.Kind,
-			ReplyTo:    int32(data.ReplyTo),
-			Forwarded:  forwarded,
-			GroupId:    data.GroupId,
-			Reactions:  reactions,
+			Topic:       data.Topic,
+			FromUserId:  data.From,
+			Timestamp:   timeToInt64(&data.Timestamp),
+			EditedAt:    timeToInt64(data.EditedAt),
+			DeletedAt:   timeToInt64(data.DeletedAt),
+			SeqId:       int32(data.SeqId),
+			Head:        interfaceMapToByteMap(data.Head),
+			Content:     interfaceToBytes(data.Content),
+			ClientId:    data.ClientId,
+			Kind:        data.Kind,
+			ReplyTo:     int32(data.ReplyTo),
+			Forwarded:   forwarded,
+			GroupId:     data.GroupId,
+			Reactions:   reactions,
+			Translation: translation,
 		},
 	}
 }
@@ -104,6 +115,12 @@ func pbServPresSerialize(pres *MsgServerPres) *pbx.ServerMsg_Pres {
 		what = pbx.ServerPres_TAGS
 	case "aux":
 		what = pbx.ServerPres_AUX
+	case "contacts":
+		what = pbx.ServerPres_CONTACTS
+	case "assets":
+		what = pbx.ServerPres_ASSETS
+	case "workspace":
+		what = pbx.ServerPres_WORKSPACE
 	default:
 		logs.Info.Println("Unknown pres.what value", pres.What)
 	}
@@ -144,15 +161,18 @@ func pbServInfoSerialize(info *MsgServerInfo) *pbx.ServerMsg_Info {
 func pbServMetaSerialize(meta *MsgServerMeta) *pbx.ServerMsg_Meta {
 	return &pbx.ServerMsg_Meta{
 		Meta: &pbx.ServerMeta{
-			Id:     meta.Id,
-			Topic:  meta.Topic,
-			Desc:   pbTopicDescSerialize(meta.Desc),
-			Sub:    pbTopicSubSliceSerialize(meta.Sub),
-			Del:    pbDelValuesSerialize(meta.Del),
-			Tags:   meta.Tags,
-			Cred:   pbServerCredsSerialize(meta.Cred),
-			Aux:    interfaceMapToByteMap(meta.Aux),
-			Search: pbSearchResultSerialize(meta.Search),
+			Id:       meta.Id,
+			Topic:    meta.Topic,
+			Desc:     pbTopicDescSerialize(meta.Desc),
+			Sub:      pbTopicSubSliceSerialize(meta.Sub),
+			Next:     meta.Next,
+			Del:      pbDelValuesSerialize(meta.Del),
+			Tags:     meta.Tags,
+			Cred:     pbServerCredsSerialize(meta.Cred),
+			Aux:      interfaceMapToByteMap(meta.Aux),
+			Search:   pbSearchResultSerialize(meta.Search),
+			Contacts: pbContactSnapshotSerialize(meta.Contacts),
+			Assets:   pbAssetCatalogSerialize(meta.Assets),
 		},
 	}
 }
@@ -255,21 +275,32 @@ func pbServDeserialize(pkt *pbx.ServerMsg) *ServerComMessage {
 				Count:    int(reaction.GetCount()),
 			})
 		}
+		var translation *MsgTranslation
+		if translated := data.GetTranslation(); translated != nil {
+			translation = &MsgTranslation{
+				Status:         translated.GetStatus(),
+				SourceLanguage: translated.GetSourceLanguage(),
+				TargetLanguage: translated.GetTargetLanguage(),
+				Provider:       translated.GetProvider(),
+				Original:       bytesToInterface(translated.GetOriginal()),
+			}
+		}
 		msg.Data = &MsgServerData{
-			Topic:     data.GetTopic(),
-			From:      data.GetFromUserId(),
-			Timestamp: *tsptr,
-			EditedAt:  int64ToTime(data.GetEditedAt()),
-			DeletedAt: int64ToTime(data.GetDeletedAt()),
-			SeqId:     int(data.GetSeqId()),
-			Head:      byteMapToInterfaceMap(data.GetHead()),
-			Content:   bytesToInterface(data.GetContent()),
-			ClientId:  data.GetClientId(),
-			Kind:      data.GetKind(),
-			ReplyTo:   int(data.GetReplyTo()),
-			Forwarded: forwarded,
-			GroupId:   data.GetGroupId(),
-			Reactions: reactions,
+			Topic:       data.GetTopic(),
+			From:        data.GetFromUserId(),
+			Timestamp:   *tsptr,
+			EditedAt:    int64ToTime(data.GetEditedAt()),
+			DeletedAt:   int64ToTime(data.GetDeletedAt()),
+			SeqId:       int(data.GetSeqId()),
+			Head:        byteMapToInterfaceMap(data.GetHead()),
+			Content:     bytesToInterface(data.GetContent()),
+			ClientId:    data.GetClientId(),
+			Kind:        data.GetKind(),
+			ReplyTo:     int(data.GetReplyTo()),
+			Forwarded:   forwarded,
+			GroupId:     data.GetGroupId(),
+			Reactions:   reactions,
+			Translation: translation,
 		}
 	} else if pres := pkt.GetPres(); pres != nil {
 		var what string
@@ -300,6 +331,12 @@ func pbServDeserialize(pkt *pbx.ServerMsg) *ServerComMessage {
 			what = "tags"
 		case pbx.ServerPres_AUX:
 			what = "aux"
+		case pbx.ServerPres_CONTACTS:
+			what = "contacts"
+		case pbx.ServerPres_ASSETS:
+			what = "assets"
+		case pbx.ServerPres_WORKSPACE:
+			what = "workspace"
 		}
 		msg.Pres = &MsgServerPres{
 			Topic:     pres.GetTopic(),
@@ -327,15 +364,18 @@ func pbServDeserialize(pkt *pbx.ServerMsg) *ServerComMessage {
 		}
 	} else if meta := pkt.GetMeta(); meta != nil {
 		msg.Meta = &MsgServerMeta{
-			Id:     meta.GetId(),
-			Topic:  meta.GetTopic(),
-			Desc:   pbTopicDescDeserialize(meta.GetDesc()),
-			Sub:    pbTopicSubSliceDeserialize(meta.GetSub()),
-			Del:    pbDelValuesDeserialize(meta.GetDel()),
-			Tags:   meta.GetTags(),
-			Cred:   pbServerCredsDeserialize(meta.GetCred()),
-			Aux:    byteMapToInterfaceMap(meta.GetAux()),
-			Search: pbSearchResultDeserialize(meta.GetSearch()),
+			Id:       meta.GetId(),
+			Topic:    meta.GetTopic(),
+			Desc:     pbTopicDescDeserialize(meta.GetDesc()),
+			Sub:      pbTopicSubSliceDeserialize(meta.GetSub()),
+			Next:     meta.GetNext(),
+			Del:      pbDelValuesDeserialize(meta.GetDel()),
+			Tags:     meta.GetTags(),
+			Cred:     pbServerCredsDeserialize(meta.GetCred()),
+			Aux:      byteMapToInterfaceMap(meta.GetAux()),
+			Search:   pbSearchResultDeserialize(meta.GetSearch()),
+			Contacts: pbContactSnapshotDeserialize(meta.GetContacts()),
+			Assets:   pbAssetCatalogDeserialize(meta.GetAssets()),
 		}
 	}
 	return &msg

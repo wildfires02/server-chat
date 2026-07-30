@@ -69,7 +69,7 @@ func (a *adapter) FileGet(fid string) (*t.FileDef, error) {
 // FileDeleteUnused 删除 UseCount 为零的记录。若 olderThan 非零，则删除
 // UpdatedAt 早于 olderThan 的未使用记录。
 // 返回已删除文件记录的 FileDef.Location 数组，以便同时删除实际文件。
-func (a *adapter) FileDeleteUnused(olderThan time.Time, limit int) ([]string, error) {
+func (a *adapter) FileDeleteUnused(olderThan time.Time, limit int, protected func(string) bool) ([]string, error) {
 	findOpts := mdbopts.Find()
 	filter := b.M{"$or": b.A{
 		b.M{"usecount": 0},
@@ -81,7 +81,7 @@ func (a *adapter) FileDeleteUnused(olderThan time.Time, limit int) ([]string, er
 		findOpts.SetLimit(int64(limit))
 	}
 
-	findOpts.SetProjection(b.M{"location": 1, "_id": 0})
+	findOpts.SetProjection(b.M{"location": 1, "_id": 1})
 	cur, err := a.db.Collection("fileuploads").Find(a.ctx, filter, findOpts)
 	if err != nil {
 		return nil, err
@@ -89,15 +89,30 @@ func (a *adapter) FileDeleteUnused(olderThan time.Time, limit int) ([]string, er
 	defer cur.Close(a.ctx)
 
 	var locations []string
+	var ids []string
 	for cur.Next(a.ctx) {
-		var result map[string]string
+		var result struct {
+			Id       string `bson:"_id"`
+			Location string `bson:"location"`
+		}
 		if err := cur.Decode(&result); err != nil {
 			return nil, err
 		}
-		locations = append(locations, result["location"])
+		if protected != nil && protected(result.Id) {
+			continue
+		}
+		ids = append(ids, result.Id)
+		if result.Location != "" {
+			locations = append(locations, result.Location)
+		}
 	}
-
-	_, err = a.db.Collection("fileuploads").DeleteMany(a.ctx, filter)
+	if err = cur.Err(); err != nil {
+		return nil, err
+	}
+	if len(ids) == 0 {
+		return locations, nil
+	}
+	_, err = a.db.Collection("fileuploads").DeleteMany(a.ctx, b.M{"_id": b.M{"$in": ids}})
 	return locations, err
 }
 

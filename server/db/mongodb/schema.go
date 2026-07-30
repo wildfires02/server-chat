@@ -75,6 +75,14 @@ func (a *adapter) CreateDb(reset bool) error {
 			Collection: "subscriptions",
 			Field:      "topic",
 		},
+		// Topic + user 复合索引用于官方大群成员的稳定游标分页，
+		// 避免在大成员集合上执行阻塞排序。
+		{
+			Collection: "subscriptions",
+			IndexOpts: mdb.IndexModel{
+				Keys: b.D{{Key: "topic", Value: 1}, {Key: "user", Value: 1}},
+			},
+		},
 
 		// 存储在数据库中的 Topic
 		// 'owner' 字段索引，用于删除用户。
@@ -361,6 +369,19 @@ func (a *adapter) UpgradeDb() error {
 			return err
 		}
 		if err := bumpVersion(a, 120); err != nil {
+			return err
+		}
+	}
+
+	if a.version == 120 {
+		// 数据库 120→121：为官方大群成员游标分页增加 Topic + user 复合索引。
+		// MongoDB 不支持索引 COMMENT；索引用途记录在此处。
+		if _, err := a.db.Collection("subscriptions").Indexes().CreateOne(a.ctx, mdb.IndexModel{
+			Keys: b.D{{Key: "topic", Value: 1}, {Key: "user", Value: 1}},
+		}); err != nil {
+			return err
+		}
+		if err := bumpVersion(a, 121); err != nil {
 			return err
 		}
 	}

@@ -51,6 +51,16 @@ func (t *Topic) handleMetaGet(msg *ClientComMessage, asUid types.Uid, asChan boo
 			logs.Warn.Printf("topic[%s] meta.Get.Search failed: %s", t.name, err)
 		}
 	}
+	if msg.MetaWhat&constMsgMetaContacts != 0 {
+		if err := t.replyGetContacts(msg.sess, asUid, msg); err != nil {
+			logs.Warn.Printf("topic[%s] meta.Get.Contacts failed: %s", t.name, err)
+		}
+	}
+	if msg.MetaWhat&constMsgMetaAssets != 0 {
+		if err := t.replyGetAssets(msg.sess, asUid, authLevel, msg); err != nil {
+			logs.Warn.Printf("topic[%s] meta.Get.Assets failed: %s", t.name, err)
+		}
+	}
 }
 
 // handleMetaSet 处理元数据Set消息或事件。
@@ -83,11 +93,25 @@ func (t *Topic) handleMetaSet(msg *ClientComMessage, asUid types.Uid, asChan boo
 			logs.Warn.Printf("topic[%s] meta.Set.Aux failed: %v", t.name, err)
 		}
 	}
+	if msg.MetaWhat&constMsgMetaContacts != 0 {
+		if err := t.replySetContact(msg.sess, asUid, msg); err != nil {
+			logs.Warn.Printf("topic[%s] meta.Set.Contact failed: %v", t.name, err)
+		}
+	}
+	if msg.MetaWhat&constMsgMetaAssets != 0 {
+		if err := t.replySetAsset(msg.sess, asUid, authLevel, msg); err != nil {
+			logs.Warn.Printf("topic[%s] meta.Set.Asset failed: %v", t.name, err)
+		}
+	}
 }
 
 // handleMetaDel 处理元数据Del消息或事件。
 func (t *Topic) handleMetaDel(msg *ClientComMessage, asUid types.Uid, asChan bool, authLevel auth.Level) {
 	var err error
+	if refreshErr := t.refreshOfficialChannelMember(asUid); refreshErr != nil {
+		msg.sess.queueOut(ErrPermissionDeniedReply(msg, types.TimeNow()))
+		return
+	}
 	switch msg.MetaWhat {
 	case constMsgDelMsg:
 		err = t.replyDelMsg(msg.sess, asUid, asChan, msg)

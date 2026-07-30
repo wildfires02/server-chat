@@ -48,6 +48,144 @@ HTTP(S) 服务对外暴露以下接口端点：
 * `/v0/channels/lp`：Long Polling 长轮询端点。
 * `/v0/file/u`：带外大文件上传端点。
 * `/v0/file/s`：带外大文件下载服务端点。
+* `/v0/file/resumable/`：共享分块断点续传端点，支持跨节点继续和偏移查询。
+* `/v0/file/meta/`：文件摘要、安全扫描、预览/转码及可靠任务状态查询端点。
+
+独立启动的 `im-admin` 提供 `/v0/admin/`（开发默认端口 `6061`），该路由不会挂载到
+`im-server`。管理接口使用独立 Bearer 令牌，所有写请求必须携带当前控制面版本
+`If-Match`，成功后通过 `ETag` 返回新版本。
+
+### 员工内部三级置顶
+
+启用管理控制面后同时提供 `/v0/internal/`。该接口使用普通 IM 用户凭证和 API Key，
+并要求 `X-IM-Org` 指定机构。服务端只允许在对应 `channel:{org}` Domain 中绑定
+`employee`（或含相同权限的自定义角色）的主体访问：
+
+```http
+PUT /v0/admin/bindings/employee-alice
+Authorization: Bearer <管理令牌>
+Content-Type: application/json
+If-Match: "1"
+
+{
+  "subject": "im:usr2il9suCbuko",
+  "role_id": "employee",
+  "domain": "channel:org-main"
+}
+```
+
+内部置顶与公开的 `{note what:"pin"}` 完全隔离。客户、会话和消息分别使用以下地址：
+
+```text
+PUT    /v0/internal/pins/customer/{customer_uid}
+DELETE /v0/internal/pins/customer/{customer_uid}
+PUT    /v0/internal/pins/conversation/{topic_or_peer_uid}
+DELETE /v0/internal/pins/conversation/{topic_or_peer_uid}
+PUT    /v0/internal/pins/message/{topic_or_peer_uid}/{seq_id}
+DELETE /v0/internal/pins/message/{topic_or_peer_uid}/{seq_id}
+GET    /v0/internal/workspace?since={version}&limit=200
+```
+
+PUT 请求体中的 `expected_version` 是该目标当前版本；首次置顶为 `0`。DELETE 使用
+`If-Match` 携带同一版本：
+
+```http
+PUT /v0/internal/pins/message/grpYiqEXb4QY6s/42
+X-IM-APIKey: <应用密钥>
+X-IM-Auth: token <base64凭证>
+X-IM-Org: org-main
+Content-Type: application/json
+
+{"rank": 10, "expected_version": 0}
+```
+
+`GET workspace` 首次或服务端要求重建时返回 `reset: true`，客户端应清空本地置顶后
+应用 `pins`；增量响应包含删除墓碑。继续同步时使用 `next_since`，直到
+`has_more: false`。有效变更还会向该员工所有在线设备发送
+`{pres topic:"me" what:"workspace"}`，收到后重新发起增量同步。
+
+### 官方只读频道管理
+
+官方频道只能由管理接口创建和认证，不能通过普通聊天协议把普通频道伪装成官方频道。
+
+```http
+POST /v0/admin/official-topics
+Authorization: Bearer <管理令牌>
+Content-Type: application/json
+If-Match: "1"
+
+{
+  "org_id": "org-main",
+  "owner": "usr2il9suCbuko",
+  "public": {"fn": "平台公告"}
+}
+```
+
+创建成功返回 `grp...` 管理/发布地址。普通订阅者使用对应的 `chn...` 地址，默认只能
+加入、读取和接收 Presence。平台通过以下接口分配角色：
+
+```http
+PUT /v0/admin/official-topics/grpYiqEXb4QY6s/members/usrTarget/role
+Authorization: Bearer <管理令牌>
+Content-Type: application/json
+If-Match: "2"
+
+{"role": "publisher"}
+```
+
+角色只允许 `admin`、`publisher` 或 `subscriber`。所有者不可通过该接口降级；
+普通聊天协议也不能调整官方频道角色。服务端在官方频道发布、编辑、定时发送、置顶、
+输入状态和通话路径重新读取持久化角色，平台撤销写权限后旧内存 ACL 不再生效。
+
+### 官方大群管理
+
+创建可写官方大群时指定 `scale_class=large`。`member_limit` 由服务端固定为 `0`，
+表示没有产品固定人数上限；全量成员保存在订阅索引中，不常驻单个 Topic Actor。
+
+```http
+POST /v0/admin/official-topics
+Authorization: Bearer <管理令牌>
+Content-Type: application/json
+If-Match: "3"
+
+{
+  "org_id": "org-main",
+  "owner": "usr2il9suCbuko",
+  "scale_class": "large",
+  "join_policy": "open",
+  "admins": ["usrAdminA", "usrAdminB"],
+  "public": {"fn": "官方用户群"}
+}
+```
+
+全员禁言通过策略更新：
+
+```http
+PATCH /v0/admin/official-topics/grpYiqEXb4QY6s
+Authorization: Bearer <管理令牌>
+Content-Type: application/json
+If-Match: "4"
+
+{"all_muted": true}
+```
+
+单人/批量禁言、解禁、移出、封禁和解封接口如下：
+
+```text
+POST   /v0/admin/official-topics/{topic}/moderation/mutes
+DELETE /v0/admin/official-topics/{topic}/moderation/mutes/{uid}
+DELETE /v0/admin/official-topics/{topic}/members/{uid}?reason_code=spam&note=...
+POST   /v0/admin/official-topics/{topic}/bans
+DELETE /v0/admin/official-topics/{topic}/bans/{uid}
+GET    /v0/admin/official-topics/{topic}/audit?limit=100
+```
+
+禁言请求可提供 `user` 或最多 100 个 `users`、`scope=message|media|call|all`、
+`reason_code`、`note`、`starts_at`、`expires_at` 或 `minutes`。所有写接口都要求
+`If-Match`，返回的新 `ETag` 用于下一次治理操作。
+
+官方大群成员列表通过普通 `{get what:"sub"}` 查询，使用 `sub.limit` 和
+`sub.cursor` 翻页；响应 `{meta}` 的 `next` 非空时表示还有下一页。
 
 客户端发起的每个 HTTP(S) 请求均须附带 API Key。服务端会依次检查以下位置：
 
@@ -204,7 +342,7 @@ IM 使用基于位图的 ACL 权限控制体系。用户的实际权限由 **用
 ```
 
 - `q` 为 2–256 个 Unicode 字符。
-- `kinds` 可取 `text`、`drafty`、`image`、`video`、`voice`、`audio`、`file`。
+- `kinds` 可取 `text`、`drafty`、`image`、`video`、`voice`、`audio`、`file`、`sticker`、`animated-emoji`、`gif`。
 - `min_date` 包含边界，`max_date` 不包含边界。
 - 结果按 `seq` 倒序返回；下一页继续使用响应中的 `next`。
 - 服务端再次校验 Read ACL，并排除硬删除及当前用户已软删除的消息。
@@ -262,7 +400,7 @@ get --search=release --scope=peers --limit=20 fnd
 
 ## 音视频通话 (Video Calls)
 
-协议 `0.29` 同时保留两种媒体通话路径：
+协议 `0.30` 同时保留两种媒体通话路径：
 
 - P2P Topic 使用原有 WebRTC 信令，由业务 WebSocket 转发 `ringing`、`accept`、`offer`、`answer`、`ice-candidate` 和 `hang-up`。
 - 普通群组 Topic 使用 Agora RTC。业务服务端只负责邀请、ACL、短期 AccessToken2、参与状态和通话日志，音频和视频媒体流由 Agora SDK 传输。
@@ -374,7 +512,7 @@ webrtc:
 
 ```json
 // {hi} 握手
-{ "hi": { "id": "100", "user_agent": "MyApp/1.0", "ver": "0.29" } }
+{ "hi": { "id": "100", "user_agent": "MyApp/1.0", "ver": "0.31" } }
 
 // {login} 登录
 { "login": { "id": "101", "scheme": "basic", "secret": "dXNlcm5hbWU6cGFzc3dvcmQ=" } }
@@ -392,14 +530,19 @@ webrtc:
 { "note": { "id": "read-15", "topic": "grpYiqEXb4QY6s", "what": "read", "seq": 15 } }
 ```
 
-协议 `0.27` 的消息字段：
+协议 `0.30` 的消息字段：
 
-- `kind`：可选客户端声明；服务端从内容重新推导并校验，只接受 `text`、`drafty`、`image`、`video`、`voice`、`audio`、`file`。
+- `kind`：可选客户端声明；服务端从内容重新推导并校验，只接受 `text`、`drafty`、`image`、`video`、`voice`、`audio`、`file`、`sticker`、`animated-emoji`、`gif`。
 - `reply`：当前 Topic 内被回复消息的 `seq`。
 - `replace`：原位编辑目标消息；原作者或管理员可操作，`seq` 不变，服务端返回 `edited`。
 - `forward`：`{"topic":"源 Topic","seq":12}`；服务端检查读取权限并复制源内容及可信来源信息。
 - `group`：客户端相册 ID，同一发送者同组最多连续 10 项；服务端返回按发送者命名空间化后的可信组 ID。
 - `schedule`：RFC 3339 UTC 投递时间，最多提前 366 天；必须提供 `cid`，10 秒内按立即发送处理，其余在投递时才分配 `seq`。
+
+协议 `0.31` 为 P2P 纯文本增加可选的 `data.translation`。状态依次为
+`pending` 和 `completed`，失败时为 `failed`，发送方或无需翻译时为 `original`。
+异步更新保持相同的 `topic + seq`，客户端必须替换已有消息。字段、失败策略和后台
+配置见 [automatic-translation.md](automatic-translation.md)。
 
 Drafty 图片示例（视频使用 `VD`、音频/语音使用 `AU`、文件使用 `EX`）：
 

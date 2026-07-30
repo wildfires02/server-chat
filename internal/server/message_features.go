@@ -45,7 +45,8 @@ const (
 // validMessageKinds 是服务端能够从消息正文中可信推导出的消息类型集合。
 var validMessageKinds = map[string]bool{
 	"text": true, "drafty": true, "image": true, "video": true,
-	"voice": true, "audio": true, "file": true,
+	"voice": true, "audio": true, "file": true, "sticker": true,
+	"animated-emoji": true, "gif": true,
 }
 
 // jsonForward 是保存在消息头中的原始消息引用。
@@ -374,6 +375,9 @@ func (t *Topic) prepareMessagePublication(
 		head = map[string]any{}
 	}
 	head[headMessageKind] = info.Kind
+	if err = store.ValidateMessageAssets(info.Kind, info.AssetIDs); err != nil {
+		return nil, nil, nil, err
+	}
 
 	if err = t.validateReplyTarget(pub.ReplyTo, asUid); err != nil {
 		return nil, nil, nil, err
@@ -392,6 +396,9 @@ func (t *Topic) prepareMessagePublication(
 
 	attachments, err := verifiedAttachmentURLs(info.Attachments, msg.Extra)
 	if err != nil {
+		return nil, nil, nil, err
+	}
+	if err = store.ValidateFileAttachments(asUid, attachments); err != nil {
 		return nil, nil, nil, err
 	}
 	return head, content, attachments, nil

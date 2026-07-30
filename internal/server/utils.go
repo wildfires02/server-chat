@@ -201,6 +201,7 @@ func msgOpts2storeOpts(req *MsgGetOpts) *types.QueryOpt {
 			Topic:           req.Topic,
 			IfModifiedSince: req.IfModifiedSince,
 			Limit:           req.Limit,
+			Cursor:          types.ParseUserId(req.Cursor),
 			Since:           req.SinceId,
 			Before:          req.BeforeId,
 			IdRanges:        rangeSerialize(req.IdRanges),

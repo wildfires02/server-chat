@@ -6,14 +6,15 @@
 > - 适用环境：`staging`、`production`
 > - 前置条件：已完成目标环境部署评审和数据库备份恢复验证
 
-本文适用于 3 节点 IM 集群。所有变更一次只能处理一个 IM 节点，且变更前后都必须确认其余节点仍构成多数派。Kubernetes 示例中的 StatefulSet 和非 Kubernetes 的 systemd 模板都遵循相同流程。
+本文适用于 Kubernetes 上运行的 3 节点 IM 集群。所有变更一次只能处理一个 IM 节点，且变更前后都必须确认其余节点仍构成多数派。
 
 ## 1. 发布前检查
 
 1. 数据库迁移必须先以独立 Job 执行，并遵循 expand/migrate/contract；业务节点不得并发执行迁移。
 2. 确认三个 etcd endpoint、数据库主地址和对象存储均可从 IM 节点访问。
 3. 确认每个 IM 节点使用独立私钥，节点证书具有精确 DNS SAN `im-N` 以及服务端、客户端 EKU。
-4. 用 `--validate_config` 校验实际生产配置和环境变量。
+4. 用 `go test ./internal/server -run TestProductionClusterYAMLConfig` 校验节点 YAML
+   生成规则；服务启动时还会再次执行完整配置门禁。
 5. 确认所有节点 `/readyz` 成功，Cluster View epoch 一致，可靠 Lane 队列低于 80%。
 6. 确认新旧二进制支持的集群协议范围存在交集。
 
@@ -46,20 +47,9 @@ curl --fail --request POST http://127.0.0.1:6060/drainz
 
 ## 3. 滚动升级
 
-Kubernetes：
-
 ```bash
 kubectl -n im-system rollout status statefulset/im
 kubectl -n im-system get pods -l app.kubernetes.io/name=im-server
-```
-
-systemd：
-
-```bash
-sudo systemctl stop im-server@im-0
-sudo install -o root -g root -m 0755 im-server /usr/local/bin/im-server
-sudo systemctl start im-server@im-0
-curl --fail http://127.0.0.1:6060/readyz
 ```
 
 只有当前节点重新 Ready，并且消息发布、历史同步和 fencing 拒绝指标正常后，才能处理下一节点。出现以下任一情况立即停止滚动：

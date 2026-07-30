@@ -79,3 +79,42 @@ func (a *adapter) PCacheExpire(keyPrefix string, olderThan time.Time) error {
 
 	return err
 }
+
+// PCacheList 按键前缀返回持久缓存条目。
+func (a *adapter) PCacheList(keyPrefix string, limit int) (map[string]string, error) {
+	if keyPrefix == "" || strings.Contains(keyPrefix, "^") || limit <= 0 {
+		return nil, t.ErrMalformed
+	}
+	cursor, err := rdb.DB(a.dbName).Table("kvmeta").
+		Filter(rdb.Row.Field("key").Match("^" + keyPrefix)).
+		OrderBy("CreatedAt").Limit(limit).Run(a.conn)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close()
+	var entries []map[string]any
+	if err = cursor.All(&entries); err != nil {
+		return nil, err
+	}
+	result := make(map[string]string, len(entries))
+	for _, entry := range entries {
+		key, keyOK := entry["key"].(string)
+		value, valueOK := entry["value"].(string)
+		if keyOK && valueOK {
+			result[key] = value
+		}
+	}
+	return result, nil
+}
+
+// PCacheCompareAndSwap 在数据库中原子更新匹配的条目。
+func (a *adapter) PCacheCompareAndSwap(key, oldValue, newValue string) (bool, error) {
+	result, err := rdb.DB(a.dbName).Table("kvmeta").GetAll(key).
+		Filter(rdb.Row.Field("value").Eq(oldValue)).
+		Update(map[string]any{"value": newValue, "CreatedAt": t.TimeNow()}).
+		RunWrite(a.conn)
+	if err != nil {
+		return false, err
+	}
+	return result.Replaced == 1, nil
+}

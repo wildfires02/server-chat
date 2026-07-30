@@ -103,7 +103,7 @@ func (a *adapter) FileGet(fid string) (*t.FileDef, error) {
 }
 
 // FileDeleteUnused 删除文件上传记录。
-func (a *adapter) FileDeleteUnused(olderThan time.Time, limit int) ([]string, error) {
+func (a *adapter) FileDeleteUnused(olderThan time.Time, limit int, protected func(string) bool) ([]string, error) {
 	ctx, cancel := a.getContextForTx()
 	if cancel != nil {
 		defer cancel()
@@ -145,6 +145,9 @@ func (a *adapter) FileDeleteUnused(olderThan time.Time, limit int) ([]string, er
 		var loc string
 		if err = rows.Scan(&id, &loc); err != nil {
 			break
+		}
+		if protected != nil && protected(store.EncodeUid(int64(id)).String()) {
+			continue
 		}
 		if loc != "" {
 			locations = append(locations, loc)

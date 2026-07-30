@@ -140,18 +140,24 @@ wait_new_epoch() {
 start_node() {
   local node_index=$1
   local node_name="im-${node_index}"
+  local node_dir="${WORK_DIR}/${node_name}"
+  local node_config="${node_dir}/configs/im.yaml"
   local log_file="${WORK_DIR}/${node_name}.log"
   SERVER_LOGS[node_index]="${log_file}"
-  IM_CLUSTER_CONFIG__SELF="${node_name}" \
-  IM_CLUSTER_CONFIG__ADVERTISE_ADDR="127.0.0.1:${CLUSTER_PORTS[node_index]}" \
-  IM_CLUSTER_CONFIG__TRANSPORT__LISTEN="127.0.0.1:${CLUSTER_PORTS[node_index]}" \
-  IM_CLUSTER_CONFIG__TLS__CERT_FILE="${WORK_DIR}/pki/${node_name}.pem" \
-  IM_CLUSTER_CONFIG__TLS__KEY_FILE="${WORK_DIR}/pki/${node_name}-key.pem" \
-  "${SERVER_BIN}" \
-    --config="${CONFIG_FILE}" \
-    --listen="127.0.0.1:${HTTP_PORTS[node_index]}" \
-    --grpc_listen="127.0.0.1:${CLIENT_GRPC_PORTS[node_index]}" \
-    --static_data=- >"${log_file}" 2>&1 &
+  mkdir -p "${node_dir}/configs"
+  sed \
+    -e "s|^listen:.*|listen: \"127.0.0.1:${HTTP_PORTS[node_index]}\"|" \
+    -e "s|^grpc_listen:.*|grpc_listen: \"127.0.0.1:${CLIENT_GRPC_PORTS[node_index]}\"|" \
+    -e "s|^  self:.*|  self: ${node_name}|" \
+    -e "s|^  advertise_addr:.*|  advertise_addr: \"127.0.0.1:${CLUSTER_PORTS[node_index]}\"|" \
+    -e "s|^    listen:.*|    listen: \"127.0.0.1:${CLUSTER_PORTS[node_index]}\"|" \
+    -e "s|${WORK_DIR}/pki/im-0.pem|${WORK_DIR}/pki/${node_name}.pem|" \
+    -e "s|${WORK_DIR}/pki/im-0-key.pem|${WORK_DIR}/pki/${node_name}-key.pem|" \
+    "${CONFIG_FILE}" >"${node_config}"
+  (
+    cd "${node_dir}"
+    exec "${SERVER_BIN}"
+  ) >"${log_file}" 2>&1 &
   SERVER_PIDS[node_index]=$!
   wait_http_status "${node_index}" /livez 200 45
 }
@@ -354,7 +360,6 @@ SOURCE_DIRTY="no"
 if [[ -n "$(git status --porcelain --untracked-files=normal 2>/dev/null)" ]]; then
   SOURCE_DIRTY="yes"
 fi
-"${SERVER_BIN}" --config="${CONFIG_FILE}" --validate_config
 "${INIT_BIN}" --config="${CONFIG_FILE}" --data="${DATA_FILE}" --reset=true
 
 # 三节点冷启动必须在达到多数派前 Not Ready，达到多数派后全部接流。

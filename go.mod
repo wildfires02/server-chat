@@ -11,6 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.106.1
 	github.com/aws/smithy-go v1.27.5
 	github.com/bwmarrin/snowflake v0.3.0
+	github.com/casbin/casbin/v2 v2.135.0
 	github.com/go-sql-driver/mysql v1.10.0
 	github.com/google/go-cmp v0.7.0
 	github.com/gorilla/handlers v1.5.2
@@ -60,6 +61,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.33.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.38.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.45.1 // indirect
+	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
+	github.com/casbin/govaluate v1.3.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.7.0 // indirect

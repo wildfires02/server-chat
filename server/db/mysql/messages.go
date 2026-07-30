@@ -1,5 +1,5 @@
-//go:build mysql
-// +build mysql
+//go:build mysql || (!postgres && !mongodb && !rethinkdb)
+// +build mysql !postgres,!mongodb,!rethinkdb
 
 package mysql
 

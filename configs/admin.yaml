@@ -1,0 +1,61 @@
+# 独立 im-admin 开发配置。它必须与 im-server 连接同一个数据库。
+log_flags: stdFlags
+
+runtime:
+  environment: development
+  deployment_mode: standalone
+
+listen: ":6061"
+api_path: /
+
+# 必须与聊天服务使用相同的 API Key 盐值，供内部工作区接口验证请求。
+api_key_salt: T713/rYYgW7g4m3vG6zGRh7+FM1t0T8j13koXScOAj4=
+
+admin:
+  enabled: true
+  # Snowflake worker ID 不得与任何 im-server 节点重复。
+  worker_id: 1023
+  bootstrap_token: dev-only-change-this-admin-token
+  allowed_origins:
+    - http://localhost:4173
+
+tls:
+  enabled: false
+
+store_config:
+  # 源码开发启动命令：go run -tags mysql cmd/im-admin/main.go
+  uid_key: la6YsO+bNX/+XIkOqc5Svw==
+  max_results: 1024
+  use_adapter: mysql
+  adapters:
+    mysql:
+      user: root
+      passwd: "123456"
+      net: tcp
+      addr: 127.0.0.1:3306
+      dbname: im
+      collation: utf8mb4_0900_ai_ci
+      parseTime: true
+      max_open_conns: 16
+      max_idle_conns: 8
+      conn_max_lifetime: 60
+      sql_timeout: 10
+    postgres:
+      user: postgres
+      passwd: postgres
+      host: localhost
+      port: "5432"
+      dbname: im
+      ssl_mode: disable
+      max_open_conns: 16
+      max_idle_conns: 8
+      conn_max_lifetime: 60
+      sql_timeout: 10
+    mongodb:
+      uri: ""
+      addresses: localhost:27017
+      database: im
+      replica_set: rs0
+    rethinkdb:
+      addresses: localhost:28015
+      database: im

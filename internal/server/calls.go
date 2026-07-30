@@ -208,6 +208,12 @@ func (t *Topic) handleCallEvent(msg *ClientComMessage) {
 		logs.Warn.Printf("topic[%s]: 未找到用户 %s", t.name, asUid.UserId())
 		return
 	}
+	if err := t.checkOfficialPublish(asUid, "call", types.TimeNow()); err != nil {
+		if msg.sess != nil {
+			msg.sess.queueOut(ErrPermissionDeniedReply(msg, types.TimeNow()))
+		}
+		return
+	}
 
 	switch t.currentCall.provider {
 	case callProvider(constCallProviderAgora):

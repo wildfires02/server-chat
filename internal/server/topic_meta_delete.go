@@ -319,6 +319,10 @@ func (t *Topic) replyDelCred(sess *Session, asUid types.Uid, authLvl auth.Level,
 func (t *Topic) replyDelSub(sess *Session, asUid types.Uid, msg *ClientComMessage) error {
 	now := types.TimeNow()
 	del := msg.Del
+	if t.isOfficialTopic() {
+		sess.queueOut(ErrPermissionDeniedReply(msg, now))
+		return errors.New("官方频道成员只能通过平台管理接口移除")
+	}
 
 	asChan, err := t.verifyChannelAccess(msg.Original)
 	if err != nil {

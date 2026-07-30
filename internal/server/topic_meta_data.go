@@ -51,6 +51,7 @@ func (t *Topic) replyGetData(sess *Session, asUid types.Uid, asChan bool, req *M
 			count = len(messages)
 			if count > 0 {
 				outgoingMessages := make([]*ServerComMessage, count)
+				startTranslations := make([]func(), 0, count)
 				for i := range messages {
 					mm := &messages[i]
 					// 返回本批次最大的修改时间，供客户端增量拉取编辑结果。
@@ -63,9 +64,15 @@ func (t *Topic) replyGetData(sess *Session, asUid types.Uid, asChan bool, req *M
 						// 不显示 Channel 读者的发送者
 						from = types.ParseUid(mm.From).UserId()
 					}
-					outgoingMessages[i] = &ServerComMessage{
-						Data: serverDataFromStored(toriginal, from, mm),
+					data := serverDataFromStored(toriginal, from, mm)
+					if t.cat == types.TopicCatP2P && globals.translation != nil {
+						var start func()
+						data, start = globals.translation.projectHistoricalData(t.name, data, sess, asUid)
+						if start != nil {
+							startTranslations = append(startTranslations, start)
+						}
 					}
+					outgoingMessages[i] = &ServerComMessage{Data: data}
 				}
 				if req != nil && req.Forward {
 					cursor = messages[count-1].SeqId
@@ -73,6 +80,9 @@ func (t *Topic) replyGetData(sess *Session, asUid types.Uid, asChan bool, req *M
 				if !sess.queueOutBatch(outgoingMessages) {
 					sess.queueOut(ErrServiceUnavailableReply(msg, now))
 					return errors.New("session send queue is full")
+				}
+				for _, start := range startTranslations {
+					start()
 				}
 			}
 		}

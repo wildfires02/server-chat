@@ -295,6 +295,60 @@ func TestValidateDeploymentConfig(t *testing.T) {
 	}
 }
 
+func TestValidateClusterResumableStorage(t *testing.T) {
+	rawCluster, err := json.Marshal(validClusterConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name      string
+		handler   string
+		wantError string
+	}{
+		{name: "生产集群拒绝节点本地文件", handler: "fs", wantError: "必须使用共享媒体存储"},
+		{name: "生产集群允许 S3", handler: "s3"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config := configType{
+				Runtime: runtimeConfig{
+					Environment: environmentProduction, DeploymentMode: deploymentModeCluster,
+				},
+				Cluster: rawCluster,
+				Store:   validClusterStoreConfig(),
+				Media:   &mediaConfig{UseHandler: test.handler},
+			}
+			err := validateDeploymentConfig(&config, "", "")
+			if test.wantError == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Fatalf("error=%v, want %q", err, test.wantError)
+			}
+		})
+	}
+}
+
+func TestValidateTranslationRefreshInterval(t *testing.T) {
+	for _, interval := range []int{0, 301} {
+		config := configType{
+			Runtime: runtimeConfig{
+				Environment: environmentDevelopment, DeploymentMode: deploymentModeStandalone,
+			},
+			Store: validClusterStoreConfig(),
+			Translation: &translationConsumerConfig{
+				Enabled: true, RefreshInterval: interval,
+			},
+		}
+		err := validateDeploymentConfig(&config, "", "")
+		if err == nil || !strings.Contains(err.Error(), "translation.refresh_interval") {
+			t.Fatalf("refresh_interval=%d error=%v", interval, err)
+		}
+	}
+}
+
 // validClusterStoreConfig 返回支持数据库原子 fencing 的最小 PostgreSQL 配置。
 func validClusterStoreConfig() json.RawMessage {
 	return json.RawMessage(`{"use_adapter":"postgres","adapters":{"postgres":{}}}`)

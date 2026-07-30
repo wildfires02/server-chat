@@ -79,17 +79,26 @@ func (messagesMapper) Save(msg *types.Message, attachmentURLs []string, readBySe
 	}
 
 	if len(attachmentURLs) > 0 && mediaHandler != nil {
+		attachmentURLs = FileURLsWithPreviews(attachmentURLs)
 		var attachments []string
+		seenAttachments := make(map[string]bool)
 		for _, url := range attachmentURLs {
 			// 将附件 URL 转换为文件 ID。
 			if fid := mediaHandler.GetIdFromUrl(url); !fid.IsZero() {
-				attachments = append(attachments, fid.String())
+				id := fid.String()
+				if !seenAttachments[id] {
+					seenAttachments[id] = true
+					attachments = append(attachments, id)
+				}
 			}
 		}
 		if len(attachments) > 0 {
 			if err := adp.FileLinkAttachments("", types.ZeroUid, msg.Uid(), attachments); err != nil {
 				// 核心消息已经提交，不能再向发布方返回失败，否则旧客户端会重试并产生歧义。
 				logs.Warn.Printf("topic[%s]: failed to link attachments for message (seq: %d) - err: %+v",
+					msg.Topic, msg.SeqId, err)
+			} else if err := GrantFileAccess(msg.Topic, types.ZeroUid, attachmentURLs); err != nil {
+				logs.Warn.Printf("topic[%s]: failed to create attachment ACL for message (seq: %d) - err: %+v",
 					msg.Topic, msg.SeqId, err)
 			}
 		}

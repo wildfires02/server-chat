@@ -23,7 +23,7 @@ import (
 
 const (
 	// currentVersion 是当前 API/协议版本
-	currentVersion = "0.29"
+	currentVersion = "0.31"
 	// minSupportedVersion 是支持的最小 API 版本
 	minSupportedVersion = "0.20"
 
@@ -60,9 +60,6 @@ const (
 
 	// defaultStaticMount 静态内容服务的挂载点，http://host-name<defaultStaticMount>
 	defaultStaticMount = "/"
-
-	// defaultStaticPath 静态内容的本地路径
-	defaultStaticPath = "web/static"
 
 	// defaultCountryCode 如果配置中未指定 "default_country_code" 字段，
 	// 则回退使用的默认国家代码

@@ -249,6 +249,7 @@ func (t *Topic) handleLeaveRequest(msg *ClientComMessage, sess *Session) {
 						delete(t.perUser, uid)
 					} else {
 						t.presSubsOnline("off", uid.UserId(), nilPresParams, readFilter, "")
+						t.evictColdSubscriber(uid)
 					}
 				}
 			} else if len(pssd.muids) > 0 {
@@ -258,6 +259,7 @@ func (t *Topic) handleLeaveRequest(msg *ClientComMessage, sess *Session) {
 							delete(t.perUser, uid)
 						} else {
 							t.presSubsOnline("off", uid.UserId(), nilPresParams, readFilter, "")
+							t.evictColdSubscriber(uid)
 						}
 					}
 				}
@@ -284,6 +286,14 @@ func (t *Topic) subscriptionReply(asChan bool, msg *ClientComMessage) error {
 	}
 
 	asUid := types.ParseUserId(msg.AsUser)
+
+	if t.isOfficialLargeGroup() {
+		// 冷成员可能没有内存快照；先按需读取持久订阅，避免把已存在成员误判为新成员。
+		if _, err := t.loadSubscriber(asUid); err != nil {
+			msg.sess.queueOut(ErrUnknownReply(msg, now))
+			return err
+		}
+	}
 
 	if !msgsub.Newsub && (t.cat == types.TopicCatP2P || t.cat == types.TopicCatGrp) {
 		pud, found := t.perUser[asUid]

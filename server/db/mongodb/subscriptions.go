@@ -4,6 +4,7 @@ package mongodb
 
 import (
 	"context"
+	"sort"
 
 	t "chat/server/store/types"
 
@@ -69,12 +70,16 @@ func (a *adapter) SubsForTopic(topic string, keepDeleted bool, opts *t.QueryOpt)
 
 		if !opts.User.IsZero() {
 			filter["user"] = opts.User.String()
+		} else if !opts.Cursor.IsZero() {
+			filter["user"] = b.M{"$gt": opts.Cursor.String()}
 		}
 		if opts.Limit > 0 && opts.Limit < limit {
 			limit = opts.Limit
 		}
 	}
-	findOpts := mdbopts.Find().SetLimit(int64(limit))
+	findOpts := mdbopts.Find().
+		SetSort(b.D{{Key: "user", Value: 1}}).
+		SetLimit(int64(limit))
 
 	cur, err := a.db.Collection("subscriptions").Find(a.ctx, filter, findOpts)
 	if err != nil {
@@ -91,6 +96,7 @@ func (a *adapter) SubsForTopic(topic string, keepDeleted bool, opts *t.QueryOpt)
 		ss.Private = unmarshalBsonD(ss.Private)
 		subs = append(subs, ss)
 	}
+	sort.Slice(subs, func(i, j int) bool { return subs[i].User < subs[j].User })
 
 	return subs, cur.Err()
 }

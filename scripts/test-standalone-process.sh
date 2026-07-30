@@ -5,7 +5,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-CONFIG_FILE="${REPO_ROOT}/configs/im.yaml"
+BASE_CONFIG_FILE="${REPO_ROOT}/configs/im.yaml"
 DATA_FILE="${REPO_ROOT}/cmd/init-db/data.json"
 MYSQL_IMAGE="${IM_STANDALONE_E2E_MYSQL_IMAGE:-mysql:8.0}"
 HTTP_PORT="${IM_STANDALONE_E2E_HTTP_PORT:-26060}"
@@ -19,6 +19,7 @@ DB_PASSWORD="standalone-e2e-123"
 DB_NAME="im_standalone_e2e"
 DB_CONTAINER="im-standalone-e2e-$$"
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/im-standalone-e2e.XXXXXX")"
+CONFIG_FILE="${WORK_DIR}/configs/im.yaml"
 SERVER_BIN="${WORK_DIR}/im-server"
 INIT_BIN="${WORK_DIR}/init-db"
 STATE_FILE="${WORK_DIR}/persistence-state.json"
@@ -113,11 +114,17 @@ DB_PORT="$(docker port "${DB_CONTAINER}" 3306/tcp | tail -n 1)"
 DB_PORT="${DB_PORT##*:}"
 require_positive_integer "Docker MySQL 映射端口" "${DB_PORT}"
 
-# 所有数据库和媒体目录覆盖只作用于本脚本启动的子进程。
-export IM_STORE_CONFIG__ADAPTERS__MYSQL__ADDR="127.0.0.1:${DB_PORT}"
-export IM_STORE_CONFIG__ADAPTERS__MYSQL__PASSWD="${DB_PASSWORD}"
-export IM_STORE_CONFIG__ADAPTERS__MYSQL__DBNAME="${DB_NAME}"
-export IM_MEDIA__HANDLERS__FS__UPLOAD_DIR="${WORK_DIR}/uploads"
+# 生成本次测试专用的完整 YAML；im-server 不读取启动参数或环境变量覆盖。
+mkdir -p "${WORK_DIR}/configs"
+sed \
+  -e "s|listen: \":6060\"|listen: \"127.0.0.1:${HTTP_PORT}\"|" \
+  -e "s|grpc_listen: \":16060\"|grpc_listen: \"127.0.0.1:${GRPC_PORT}\"|" \
+  -e "s|passwd: \"123456\"|passwd: \"${DB_PASSWORD}\"|" \
+  -e "s|addr: localhost|addr: \"127.0.0.1:${DB_PORT}\"|" \
+  -e "s|dbname: im|dbname: ${DB_NAME}|g" \
+  -e "s|upload_dir: uploads|upload_dir: \"${WORK_DIR}/uploads\"|" \
+  "${BASE_CONFIG_FILE}" >"${CONFIG_FILE}"
+
 export IM_TEST_STANDALONE_HTTP="http://127.0.0.1:${HTTP_PORT}"
 export IM_TEST_STANDALONE_GRPC="127.0.0.1:${GRPC_PORT}"
 export IM_TEST_STANDALONE_DB_CONTAINER="${DB_CONTAINER}"
@@ -155,11 +162,10 @@ wait_ready() {
 start_server() {
   SERVER_RUN=$((SERVER_RUN + 1))
   SERVER_LOG="${WORK_DIR}/server-${SERVER_RUN}.log"
-  GOGC="${SERVER_GOGC}" "${SERVER_BIN}" \
-    --config="${CONFIG_FILE}" \
-    --listen="127.0.0.1:${HTTP_PORT}" \
-    --grpc_listen="127.0.0.1:${GRPC_PORT}" \
-    --static_data=- >"${SERVER_LOG}" 2>&1 &
+  (
+    cd "${WORK_DIR}"
+    GOGC="${SERVER_GOGC}" exec "${SERVER_BIN}"
+  ) >"${SERVER_LOG}" 2>&1 &
   SERVER_PID=$!
   wait_ready
 }

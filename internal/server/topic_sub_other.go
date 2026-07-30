@@ -64,7 +64,8 @@ func (t *Topic) anotherUserSub(sess *Session, asUid, target types.Uid, asChan bo
 
 	userData, existingSub := t.perUser[target]
 	if !existingSub || userData.deleted {
-		if t.cat == types.TopicCatGrp && t.subsCount() >= globals.maxSubscriberCount {
+		if t.cat == types.TopicCatGrp && !t.isOfficialLargeGroup() &&
+			t.subsCount() >= globals.maxSubscriberCount {
 			sess.queueOut(ErrPolicyReply(pkt, now))
 			return nil, errors.New("超出最大订阅数量限制")
 		}
@@ -175,6 +176,7 @@ func (t *Topic) anotherUserSub(sess *Session, asUid, target types.Uid, asChan bo
 	if !userData.modeGiven.IsJoiner() {
 		t.evictUser(target, false, "")
 	}
+	t.evictColdSubscriber(target)
 
 	return modeChanged, nil
 }

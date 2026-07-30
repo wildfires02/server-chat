@@ -5,17 +5,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-CONFIG_FILE="${REPO_ROOT}/configs/im.yaml"
-DB_TAG="${IM_STANDALONE_DB_TAG:-mysql}"
-
 cd "${REPO_ROOT}"
 
-# 离线启动门禁必须在不连接数据库和不监听端口的情况下通过。
-go run -tags "${DB_TAG}" ./cmd/im-server \
-  --config="${CONFIG_FILE}" \
-  --validate_config
-
-# 单机专属检查和共享业务测试使用同一套 internal/server 包。
+# 配置门禁和共享业务测试使用同一套 internal/server 包。
 go test ./internal/configutil ./internal/server ./tests/standalone
 go test -race ./internal/server -count=1
 

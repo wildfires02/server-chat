@@ -4,11 +4,29 @@
 package rethinkdb
 
 import (
+	"sort"
+
 	"chat/server/logs"
 	t "chat/server/store/types"
 
 	rdb "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
+
+// subscriptionsByTopicCursor 使用 Topic_User 复合索引创建稳定的成员范围查询。
+// cursor 非零时采用开区间，确保上一页最后一名成员不会重复返回。
+func (a *adapter) subscriptionsByTopicCursor(topic string, cursor t.Uid) rdb.Term {
+	lower := any([]any{topic, rdb.MinVal})
+	options := rdb.BetweenOpts{Index: "Topic_User"}
+	if !cursor.IsZero() {
+		lower = []any{topic, cursor.String()}
+		options.LeftBound = "open"
+	}
+	return rdb.DB(a.dbName).Table("subscriptions").Between(
+		lower,
+		[]any{topic, rdb.MaxVal},
+		options,
+	)
+}
 
 // SubscriptionGet 返回用户对 Topic 的订阅
 func (a *adapter) SubscriptionGet(topic string, user t.Uid, keepDeleted bool) (*t.Subscription, error) {
@@ -62,7 +80,11 @@ func (a *adapter) SubsForUser(forUser t.Uid) ([]t.Subscription, error) {
 // SubsForTopic 获取 Topic 的所有订阅。不加载 Public 值。
 func (a *adapter) SubsForTopic(topic string, keepDeleted bool, opts *t.QueryOpt) ([]t.Subscription, error) {
 
-	q := rdb.DB(a.dbName).Table("subscriptions").GetAllByIndex("Topic", topic)
+	afterUID := t.ZeroUid
+	if opts != nil {
+		afterUID = opts.Cursor
+	}
+	q := a.subscriptionsByTopicCursor(topic, afterUID)
 	if !keepDeleted {
 		// 过滤出已定义 DeletedAt 的行
 		q = q.Filter(rdb.Row.HasFields("DeletedAt").Not())
@@ -93,6 +115,7 @@ func (a *adapter) SubsForTopic(topic string, keepDeleted bool, opts *t.QueryOpt)
 	for cursor.Next(&ss) {
 		subs = append(subs, ss)
 	}
+	sort.Slice(subs, func(i, j int) bool { return subs[i].User < subs[j].User })
 
 	return subs, cursor.Err()
 }

@@ -32,7 +32,7 @@ type adapter struct {
 
 const (
 	// adpVersion 指定adp版本。
-	adpVersion = 120
+	adpVersion = 121
 	// adapterName 指定adapter名称。
 	adapterName = "rethinkdb"
 

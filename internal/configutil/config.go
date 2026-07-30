@@ -17,6 +17,16 @@ const envPrefix = "IM"
 
 // DecodeFile 读取扩展名为 .yaml 或 .yml 的配置文件。
 func DecodeFile(path string, target any) error {
+	return decodeFile(path, target, true)
+}
+
+// DecodeFileConfigOnly 使用 Viper 读取 YAML，但不应用环境变量覆盖。
+// 独立服务需要把全部运行参数集中在一个配置文件时使用此入口。
+func DecodeFileConfigOnly(path string, target any) error {
+	return decodeFile(path, target, false)
+}
+
+func decodeFile(path string, target any, allowEnvironmentOverrides bool) error {
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".yaml", ".yml":
 	default:
@@ -27,7 +37,7 @@ func DecodeFile(path string, target any) error {
 	if err != nil {
 		return fmt.Errorf("读取配置文件 %q 失败: %w", path, err)
 	}
-	if err = DecodeYAML(data, target); err != nil {
+	if err = decodeYAML(data, target, allowEnvironmentOverrides); err != nil {
 		return fmt.Errorf("解析配置文件 %q 失败: %w", path, err)
 	}
 	return nil
@@ -35,11 +45,11 @@ func DecodeFile(path string, target any) error {
 
 // DecodeYAML 将 YAML 配置解码到目标对象。
 func DecodeYAML(data []byte, target any) error {
-	return decodeYAML(data, target)
+	return decodeYAML(data, target, true)
 }
 
 // decodeYAML 使用 Viper 统一处理键名、嵌套结构和环境变量覆盖。
-func decodeYAML(data []byte, target any) error {
+func decodeYAML(data []byte, target any, allowEnvironmentOverrides bool) error {
 	reader := viper.New()
 	reader.SetConfigType("yaml")
 	if err := reader.ReadConfig(bytes.NewReader(data)); err != nil {
@@ -49,14 +59,18 @@ func decodeYAML(data []byte, target any) error {
 	// 先保存 YAML 中的原始类型，再启用环境变量覆盖。环境变量本身都是
 	// 字符串，需要按原始类型恢复为整数、浮点数或布尔值。
 	baseSettings := reader.AllSettings()
-	reader.SetEnvPrefix(envPrefix)
-	reader.SetEnvKeyReplacer(strings.NewReplacer(".", "__"))
-	reader.AutomaticEnv()
+	if allowEnvironmentOverrides {
+		reader.SetEnvPrefix(envPrefix)
+		reader.SetEnvKeyReplacer(strings.NewReplacer(".", "__"))
+		reader.AutomaticEnv()
+	}
 
 	// AllSettings 会通过 Get 读取已知配置键，因此 IM_ 前缀的环境变量
 	// 可以覆盖 YAML 中的标量值。双下划线表示配置层级。
 	settings := reader.AllSettings()
-	restoreScalarTypes(settings, baseSettings)
+	if allowEnvironmentOverrides {
+		restoreScalarTypes(settings, baseSettings)
+	}
 	normalized, err := json.Marshal(settings)
 	if err != nil {
 		return err

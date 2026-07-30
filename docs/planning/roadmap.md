@@ -205,7 +205,6 @@ flowchart TB
 
 - 生产集群配置模板，不包含任何真实密钥和示例弱密钥。
 - Kubernetes StatefulSet、Headless Service、Service、PodDisruptionBudget、NetworkPolicy 和滚动升级配置。
-- 非 Kubernetes 的三节点部署示例和运维手册。
 - `/livez`、`/readyz` 和节点 Drain 接口。
 - 集群配置检查命令，例如 `im-server config validate --production`。
 - 集群扩容、缩容、节点替换、证书轮换、数据库故障和回滚手册。

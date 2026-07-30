@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	admincontrol "chat/server/admin"
 	"chat/server/auth"
 	_ "chat/server/auth/anon"
 	_ "chat/server/auth/basic"
@@ -46,6 +47,10 @@ var globals struct {
 	cluster *Cluster
 	// health 聚合 Liveness、Readiness、Drain 和写入门禁状态。
 	health *serviceHealth
+	// adminControl 保存版本化权限与基础配置控制面。
+	adminControl *admincontrol.ControlPlane
+	// translation 提供支持热加载和多服务商的消息翻译能力。
+	translation *translationRuntime
 	// gRPC 服务器
 	grpcServer *grpc.Server
 	// 插件
@@ -91,6 +96,8 @@ var globals struct {
 	maxFileUploadSize int64
 	// 废弃媒体上传的垃圾回收周期
 	mediaGcPeriod time.Duration
+	// 文件扫描、转码与预览后台处理器。
+	fileProcessor *fileProcessingRuntime
 
 	// 优先使用 X-Forwarded-For 头部作为客户端 IP 地址
 	useXForwardedFor bool

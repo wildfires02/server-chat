@@ -32,6 +32,8 @@ type MsgGetOpts struct {
 	BeforeId int `json:"before,omitempty"`
 	// 限制加载的消息数量。
 	Limit int `json:"limit,omitempty"`
+	// Cursor 是订阅成员列表上一页返回的稳定游标。
+	Cursor string `json:"cursor,omitempty"`
 	// 获取指定 ID 区间范围内的消息。
 	IdRanges []MsgRange `json:"ranges,omitempty"`
 	// 按 SeqId 升序返回消息。用于从 SinceId 开始进行无间隙的断线追赶。
@@ -53,6 +55,10 @@ type MsgGetQuery struct {
 	Del *MsgGetOpts `json:"del,omitempty"`
 	// "search" 关键词发现或当前 Topic 消息全文搜索参数。
 	Search *MsgSearchOpts `json:"search,omitempty"`
+	// "contacts" 联系人全量或增量同步参数，仅允许在 me Topic 使用。
+	Contacts *types.ContactQuery `json:"contacts,omitempty"`
+	// "assets" 贴纸、动态 Emoji 与 GIF 素材目录查询。
+	Assets *types.AssetQuery `json:"assets,omitempty"`
 }
 
 // MsgSearchOpts 定义 Peer 发现与会话内消息搜索参数。
@@ -124,7 +130,11 @@ type MsgSetQuery struct {
 	// 账号凭证更新
 	Cred *MsgCredClient `json:"cred,omitempty"`
 	// 辅助数据更新
-	Aux map[string]any
+	Aux map[string]any `json:"aux,omitempty"`
+	// 联系人或联系人分组 CRUD，仅允许在 me Topic 使用。
+	Contact *types.ContactMutation `json:"contact,omitempty"`
+	// 素材包或素材管理操作，仅允许 root 用户使用。
+	Asset *types.AssetMutation `json:"asset,omitempty"`
 }
 
 // MsgRange 表示单个 ID (HiId=0) 或一个连续的 ID 范围 [LowId .. HiId)（左闭右开）。
@@ -236,6 +246,10 @@ const (
 	constMsgMetaAux
 	// constMsgMetaSearch 指定关键词发现或消息全文搜索。
 	constMsgMetaSearch
+	// constMsgMetaContacts 指定联系人同步。
+	constMsgMetaContacts
+	// constMsgMetaAssets 指定贴纸、动态 Emoji 与 GIF 素材目录。
+	constMsgMetaAssets
 )
 
 const (
@@ -256,7 +270,7 @@ const (
 // parseMsgClientMeta 将输入解析为Msg客户端元数据。
 func parseMsgClientMeta(params string) int {
 	var bits int
-	parts := strings.SplitN(params, " ", 9)
+	parts := strings.Fields(params)
 	for _, p := range parts {
 		switch p {
 		case "desc":
@@ -275,6 +289,10 @@ func parseMsgClientMeta(params string) int {
 			bits |= constMsgMetaAux
 		case "search":
 			bits |= constMsgMetaSearch
+		case "contacts":
+			bits |= constMsgMetaContacts
+		case "assets":
+			bits |= constMsgMetaAssets
 		default:
 			// 忽略未知项
 		}
@@ -761,6 +779,21 @@ type MsgReaction struct {
 	Count int `json:"count"`
 }
 
+// MsgTranslation describes the per-recipient view of an automatically
+// translated message.
+type MsgTranslation struct {
+	// Status is one of original, pending, completed, failed.
+	Status string `json:"status"`
+	// SourceLanguage is detected locally or by the selected provider.
+	SourceLanguage string `json:"source_language,omitempty"`
+	// TargetLanguage is the language requested for this recipient.
+	TargetLanguage string `json:"target_language,omitempty"`
+	// Provider identifies the backend used without exposing credentials.
+	Provider string `json:"provider,omitempty"`
+	// Original is included only when the administrator enables KeepOriginal.
+	Original any `json:"original,omitempty"`
+}
+
 // MsgServerData 表示服务端数据广播消息 {data}。
 type MsgServerData struct {
 	// Topic 保存Topic。
@@ -791,6 +824,8 @@ type MsgServerData struct {
 	Head map[string]any `json:"head,omitempty"`
 	// Content 保存正文。
 	Content any `json:"content"`
+	// Translation describes asynchronous, per-recipient machine translation.
+	Translation *MsgTranslation `json:"translation,omitempty"`
 }
 
 // 拷贝数据消息对象。
@@ -799,6 +834,10 @@ func (src *MsgServerData) copy() *MsgServerData {
 		return nil
 	}
 	dst := *src
+	if src.Translation != nil {
+		translation := *src.Translation
+		dst.Translation = &translation
+	}
 	return &dst
 }
 
@@ -916,6 +955,8 @@ type MsgServerMeta struct {
 	Desc *MsgTopicDesc `json:"desc,omitempty"`
 	// 订阅者列表数组
 	Sub []MsgTopicSub `json:"sub,omitempty"`
+	// Next 是成员列表下一页使用的稳定游标；为空表示已到末页。
+	Next string `json:"next,omitempty"`
 	// 已删除消息的范围和 ID 记录
 	Del *MsgDelValues `json:"del,omitempty"`
 	// 用户检索发现标签
@@ -926,6 +967,10 @@ type MsgServerMeta struct {
 	Aux map[string]any `json:"aux,omitempty"`
 	// Search 保存关键词发现或消息全文搜索结果。
 	Search *MsgSearchResult `json:"search,omitempty"`
+	// Contacts 保存联系人全量或增量同步结果。
+	Contacts *types.ContactSnapshot `json:"contacts,omitempty"`
+	// Assets 保存贴纸、动态 Emoji 与 GIF 素材目录。
+	Assets *types.AssetCatalog `json:"assets,omitempty"`
 }
 
 // MsgSearchResult 是统一的 Peer 发现与消息全文搜索结果。

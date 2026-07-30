@@ -4,6 +4,7 @@
 package rethinkdb
 
 import (
+	"sort"
 	"strconv"
 	"time"
 
@@ -322,7 +323,11 @@ func (a *adapter) UsersForTopic(topic string, keepDeleted bool, opts *t.QueryOpt
 
 	// 获取 Topic 订阅者
 	// 获取所有已订阅用户。用户数量不大
-	q := rdb.DB(a.dbName).Table("subscriptions").GetAllByIndex("Topic", topic)
+	cursorUID := t.ZeroUid
+	if opts != nil && tcat != t.TopicCatP2P {
+		cursorUID = opts.Cursor
+	}
+	q := a.subscriptionsByTopicCursor(topic, cursorUID)
 	if !keepDeleted && tcat != t.TopicCatP2P {
 		// 过滤出 DeletedAt 不为空的行。
 		// P2P Topic 必须加载所有订阅，否则无法交换 Public 值。
@@ -419,6 +424,9 @@ func (a *adapter) UsersForTopic(topic string, keepDeleted bool, opts *t.QueryOpt
 			}
 			subs = xsubs
 		}
+	}
+	if tcat != t.TopicCatP2P {
+		sort.Slice(subs, func(i, j int) bool { return subs[i].User < subs[j].User })
 	}
 
 	return subs, nil

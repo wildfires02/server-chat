@@ -5,14 +5,83 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"chat/server/store/types"
 )
+
+func TestPbContactsAndAssetsRoundTrip(t *testing.T) {
+	now := time.Now().UTC().Round(time.Millisecond)
+	client := &ClientComMessage{Set: &MsgClientSet{
+		Id:    "catalog-1",
+		Topic: "me",
+		MsgSetQuery: MsgSetQuery{
+			Contact: &types.ContactMutation{
+				Op: "upsert_contact",
+				Contact: &types.AddressBookContact{
+					User: "usrPeer", Alias: "Peer", Status: types.ContactAccepted,
+				},
+			},
+			Asset: &types.AssetMutation{
+				Op:   "upsert_pack",
+				Pack: &types.AssetPack{Id: "pack", Name: "Pack", Published: true},
+			},
+		},
+	}}
+	gotClient := pbCliDeserialize(pbCliSerialize(client))
+	if gotClient.Set == nil || gotClient.Set.Contact == nil ||
+		gotClient.Set.Contact.Contact == nil || gotClient.Set.Contact.Contact.Alias != "Peer" ||
+		gotClient.Set.Asset == nil || gotClient.Set.Asset.Pack == nil ||
+		gotClient.Set.Asset.Pack.Id != "pack" {
+		t.Fatalf("contact/asset client round trip mismatch: %#v", gotClient.Set)
+	}
+
+	server := &ServerComMessage{Meta: &MsgServerMeta{
+		Contacts: &types.ContactSnapshot{
+			Version: 4,
+			Contacts: []types.AddressBookContact{{
+				User: "usrPeer", Status: types.ContactAccepted, UpdatedAt: now,
+			}},
+		},
+		Assets: &types.AssetCatalog{
+			Version: 2,
+			Assets: []types.MediaAsset{{
+				Id: "wave", PackId: "pack", Kind: "sticker", URL: "/asset", UpdatedAt: now,
+				Alt: "👋", SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				Size: 42, Revision: 3,
+				Variants: []types.AssetVariant{{
+					Name: "webp", URL: "/asset.webp", MimeType: "image/webp",
+					Width: 64, Height: 64, Size: 21,
+					SHA256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				}},
+			}},
+		},
+	}}
+	gotServer := pbServDeserialize(pbServSerialize(server))
+	if gotServer.Meta == nil || gotServer.Meta.Contacts == nil ||
+		gotServer.Meta.Contacts.Version != 4 || len(gotServer.Meta.Contacts.Contacts) != 1 ||
+		gotServer.Meta.Assets == nil || gotServer.Meta.Assets.Version != 2 ||
+		len(gotServer.Meta.Assets.Assets) != 1 || gotServer.Meta.Assets.Assets[0].Kind != "sticker" ||
+		gotServer.Meta.Assets.Assets[0].Alt != "👋" ||
+		len(gotServer.Meta.Assets.Assets[0].Variants) != 1 ||
+		gotServer.Meta.Assets.Assets[0].Variants[0].Name != "webp" {
+		t.Fatalf("contact/asset server round trip mismatch: %#v", gotServer.Meta)
+	}
+}
+
+func TestPbInternalWorkspacePresenceRoundTrip(t *testing.T) {
+	message := &ServerComMessage{Pres: &MsgServerPres{Topic: "me", What: "workspace"}}
+	decoded := pbServDeserialize(pbServSerialize(message))
+	if decoded.Pres == nil || decoded.Pres.Topic != "me" || decoded.Pres.What != "workspace" {
+		t.Fatalf("workspace presence round trip mismatch: %#v", decoded.Pres)
+	}
+}
 
 // TestPbGetQueryRoundTripIncludesSyncFields 验证 Pb Get Query Round Trip Includes Sync Fields 相关行为。
 func TestPbGetQueryRoundTripIncludesSyncFields(t *testing.T) {
 	in := &MsgGetQuery{
 		What: "desc sub data del",
 		Desc: &MsgGetOpts{User: "usrA", Topic: "grpA", Limit: 7},
-		Sub:  &MsgGetOpts{User: "usrB", Topic: "grpB", Limit: 8},
+		Sub:  &MsgGetOpts{User: "usrB", Topic: "grpB", Limit: 8, Cursor: "usrCursor"},
 		Data: &MsgGetOpts{
 			SinceId:  10,
 			BeforeId: 30,
@@ -26,6 +95,10 @@ func TestPbGetQueryRoundTripIncludesSyncFields(t *testing.T) {
 			Limit:    4,
 			Forward:  true,
 			IdRanges: []MsgRange{{LowId: 3, HiId: 6}},
+		},
+		Assets: &types.AssetQuery{
+			PackId: "official", Kind: "sticker", Since: 9, Limit: 20,
+			AssetIds: []string{"wave", "party"},
 		},
 	}
 
@@ -96,6 +169,7 @@ func TestPbMemberRoleRoundTrip(t *testing.T) {
 
 	server := &ServerComMessage{Meta: &MsgServerMeta{
 		Desc: &MsgTopicDesc{IsChan: true, SubCnt: 99},
+		Next: "usrNextMember",
 		Sub: []MsgTopicSub{{
 			User:   "usrTarget",
 			SubCnt: 42,
@@ -109,7 +183,7 @@ func TestPbMemberRoleRoundTrip(t *testing.T) {
 		gotServer.Meta.Sub[0].Acs.Role != "readonly" ||
 		gotServer.Meta.Sub[0].SubCnt != 42 ||
 		gotServer.Meta.Desc == nil || !gotServer.Meta.Desc.IsChan ||
-		gotServer.Meta.Desc.SubCnt != 99 {
+		gotServer.Meta.Desc.SubCnt != 99 || gotServer.Meta.Next != "usrNextMember" {
 		t.Fatalf("member role lost in server gRPC round trip: %#v", gotServer.Meta)
 	}
 }
@@ -153,7 +227,11 @@ func TestPbClientAndServerDataRoundTripClientId(t *testing.T) {
 		EditedAt:  &editedAt,
 		Forwarded: &MsgForwardedMessage{Topic: "grpB", SeqId: 39, From: "usrB", Timestamp: scheduleAt},
 		Reactions: []MsgReaction{{Reaction: "👍", Count: 2}},
-		Content:   map[string]any{"text": "hello"},
+		Translation: &MsgTranslation{
+			Status: "completed", SourceLanguage: "zh", TargetLanguage: "en",
+			Provider: "azure-primary", Original: "你好",
+		},
+		Content: map[string]any{"text": "hello"},
 	}}
 	gotServer := pbServDeserialize(pbServSerialize(server))
 	if gotServer.Data == nil || gotServer.Data.ClientId != server.Data.ClientId {
@@ -166,6 +244,9 @@ func TestPbClientAndServerDataRoundTripClientId(t *testing.T) {
 	if gotServer.Data.Kind != server.Data.Kind || gotServer.Data.ReplyTo != server.Data.ReplyTo ||
 		gotServer.Data.GroupId != server.Data.GroupId || gotServer.Data.Forwarded.SeqId != 39 ||
 		len(gotServer.Data.Reactions) != 1 || gotServer.Data.Reactions[0].Count != 2 ||
+		gotServer.Data.Translation == nil ||
+		gotServer.Data.Translation.Provider != "azure-primary" ||
+		gotServer.Data.Translation.Original != "你好" ||
 		!gotServer.Data.EditedAt.Equal(editedAt) {
 		t.Fatalf("server message metadata lost in gRPC round trip: %#v", gotServer.Data)
 	}

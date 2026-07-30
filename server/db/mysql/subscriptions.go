@@ -1,5 +1,5 @@
-//go:build mysql
-// +build mysql
+//go:build mysql || (!postgres && !mongodb && !rethinkdb)
+// +build mysql !postgres,!mongodb,!rethinkdb
 
 package mysql
 
@@ -95,12 +95,16 @@ func (a *adapter) SubsForTopic(topic string, keepDeleted bool, opts *t.QueryOpt)
 			q += " AND userid=?"
 			args = append(args, store.DecodeUid(opts.User))
 		}
+		if !opts.Cursor.IsZero() {
+			q += " AND userid>?"
+			args = append(args, store.DecodeUid(opts.Cursor))
+		}
 		if opts.Limit > 0 && opts.Limit < limit {
 			limit = opts.Limit
 		}
 	}
 
-	q += " LIMIT ?"
+	q += " ORDER BY userid ASC LIMIT ?"
 	args = append(args, limit)
 
 	ctx, cancel := a.getContext()

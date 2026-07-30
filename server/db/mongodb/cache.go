@@ -3,6 +3,7 @@
 package mongodb
 
 import (
+	"regexp"
 	"strings"
 	"time"
 
@@ -68,4 +69,44 @@ func (a *adapter) PCacheExpire(keyPrefix string, olderThan time.Time) error {
 	_, err := a.db.Collection("kvmeta").DeleteMany(a.ctx, b.M{"createdat": b.M{"$lt": olderThan},
 		"_id": b.Regex{Pattern: "^" + keyPrefix}})
 	return err
+}
+
+// PCacheList 按键前缀返回最早写入的条目。
+func (a *adapter) PCacheList(keyPrefix string, limit int) (map[string]string, error) {
+	if keyPrefix == "" || limit <= 0 {
+		return nil, t.ErrMalformed
+	}
+	options := mdbopts.Find().
+		SetProjection(b.M{"value": 1}).
+		SetSort(b.D{{Key: "createdat", Value: 1}}).
+		SetLimit(int64(limit))
+	cursor, err := a.db.Collection("kvmeta").Find(a.ctx,
+		b.M{"_id": b.Regex{Pattern: "^" + regexp.QuoteMeta(keyPrefix)}}, options)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(a.ctx)
+	var entries []struct {
+		Key   string `bson:"_id"`
+		Value string `bson:"value"`
+	}
+	if err = cursor.All(a.ctx, &entries); err != nil {
+		return nil, err
+	}
+	result := make(map[string]string, len(entries))
+	for _, entry := range entries {
+		result[entry.Key] = entry.Value
+	}
+	return result, nil
+}
+
+// PCacheCompareAndSwap 在数据库中原子更新匹配的条目。
+func (a *adapter) PCacheCompareAndSwap(key, oldValue, newValue string) (bool, error) {
+	result, err := a.db.Collection("kvmeta").UpdateOne(a.ctx,
+		b.M{"_id": key, "value": oldValue},
+		b.M{"$set": b.M{"value": newValue, "createdat": t.TimeNow()}})
+	if err != nil {
+		return false, err
+	}
+	return result.ModifiedCount == 1, nil
 }

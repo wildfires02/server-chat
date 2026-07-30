@@ -233,6 +233,24 @@ func TestAnalyzeMessageKindsAndAttachments(t *testing.T) {
 				"ent":[{"tp":"AU","data":{"mime":"audio/ogg","ref":"/v0/file/s/a.ogg","voice":true,"duration":1200}}]}`,
 			kind: "voice", attachments: []string{"/v0/file/s/a.ogg"},
 		},
+		{
+			name: "sticker",
+			input: `{"txt":" ","fmt":[{"at":0,"len":1,"key":0}],
+				"ent":[{"tp":"SK","data":{"asset_id":"cat-wave"}}]}`,
+			kind: "sticker",
+		},
+		{
+			name: "animated emoji",
+			input: `{"txt":" ","fmt":[{"at":0,"len":1,"key":0}],
+				"ent":[{"tp":"AE","data":{"asset_id":"party-face"}}]}`,
+			kind: "animated-emoji",
+		},
+		{
+			name: "gif",
+			input: `{"txt":" ","fmt":[{"at":0,"len":1,"key":0}],
+				"ent":[{"tp":"GF","data":{"asset_id":"cat-dance"}}]}`,
+			kind: "gif",
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -255,7 +273,39 @@ func TestAnalyzeMessageKindsAndAttachments(t *testing.T) {
 					t.Fatalf("attachments: want %#v, got %#v", tc.attachments, info.Attachments)
 				}
 			}
+			if tc.kind == "sticker" && (len(info.AssetIDs) != 1 || info.AssetIDs[0] != "cat-wave") {
+				t.Fatalf("asset ids: %#v", info.AssetIDs)
+			}
 		})
+	}
+}
+
+func TestStickerPreviewKeepsServerAssetID(t *testing.T) {
+	content := map[string]any{
+		"txt": " ",
+		"fmt": []any{map[string]any{"at": float64(0), "len": float64(1), "key": float64(0)}},
+		"ent": []any{map[string]any{
+			"tp": "SK",
+			"data": map[string]any{
+				"asset_id": "cat-wave",
+				"alt":      "👋",
+				"ignored":  "large client field",
+			},
+		}},
+	}
+	preview, err := Preview(content, 16)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview != `{"fmt":[{}],"ent":[{"tp":"SK","data":{"alt":"👋","asset_id":"cat-wave"}}]}` {
+		t.Fatalf("unexpected sticker preview: %s", preview)
+	}
+	plain, err := PlainText(content)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plain != "👋" {
+		t.Fatalf("unexpected sticker plain text: %q", plain)
 	}
 }
 

@@ -51,7 +51,6 @@
 | ✅ | Readiness、Drain 与拓扑运维 | `/livez`、`/readyz`、本机 `/drainz`、本机 `/clusterz`；综合数据库、etcd、View、Ring、数据面和队列水位；缩容强制先 Drain | 生产 RBAC 必须限制 Pod exec/主机本地权限 |
 | 🟡 | Docker 三节点示例 | 已有 Compose 集群和本地启动脚本 | 包含开发默认值、暴露 pprof，只用于开发验证 |
 | ✅ | Kubernetes 交付 | 已提供默认 3 副本、五候选身份 StatefulSet、Headless/Client Service、maxUnavailable=1 PDB、NetworkPolicy、探针、Drain、3→5→3 手册、CSI Secret 和安全上下文 | 真实集群 server-side dry-run 和故障演练归入 CLUSTER-012 |
-| ✅ | 非 Kubernetes 交付 | 已提供 systemd 三/五主机模板、生产 YAML、Secret 示例、扩缩容及滚动手册 | 真实多主机演练归入 CLUSTER-012 |
 | ✅ | 本地集群故障与容量测试 | 隔离三节点 etcd mTLS、MySQL 和五个真实 IM 进程已覆盖跨节点投递、Owner SIGKILL、RPO/seq、3→5→3、控制面/数据库失联、单节点隔离、滚动重启、重连风暴和 p99 | 结果见 `test-results/cluster-certification-latest.md`；目标生产基础设施仍需 CLUSTER-012 |
 
 ### 2.2 当前生产阻断项
@@ -259,9 +258,9 @@ cluster_config:
 - 节点进程允许按顺序启动，但在存活节点未达到多数派前保持 Not Ready 并拒绝写入，避免集群冷启动死锁。
 - 多数派和 fencing 在生产环境不可关闭，不提供 `require_quorum: false` 逃生开关。
 - 证书私钥、数据库密码和 Agora 证书只通过 Secret 挂载或环境变量注入。
-- Viper 环境变量覆盖继续使用 `IM_` 前缀和双下划线层级。
+- `im-server` 使用 Viper 只读取节点完整 YAML，不接受环境变量覆盖。
 - 配置校验必须发生在监听客户端端口和启动业务 Worker 之前。
-- 提供 `im-server --validate_config --config=...` 离线检查。
+- 提供 Viper 仅 YAML 的配置门禁测试，并在 `im-server` 启动时再次校验。
 
 ## 7. 工作分解
 
@@ -276,7 +275,7 @@ cluster_config:
 | CLUSTER-007 | P0 | ✅ | Readiness、Liveness 和 Drain | 002、005 | HTTP 接口与状态机 |
 | CLUSTER-008 | P0 | ✅ | mTLS、节点身份和协议协商 | 004 | TLS 配置与轮换测试 |
 | CLUSTER-009 | P1 | ✅ | Owner 迁移、扩缩容和定时任务领取 | 002、003、007 | Joining 候选、CAS 3→5→3、缩容前 Drain、动态多数派和任务短租约 |
-| CLUSTER-010 | P1 | ✅ | Kubernetes 和三节点部署物 | 007、008 | StatefulSet、PDB、NetworkPolicy、systemd 和运维手册 |
+| CLUSTER-010 | P1 | ✅ | Kubernetes 三节点部署物 | 007、008 | StatefulSet、PDB、NetworkPolicy 和运维手册 |
 | CLUSTER-011 | P0 | ✅ | 三/五节点故障与容量测试自动化 | 003～010 | 五进程 mTLS 集群、SIGKILL、依赖故障、隔离、滚动、热点/重连 p99 和审计报告 |
 | CLUSTER-012 | P0 | 🟡 | 72 小时稳定性和目标环境发布演练 | 011 | `scripts/certify-cluster-72h.sh` 已具备且强制 ≥72h、不可变 SHA-256；必须在真实 staging 跑满并完成人工评审 |
 
@@ -305,7 +304,7 @@ cluster_config:
 | CLUSTER-007 | 固定健康探针、数据库主动检查、控制面/View/Ring/数据面/队列综合 Readiness、本机 Drain 状态机、新连接门禁、已有连接读写分离、远端写 fail-closed 和可靠队列排空 | Ready→Drain→Not Ready、远端 Drain 拒绝、数据库/多数派/队列原因、写命令分类和 Drain 超时测试通过 race |
 | CLUSTER-008 | `cluster_config.tls` 生产强制门禁；双向 TLS 1.3；客户端和服务端 CA 校验；证书 DNS SAN 与静态节点名精确绑定；禁止通配符冒充；新握手热加载证书/私钥；协议最小/最大版本协商 | 真实内存 gRPC mTLS、证书轮换、错误节点身份、协议范围和生产缺失 TLS 门禁测试通过 race |
 | CLUSTER-009 | `nodes` 作为候选白名单、`initial_members` 创建首次活动拓扑；新节点先 Joining；`/clusterz` 仅本机调用并通过 etcd ModRevision CAS 提交相邻奇数规模；扩容要求新节点在线，缩容要求先 Drain；运行时多数派随已提交拓扑变化 | 单元测试、真实 etcd 集成测试和五进程 3→5→3 均通过；不同配置、跳过 Drain、缺失成员和并发修改均 fail-closed |
-| CLUSTER-010 | `deployments/kubernetes/` 提供固定 digest、默认三副本/五候选 StatefulSet、maxUnavailable=1 PDB、拓扑分散、NetworkPolicy、探针、preStop Drain、只读根文件系统和 CSI Secret；`deployments/systemd/` 提供三/五主机模板；操作手册覆盖 3→5→3 | Kustomize 成功渲染，全部 YAML 可解析，关键资源离线校验通过；真实 Kubernetes server-side dry-run 和跨故障域滚动演练留待 CLUSTER-012 |
+| CLUSTER-010 | `deployments/kubernetes/` 提供固定 digest、默认三副本/五候选 StatefulSet、maxUnavailable=1 PDB、拓扑分散、NetworkPolicy、探针、preStop Drain、只读根文件系统和 CSI Secret；操作手册覆盖 3→5→3 | Kustomize 成功渲染，全部 YAML 可解析，关键资源离线校验通过；真实 Kubernetes server-side dry-run 和跨故障域滚动演练留待 CLUSTER-012 |
 | CLUSTER-011 | Ring 虚拟节点 256、零分配查询；`tests/cluster/process_test.go` 和 `scripts/test-cluster-process.sh` 创建三节点 etcd mTLS、MySQL、五个 IM 进程与一次性节点证书；生成带二进制 SHA-256 的审计报告 | 10 万 Topic 样本最大偏差低于 10%；核心 race 三轮通过；Owner SIGKILL RTO 4s；32×300 热点投递 9600 次，ACK p99 31.68ms、投递 p99 31.77ms；256 路重连通过 |
 
 ## 8. 实施阶段与退出条件
@@ -369,7 +368,7 @@ cluster_config:
 - ✅ 完成 CLUSTER-007、CLUSTER-008、CLUSTER-009、CLUSTER-010。
 - ✅ 实现 Liveness、Readiness、可靠队列 Drain 和基于 Cluster View 的 Owner 迁移，并提供滚动升级交付。
 - ✅ 启用双向 mTLS、节点身份校验和协议版本协商。
-- ✅ 提供 Kubernetes 与非 Kubernetes 三节点部署。
+- ✅ 提供 Kubernetes 三/五节点生产部署。
 - ✅ 完成证书轮换、数据库切换、3→5→3 在线扩缩容和回滚手册。
 
 退出条件：
@@ -544,7 +543,6 @@ Drain 顺序：
 - etcd、数据库 Schema 和迁移脚本。
 - `/livez`、`/readyz` 和 Drain 接口。
 - Kubernetes StatefulSet、Headless Service、Service、PDB 和 NetworkPolicy。
-- 非 Kubernetes 三节点部署示例。
 - mTLS、证书轮换和 Secret 管理说明。
 - 扩缩容、节点替换、数据库切换和回滚手册。
 - 三节点与五节点容量报告。
@@ -576,8 +574,8 @@ Drain 顺序：
 7. ✅ CLUSTER-007 已完成：Liveness、综合 Readiness、本机 Drain、可靠队列排空和 fail-closed 写入门禁。
 8. ✅ CLUSTER-008 已完成：双向 mTLS、节点证书身份、证书热加载和协议范围协商。
 9. ✅ CLUSTER-009 已完成：Joining 候选节点、etcd CAS 3→5→3、动态多数派、缩容前 Drain 和定时任务短租约。
-10. ✅ CLUSTER-010 已完成：Kubernetes 与 systemd 三节点生产部署物、生产配置、离线清单校验和操作手册。
+10. ✅ CLUSTER-010 已完成：Kubernetes 三/五节点生产部署物、生产配置、离线清单校验和操作手册。
 11. ✅ CLUSTER-011 已完成本地自动化：三节点 etcd mTLS、五个 IM 进程、跨节点投递、Owner SIGKILL、单节点隔离、3→5→3、依赖失联、滚动重启、热点与重连 p99。
-12. 🟡 CLUSTER-012 已具备不可缩短至 72 小时以下、绑定不可变 SHA-256 的可执行门禁和单次审计报告；下一步必须在目标 Kubernetes/systemd、数据库 HA 和监控环境实际跑满 72 小时，完成备份恢复、安全扫描和发布评审。
+12. 🟡 CLUSTER-012 已具备不可缩短至 72 小时以下、绑定不可变 SHA-256 的可执行门禁和单次审计报告；下一步必须在目标 Kubernetes、数据库 HA 和监控环境实际跑满 72 小时，完成备份恢复、安全扫描和发布评审。
 
 在 CLUSTER-012 的外部验收证据齐全前，代码可以进入 staging，但不能宣称已经获得生产发布签字。

@@ -1,14 +1,11 @@
 # IM 服务端开发环境配置。
 #
 # 生产环境不要直接使用示例密钥、密码和调试验证码。
-# 任意标量都可用环境变量覆盖：前缀为 IM_，双下划线表示 YAML 层级。
-# 示例：
-#   IM_LISTEN=:8080
-#   IM_STORE_CONFIG__USE_ADAPTER=postgres
-#   IM_STORE_CONFIG__ADAPTERS__MYSQL__PASSWD=strong-password
-#   IM_AUTH_CONFIG__TOKEN__KEY=base64-secret
+# im-server 使用 Viper 只读取本文件，不接受命令行或环境变量覆盖。
 
 # 运行环境与部署模式必须显式声明；此文件用于开发单机模式。
+log_flags: stdFlags
+
 runtime:
   environment: development
   deployment_mode: standalone
@@ -19,9 +16,13 @@ api_path: /
 cache_control: 39600
 ws_compression_disabled: false
 static_mount: /
+static_data: "-"
 grpc_listen: ":16060"
 grpc_keepalive_enabled: true
 expvar: /debug/vars
+server_status: "-"
+pprof: ""
+pprof_url: ""
 # 健康探针与本机优雅摘流接口。
 health:
   live_path: /livez
@@ -33,7 +34,7 @@ use_x_forwarded_for: true
 x_frame_options: SAMEORIGIN
 default_country_code: ""
 
-# API Key 签名盐值；生产环境请通过 IM_API_KEY_SALT 覆盖。
+# API Key 签名盐值；生产部署必须在生成的 YAML 中替换。
 api_key_salt: T713/rYYgW7g4m3vG6zGRh7+FM1t0T8j13koXScOAj4=
 
 # 消息、群组和账号限制。
@@ -46,12 +47,29 @@ p2p_delete_enabled: true
 msg_delete_age: 0
 alias_tag: alias
 
+# im-server 只读取独立 im-admin 写入的翻译策略，不暴露管理 API。
+translation:
+  enabled: true
+  refresh_interval: 5
+
 # 文件与对象存储。
 media:
   use_handler: fs
   max_size: 8388608
   gc_period: 60
   gc_block_size: 100
+  processing:
+    enabled: false
+    workers: 2
+    queue_size: 256
+    timeout: 120
+    poll_interval: 2
+    max_attempts: 5
+    retry_base: 5
+    lease_seconds: 180
+    clamav_addr: "127.0.0.1:3310"
+    ffmpeg: /usr/bin/ffmpeg
+    libreoffice: /usr/bin/libreoffice
   handlers:
     fs:
       upload_dir: uploads
@@ -93,7 +111,7 @@ auth_config:
   token:
     expire_in: 1209600
     serial_num: 1
-    # 生产环境必须通过 IM_AUTH_CONFIG__TOKEN__KEY 覆盖。
+    # 生产环境必须在生成的 YAML 中写入独立随机值。
     key: wfaY2RgF2S1OQI/ZlK+LSrp1KB2jwAdGAIHQ7JZn+Kc=
   code:
     expire_in: 900
@@ -101,8 +119,9 @@ auth_config:
     code_length: 6
 
 # 数据库存储。use_adapter 必须与构建标签和 adapters 中的名称一致。
+# 源码开发启动命令：go run -tags mysql cmd/im-server/main.go
 store_config:
-  # 生产环境必须使用独立随机值，并通过 IM_STORE_CONFIG__UID_KEY 覆盖。
+  # 生产环境必须在生成的 YAML 中写入独立随机值。
   uid_key: la6YsO+bNX/+XIkOqc5Svw==
   max_results: 1024
   use_adapter: mysql
@@ -124,12 +143,12 @@ store_config:
       user: root
       passwd: "123456"
       net: tcp
-      addr: localhost
+      addr: 127.0.0.1:3306
       dbname: im
-      collation: utf8mb4_0900_ai_ci
+      collation: utf8mb4_bin
       parseTime: true
       # 也可以仅提供 dsn。
-      # dsn: root@tcp(localhost)/im?parseTime=true&collation=utf8mb4_0900_ai_ci
+      # dsn: root@tcp(127.0.0.1:3306)/im?parseTime=true&collation=utf8mb4_bin
       max_open_conns: 64
       max_idle_conns: 64
       conn_max_lifetime: 60
@@ -156,8 +175,9 @@ store_config:
 acc_validation:
   email:
     add_to_tags: true
-    required:
-      - auth
+    # 默认开发配置未提供真实 SMTP 与邮件模板，因此不强制邮箱验证。
+    # 接入模板后可改为 required: [auth]。
+    required: []
     config:
       host_url: http://localhost:6060/
       smtp_server: smtp.example.com

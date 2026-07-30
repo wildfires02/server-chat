@@ -1425,6 +1425,22 @@ func (m *MockPersistentCacheInterface) EXPECT() *MockPersistentCacheInterfaceMoc
 	return m.recorder
 }
 
+// CompareAndSwap mocks base method.
+func (m *MockPersistentCacheInterface) CompareAndSwap(key, oldValue, newValue string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CompareAndSwap", key, oldValue, newValue)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CompareAndSwap indicates an expected call of CompareAndSwap.
+func (mr *MockPersistentCacheInterfaceMockRecorder) CompareAndSwap(key, oldValue, newValue interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompareAndSwap",
+		reflect.TypeOf((*MockPersistentCacheInterface)(nil).CompareAndSwap), key, oldValue, newValue)
+}
+
 // Delete mocks base method.
 func (m *MockPersistentCacheInterface) Delete(key string) error {
 	m.ctrl.T.Helper()
@@ -1466,6 +1482,22 @@ func (m *MockPersistentCacheInterface) Get(key string) (string, error) {
 func (mr *MockPersistentCacheInterfaceMockRecorder) Get(key interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockPersistentCacheInterface)(nil).Get), key)
+}
+
+// List mocks base method.
+func (m *MockPersistentCacheInterface) List(keyPrefix string, limit int) (map[string]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "List", keyPrefix, limit)
+	ret0, _ := ret[0].(map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// List indicates an expected call of List.
+func (mr *MockPersistentCacheInterfaceMockRecorder) List(keyPrefix, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List",
+		reflect.TypeOf((*MockPersistentCacheInterface)(nil).List), keyPrefix, limit)
 }
 
 // Upsert mocks base method.

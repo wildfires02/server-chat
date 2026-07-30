@@ -1,5 +1,7 @@
 # Kubernetes 生产集群配置。
-# Secret 相关空标量由 StatefulSet 环境变量覆盖；节点身份由 Downward API 注入。
+# 部署前必须生成包含 Secret 路径和值及节点身份的完整节点 YAML。
+log_flags: stdFlags
+
 runtime:
   environment: production
   deployment_mode: cluster
@@ -9,10 +11,13 @@ api_path: /
 cache_control: 39600
 ws_compression_disabled: false
 static_mount: /
+static_data: "-"
 grpc_listen: ":16060"
 grpc_keepalive_enabled: true
 expvar: "-"
 server_status: "-"
+pprof: ""
+pprof_url: ""
 health:
   live_path: /livez
   ready_path: /readyz
@@ -31,6 +36,10 @@ permanent_accounts: false
 p2p_delete_enabled: true
 msg_delete_age: 0
 alias_tag: alias
+
+translation:
+  enabled: true
+  refresh_interval: 5
 
 auth_config:
   logical_names: []

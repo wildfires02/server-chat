@@ -1,5 +1,7 @@
 # 真实进程级集群认证模板。
 # 仅由 scripts/test-cluster-process.sh 在 mktemp 目录渲染，所有 Secret 均为一次性测试材料。
+log_flags: stdFlags
+
 runtime:
   environment: staging
   deployment_mode: cluster
@@ -9,10 +11,13 @@ api_path: /
 cache_control: 60
 ws_compression_disabled: false
 static_mount: /
+static_data: "-"
 grpc_listen: "127.0.0.1:${IM0_CLIENT_GRPC_PORT}"
 grpc_keepalive_enabled: true
 expvar: /debug/vars
 server_status: "-"
+pprof: ""
+pprof_url: ""
 health:
   live_path: /livez
   ready_path: /readyz

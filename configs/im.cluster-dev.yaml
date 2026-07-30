@@ -2,6 +2,8 @@
 #
 # 本文件用于开发调试，使用单个无 TLS etcd 和本机 MySQL；不能用于 staging
 # 或 production。生产环境必须使用 im.cluster.yaml。
+log_flags: stdFlags
+
 runtime:
   environment: development
   deployment_mode: cluster
@@ -11,10 +13,13 @@ api_path: /
 cache_control: 39600
 ws_compression_disabled: false
 static_mount: /
+static_data: "-"
 grpc_listen: ":16060"
 grpc_keepalive_enabled: true
 expvar: /debug/vars
 server_status: "-"
+pprof: ""
+pprof_url: ""
 health:
   live_path: /livez
   ready_path: /readyz
@@ -35,11 +40,28 @@ p2p_delete_enabled: true
 msg_delete_age: 0
 alias_tag: alias
 
+# 每个聊天节点从共享数据库读取 im-admin 写入的翻译策略。
+translation:
+  enabled: true
+  refresh_interval: 5
+
 media:
   use_handler: fs
   max_size: 33554432
   gc_period: 60
   gc_block_size: 100
+  processing:
+    enabled: false
+    workers: 2
+    queue_size: 256
+    timeout: 120
+    poll_interval: 2
+    max_attempts: 5
+    retry_base: 5
+    lease_seconds: 180
+    clamav_addr: ""
+    ffmpeg: /usr/bin/ffmpeg
+    libreoffice: /usr/bin/libreoffice
   handlers:
     fs:
       upload_dir: .local/uploads
@@ -102,7 +124,7 @@ cluster_config:
     - one
     - two
     - three
-  # scripts/run-cluster.sh 按进程覆盖 self、advertise_addr 和 transport.listen。
+  # scripts/run-cluster.sh 为每个进程生成完整节点 YAML。
   self: ""
   advertise_addr: ""
   nodes:

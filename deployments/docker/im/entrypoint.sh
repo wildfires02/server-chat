@@ -1,16 +1,14 @@
 #!/bin/sh
 
-# IM 容器只读取规范 YAML 和 IM_ 环境变量，不再用 envsubst 生成第二份配置。
+# im-server 只读取 /etc/im/im.yaml；入口脚本只负责可选数据库任务。
 # 数据库变更必须通过 IM_DB_INIT_MODE 显式选择，默认 skip。
 set -eu
 
 config_file="${IM_CONFIG_FILE:-/etc/im/im.yaml}"
-static_dir="${IM_STATIC_DIR:-/opt/im/static}"
 init_mode="${IM_DB_INIT_MODE:-skip}"
 wait_target="${IM_DB_WAIT_FOR:-}"
 wait_timeout="${IM_DB_WAIT_TIMEOUT:-120}"
 run_server="${IM_RUN_SERVER:-true}"
-validate_config="${IM_VALIDATE_CONFIG:-true}"
 
 if [ ! -r "${config_file}" ]; then
   echo "配置文件不可读：${config_file}" >&2
@@ -84,12 +82,8 @@ if [ "${run_server}" != "true" ]; then
   exit 0
 fi
 
-if [ "${validate_config}" = "true" ]; then
-  /usr/local/bin/im-server "--config=${config_file}" --validate_config
-fi
-
 # 使用 exec 让服务端直接接收 SIGTERM，并把日志交给容器运行时收集。
-exec /usr/local/bin/im-server \
-  "${config_arg}" \
-  "--static_data=${static_dir}" \
-  "$@"
+if [ "${config_file}" != "/etc/im/im.yaml" ]; then
+  cp "${config_file}" /etc/im/im.yaml
+fi
+exec /usr/local/bin/im-server

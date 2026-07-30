@@ -38,22 +38,55 @@ type mediaConfig struct {
 	GcBlockSize int `json:"gc_block_size"`
 	// 各个处理器的配置参数，原样传递给处理器
 	Handlers map[string]json.RawMessage `json:"handlers"`
+	// 后台安全扫描、压缩与在线预览处理。
+	Processing *mediaProcessingConfig `json:"processing,omitempty"`
+}
+
+type mediaProcessingConfig struct {
+	Enabled      bool   `json:"enabled"`
+	Workers      int    `json:"workers"`
+	QueueSize    int    `json:"queue_size"`
+	Timeout      int    `json:"timeout"`
+	PollInterval int    `json:"poll_interval"`
+	MaxAttempts  int    `json:"max_attempts"`
+	RetryBase    int    `json:"retry_base"`
+	LeaseSeconds int    `json:"lease_seconds"`
+	ClamAVAddr   string `json:"clamav_addr"`
+	FFmpeg       string `json:"ffmpeg"`
+	LibreOffice  string `json:"libreoffice"`
+}
+
+// adminAPIConfig controls the standalone Svelte management API. The bootstrap
+// token is temporary: Groupbuying identity and Casbin policy synchronization
+// will replace it in the final integration phase.
+type adminAPIConfig struct {
+	Enabled        bool     `json:"enabled"`
+	WorkerID       int      `json:"worker_id"`
+	BootstrapToken string   `json:"bootstrap_token"`
+	AllowedOrigins []string `json:"allowed_origins"`
+}
+
+// translationConsumerConfig controls how im-server consumes settings written
+// by the independently started im-admin process.
+type translationConsumerConfig struct {
+	Enabled         bool `json:"enabled"`
+	RefreshInterval int  `json:"refresh_interval"`
 }
 
 // 配置文件内容
 type configType struct {
+	// LogFlags controls console log formatting. It is loaded from YAML by Viper.
+	LogFlags string `json:"log_flags"`
 	// Runtime 保存显式运行环境和单机/集群部署模式。
 	Runtime runtimeConfig `json:"runtime"`
 	// 监听 WebSocket 和长轮询客户端的 HTTP(S) 地址:端口。可以是
 	// 数字或规范名称，例如 ":80" 或 ":https"。可以包含主机名，例如
 	// "localhost:80"。
 	// 可以为空：如果未配置 TLS，使用 ":80"，否则使用 ":443"。
-	// 可以从命令行覆盖，参见 --listen 选项
 	Listen string `json:"listen"`
 	// 对外暴露的外部基础 URL（在负载均衡器 / 反向代理 / Unix Domain Socket 部署下使用）
 	ExtUrl string `json:"ext_url"`
 	// 流式和大文件 API 调用的基础 URL 路径，默认为 '/'
-	// 可以从命令行覆盖，参见 --api_path 选项
 	ApiPath string `json:"api_path"`
 	// 静态内容的 Cache-Control 值
 	CacheControl int `json:"cache_control"`
@@ -61,7 +94,6 @@ type configType struct {
 	// 如果使用 MSFT IIS 作为反向代理，应禁用（设为 true）
 	WSCompressionDisabled bool `json:"ws_compression_disabled"`
 	// 监听 gRPC 客户端的地址:端口。如果为空则不初始化 gRPC 支持
-	// 可以从命令行用 --grpc_listen 覆盖
 	GrpcListen string `json:"grpc_listen"`
 	// 启用 gRPC 保活处理 https://github.com/grpc/grpc/blob/master/doc/keepalive.md
 	// 这将服务器的 GRPC_ARG_KEEPALIVE_TIME_MS 设置为 60 秒而不是默认的 2 小时
@@ -89,6 +121,10 @@ type configType struct {
 	ExpvarPath string `json:"expvar"`
 	// 内部服务器状态的 URL 路径。如果为空则禁用
 	ServerStatusPath string `json:"server_status"`
+	// PprofFile 保存退出时写入 CPU 和内存分析文件的基础路径。
+	PprofFile string `json:"pprof"`
+	// PprofURL 暴露运行时分析信息的 HTTP 路径；生产环境必须禁用。
+	PprofURL string `json:"pprof_url"`
 	// Health 保存 Liveness、Readiness 和 Drain 配置。
 	Health healthConfig `json:"health"`
 	// 从 HTTP 头部 'X-Forwarded-For' 获取客户端 IP 地址
@@ -131,4 +167,8 @@ type configType struct {
 	Media *mediaConfig `json:"media"`
 	// WebRTC 保存WebRTC。
 	WebRTC json.RawMessage `json:"webrtc"`
+	// Admin is consumed only by the standalone im-admin entrypoint.
+	Admin *adminAPIConfig `json:"admin,omitempty"`
+	// Translation enables the chat-side consumer of im-admin translation settings.
+	Translation *translationConsumerConfig `json:"translation,omitempty"`
 }

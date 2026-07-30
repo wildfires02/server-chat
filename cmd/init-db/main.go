@@ -298,8 +298,12 @@ func main() {
 			if *noInit {
 				log.Fatalln("Database not found.")
 			}
-			log.Println("Database not found. Creating.")
-			err = store.Store.InitDb(config.StoreConfig, false)
+			if *reset {
+				log.Println("Database is missing or uninitialized. Reset requested; recreating.")
+			} else {
+				log.Println("Database not found. Creating.")
+			}
+			err = store.Store.InitDb(config.StoreConfig, *reset)
 			if err == nil {
 				log.Println("Database successfully created.")
 				created = true

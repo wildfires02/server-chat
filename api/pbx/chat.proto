@@ -98,6 +98,8 @@ message GetOpts {
 	repeated SeqRange ranges = 7;
 	// 按 seq_id 升序返回结果，用于断线后的无间隙追赶
 	bool forward = 8;
+	// 成员列表上一页返回的稳定游标。
+	string cursor = 9;
 }
 
 // SearchOpts 定义 Peer 发现与当前 Topic 消息全文搜索参数。
@@ -120,6 +122,132 @@ message SearchOpts {
 	int32 limit = 8;
 }
 
+// ContactQuery 定义联系人全量/增量同步参数。
+message ContactQuery {
+	uint64 since = 1;
+	int32 limit = 2;
+	bool recommendations = 3;
+}
+
+// Contact 定义用户私有通讯录中的联系人。
+message Contact {
+	string user_id = 1;
+	string alias = 2;
+	repeated string groups = 3;
+	string status = 4;
+	int64 created_at = 5;
+	int64 updated_at = 6;
+	uint64 version = 7;
+	// pending 状态下为 incoming 或 outgoing。
+	string request = 8;
+}
+
+// ContactGroup 定义用户自定义联系人分组。
+message ContactGroup {
+	string id = 1;
+	string name = 2;
+	int64 created_at = 3;
+	int64 updated_at = 4;
+	uint64 version = 5;
+}
+
+// ContactMutation 定义一次联系人或分组 CRUD。
+message ContactMutation {
+	string op = 1;
+	Contact contact = 2;
+	ContactGroup group = 3;
+	string user_id = 4;
+	string group_id = 5;
+}
+
+message ContactEvent {
+	uint64 version = 1;
+	string type = 2;
+	string id = 3;
+	int64 at = 4;
+}
+
+message ContactRecommendation {
+	string user_id = 1;
+	int32 mutual_friends = 2;
+}
+
+// ContactSnapshot 是可用于多设备无缝同步的全量或增量结果。
+message ContactSnapshot {
+	uint64 version = 1;
+	bool reset = 2;
+	repeated Contact contacts = 3;
+	repeated ContactGroup groups = 4;
+	repeated ContactEvent events = 5;
+	repeated ContactRecommendation recommendations = 6;
+}
+
+message AssetQuery {
+	string pack_id = 1;
+	string query = 2;
+	string kind = 3;
+	uint64 since = 4;
+	int32 limit = 5;
+	repeated string asset_ids = 6;
+}
+
+message AssetPack {
+	string id = 1;
+	string name = 2;
+	string description = 3;
+	string cover = 4;
+	bool published = 5;
+	int64 created_at = 6;
+	int64 updated_at = 7;
+	uint64 version = 8;
+}
+
+message MediaAsset {
+	string id = 1;
+	string pack_id = 2;
+	string kind = 3;
+	string url = 4;
+	string preview = 5;
+	string mime_type = 6;
+	int32 width = 7;
+	int32 height = 8;
+	int32 duration = 9;
+	repeated string keywords = 10;
+	bool published = 11;
+	int64 created_at = 12;
+	int64 updated_at = 13;
+	uint64 version = 14;
+	string alt = 15;
+	string sha256 = 16;
+	int64 size = 17;
+	uint64 revision = 18;
+	repeated AssetVariant variants = 19;
+}
+
+message AssetVariant {
+	string name = 1;
+	string url = 2;
+	string mime_type = 3;
+	int32 width = 4;
+	int32 height = 5;
+	int64 size = 6;
+	string sha256 = 7;
+}
+
+message AssetMutation {
+	string op = 1;
+	AssetPack pack = 2;
+	MediaAsset asset = 3;
+	string pack_id = 4;
+	string asset_id = 5;
+}
+
+message AssetCatalog {
+	uint64 version = 1;
+	repeated AssetPack packs = 2;
+	repeated MediaAsset assets = 3;
+}
+
 // GetQuery 定义 GetQuery 的 Protobuf 消息结构。
 message GetQuery {
 	// what 保存该消息字段对应的协议值。
@@ -135,6 +263,10 @@ message GetQuery {
 	GetOpts del = 5;
 	// "search" 关键词发现或消息全文搜索参数
 	SearchOpts search = 6;
+	// "contacts" 联系人同步参数
+	ContactQuery contacts = 7;
+	// "assets" 素材目录查询参数
+	AssetQuery assets = 8;
 }
 
 // SetQuery 定义 SetQuery 的 Protobuf 消息结构。
@@ -149,6 +281,10 @@ message SetQuery {
 	ClientCred cred = 4;
 	// 辅助业务数据
 	map<string, bytes> aux = 5;
+	// 联系人或分组 CRUD
+	ContactMutation contact = 6;
+	// 素材包或素材管理操作
+	AssetMutation asset = 7;
 }
 
 // 客户端握手消息
@@ -257,7 +393,7 @@ message ClientPub {
 	bytes content = 5;
 	// 客户端生成的持久化幂等键
 	string client_id = 6;
-	// 由服务端校验的消息类型：text/drafty/image/video/voice/audio/file。
+	// 由服务端校验的消息类型，包含文本、媒体、贴纸、动态 Emoji 和 GIF。
 	string kind = 7;
 	// 当前主题内被回复消息的服务端序列号。
 	int32 reply_to = 8;
@@ -606,6 +742,19 @@ message ServerData {
 	repeated Reaction reactions = 13;
 	// 最近一次编辑时间（Epoch 毫秒）；未编辑时为 0。
 	int64 edited_at = 14;
+	// 按接收方语言生成的自动翻译状态与来源信息。
+	Translation translation = 15;
+}
+
+// 自动翻译的逐接收方投影视图。
+message Translation {
+	// original、pending、completed 或 failed。
+	string status = 1;
+	string source_language = 2;
+	string target_language = 3;
+	string provider = 4;
+	// 仅在后台 keep_original=true 时包含。
+	bytes original = 5;
 }
 
 // 转发消息的原始来源；P2P 消息不返回内部主题名。
@@ -664,6 +813,12 @@ message ServerPres {
 		TAGS = 12;
 		// AUX 表示该枚举对应的协议状态。
 		AUX = 13;
+		// CONTACTS 表示当前用户的通讯录已发生变化。
+		CONTACTS = 14;
+		// ASSETS 表示素材目录已发生变化。
+		ASSETS = 15;
+		// WORKSPACE 表示当前员工的内部工作区已发生变化。
+		WORKSPACE = 16;
 	}
 	// what 保存该消息字段对应的协议值。
 	What what = 3;
@@ -704,6 +859,12 @@ message ServerMeta {
 	map<string, bytes> aux = 8;
 	// search 保存关键词发现或消息全文搜索结果。
 	SearchResult search = 9;
+	// contacts 保存联系人同步结果。
+	ContactSnapshot contacts = 10;
+	// assets 保存贴纸、动态 Emoji 与 GIF 素材目录。
+	AssetCatalog assets = 11;
+	// next 是成员列表下一页使用的稳定游标。
+	string next = 12;
 }
 
 // {info} 通知消息：ServerNote 的服务端副本，补充了 From 和可选的 Src

@@ -29,7 +29,8 @@ func (t *Topic) thisUserSub(sess *Session, pkt *ClientComMessage, asUid types.Ui
 	var err error
 	userData, existingSub := t.perUser[asUid]
 	if !existingSub || userData.deleted {
-		if t.cat == types.TopicCatGrp && !asChan && t.subsCount() >= globals.maxSubscriberCount {
+		if t.cat == types.TopicCatGrp && !asChan && !t.isOfficialLargeGroup() &&
+			t.subsCount() >= globals.maxSubscriberCount {
 			sess.queueOut(ErrPolicyReply(pkt, now))
 			return nil, errors.New("超出最大订阅数量限制")
 		}

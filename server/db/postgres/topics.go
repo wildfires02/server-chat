@@ -440,11 +440,15 @@ func (a *adapter) UsersForTopic(topic string, keepDeleted bool, opts *t.QueryOpt
 			}
 			oneUser = opts.User
 		}
+		if !opts.Cursor.IsZero() && tcat != t.TopicCatP2P {
+			q += " AND s.userid>?"
+			args = append(args, store.DecodeUid(opts.Cursor))
+		}
 		if opts.Limit > 0 && opts.Limit < limit {
 			limit = opts.Limit
 		}
 	}
-	q += " LIMIT ?"
+	q += " ORDER BY s.userid ASC LIMIT ?"
 	args = append(args, limit)
 	q, args = expandQuery(q, args...)
 

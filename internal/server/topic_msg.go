@@ -67,6 +67,19 @@ func (t *Topic) saveAndBroadcastMessage(msg *ClientComMessage, asUid types.Uid, 
 			return types.ErrPermissionDenied
 		}
 	}
+	scope := "message"
+	if len(attachments) > 0 {
+		scope = "media"
+	}
+	if head != nil && head["webrtc"] != nil {
+		scope = "call"
+	}
+	if err := t.checkOfficialPublish(asUid, scope, types.TimeNow()); err != nil {
+		if msg.sess != nil {
+			msg.sess.queueOut(ErrPermissionDenied(msg.Id, t.original(asUid), msg.Timestamp))
+		}
+		return err
+	}
 
 	if msg.sess != nil && msg.sess.uid != asUid {
 		// "sender" 标头包含代表 asUid 发送消息的用户 ID
@@ -206,9 +219,7 @@ func (t *Topic) saveAndBroadcastMessage(msg *ClientComMessage, asUid types.Uid, 
 	t.broadcastToSessions(data)
 
 	// sendPush 更新未读消息计数并发送推送通知
-	if pushRcpt := t.pushForData(asUid, data.Data, markedReadBySender); pushRcpt != nil {
-		sendPush(pushRcpt)
-	}
+	t.sendPushForData(asUid, data.Data, markedReadBySender)
 	return nil
 }
 
@@ -228,6 +239,13 @@ func (t *Topic) handlePubBroadcast(msg *ClientComMessage) {
 	}
 
 	if t.isReadOnly() {
+		if msg.sess != nil {
+			msg.sess.queueOut(ErrPermissionDenied(msg.Id, t.original(asUid), msg.Timestamp))
+		}
+		t.removeScheduled(msg, "已取消")
+		return
+	}
+	if err := t.refreshOfficialChannelMember(asUid); err != nil {
 		if msg.sess != nil {
 			msg.sess.queueOut(ErrPermissionDenied(msg.Id, t.original(asUid), msg.Timestamp))
 		}
@@ -262,6 +280,10 @@ func (t *Topic) handlePubBroadcast(msg *ClientComMessage) {
 		}
 		if t.currentCall != nil {
 			msg.sess.queueOut(ErrCallBusyReply(msg, types.TimeNow()))
+			return
+		}
+		if err := t.checkOfficialPublish(asUid, "call", types.TimeNow()); err != nil {
+			msg.sess.queueOut(ErrPermissionDeniedReply(msg, types.TimeNow()))
 			return
 		}
 	}
@@ -371,6 +393,14 @@ func (t *Topic) handleNoteBroadcast(msg *ClientComMessage) {
 	}
 
 	asUid := types.ParseUserId(msg.AsUser)
+	if msg.Note.What == "pin" {
+		if err = t.refreshOfficialChannelMember(asUid); err != nil {
+			if msg.Id != "" {
+				msg.sess.queueOut(ErrPermissionDeniedReply(msg, types.TimeNow()))
+			}
+			return
+		}
+	}
 	pud := t.perUser[asUid]
 	mode := pud.modeGiven & pud.modeWant
 	if pud.deleted {
@@ -379,6 +409,11 @@ func (t *Topic) handleNoteBroadcast(msg *ClientComMessage) {
 
 	switch msg.Note.What {
 	case "kp", "kpa", "kpv":
+		if err := t.checkOfficialPublish(asUid, "message", types.TimeNow()); err != nil {
+			return
+		}
+		pud = t.perUser[asUid]
+		mode = pud.modeGiven & pud.modeWant
 		// 过滤掉无 'W' (写) 权限用户的 "kp*" 通知
 		if asChan || pud.isChan || !mode.IsWriter() || t.isReadOnly() {
 			return
@@ -392,6 +427,21 @@ func (t *Topic) handleNoteBroadcast(msg *ClientComMessage) {
 			return
 		}
 	case "react":
+		if t.isOfficialTopic() {
+			if err := t.refreshOfficialChannelMember(asUid); err != nil {
+				if msg.Id != "" {
+					msg.sess.queueOut(ErrPermissionDeniedReply(msg, types.TimeNow()))
+				}
+				return
+			}
+			if err := t.refreshOfficialPolicy(types.TimeNow()); err != nil ||
+				t.official == nil || !t.official.ReactionsEnabled {
+				if msg.Id != "" {
+					msg.sess.queueOut(ErrPermissionDeniedReply(msg, types.TimeNow()))
+				}
+				return
+			}
+		}
 		if !mode.IsReader() {
 			if msg.Id != "" {
 				msg.sess.queueOut(ErrPermissionDeniedReply(msg, types.TimeNow()))
@@ -596,10 +646,25 @@ func (t *Topic) broadcastToSessions(msg *ServerComMessage) {
 		msgCopy := msg.copy()
 		// 根据 Session 所属用户准备广播消息
 		t.prepareBroadcastableMessage(msgCopy, pssd.uid, pssd.isChanSub)
+		var startTranslation func()
+		if t.cat == types.TopicCatP2P && msgCopy.Data != nil && globals.translation != nil {
+			msgCopy.Data, startTranslation = globals.translation.project(
+				t.name, msgCopy.Data, sess.lang, msgCopy.Data.From == pssd.uid.UserId(),
+				func(translated *MsgServerData) {
+					final := msgCopy.copy()
+					final.Data = translated
+					if !sess.queueOut(final) {
+						logs.Warn.Printf("topic[%s]: translated message queue is full - %s",
+							t.name, sess.sid)
+					}
+				})
+		}
 		// 发送消息给 Session
 		if !sess.queueOut(msgCopy) {
 			logs.Warn.Printf("topic[%s]: 连接卡顿，正在剥离 - %s", t.name, sess.sid)
 			dropSessions = append(dropSessions, sess)
+		} else if startTranslation != nil {
+			startTranslation()
 		}
 	}
 

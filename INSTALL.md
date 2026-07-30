@@ -33,9 +33,10 @@ mkdir -p bin
 | MongoDB | `go build -tags mongodb -o bin/im-server ./cmd/im-server` |
 | RethinkDB | `go build -tags rethinkdb -o bin/im-server ./cmd/im-server` |
 
-数据库初始化工具必须使用相同标签。例如 MySQL：
+独立管理服务和数据库初始化工具必须使用相同标签。例如 MySQL：
 
 ```bash
+go build -tags mysql -o bin/im-admin ./cmd/im-admin
 go build -tags mysql -o bin/init-db ./cmd/init-db
 ```
 
@@ -49,6 +50,11 @@ go build \
 
 go build \
   -tags "mysql postgres mongodb rethinkdb" \
+  -o bin/im-admin \
+  ./cmd/im-admin
+
+go build \
+  -tags "mysql postgres mongodb rethinkdb" \
   -o bin/init-db \
   ./cmd/init-db
 ```
@@ -56,6 +62,7 @@ go build \
 ## 3. 配置数据库
 
 开发单机配置位于 [`configs/im.yaml`](configs/im.yaml)。
+独立管理配置位于 [`configs/admin.yaml`](configs/admin.yaml)。
 生产模板位于 [`configs/im.cluster.yaml`](configs/im.cluster.yaml)。
 
 确认以下字段与实际数据库一致：
@@ -71,7 +78,7 @@ store_config:
       dbname: im
 ```
 
-密码、密钥和地址可通过 `IM_` 环境变量覆盖。规则见
+密码、密钥和地址直接写入部署生成的权限受限 YAML。规则见
 [配置说明](configs/README.md)。
 
 ## 4. 初始化数据库
@@ -97,27 +104,19 @@ store_config:
 完成备份，再使用 `--upgrade=true`。完整参数见
 [数据库初始化工具](cmd/init-db/README.md)。
 
-## 5. 校验安装
+## 5. 启动安装
 
-启动服务前先执行配置门禁：
-
-```bash
-./bin/im-server \
-  --config=./configs/im.yaml \
-  --validate_config
-```
-
-校验成功后按照以下文档继续：
+`im-server` 使用 Viper 搜索 `configs/im.yaml`、当前目录的 `im.yaml` 或
+`/etc/im/im.yaml`，不接受命令行和环境变量覆盖。配置测试通过后按照以下文档继续：
 
 - 本地开发：[STARTUP.md](STARTUP.md)
 - Docker：[deployments/docker/README.md](deployments/docker/README.md)
 - Kubernetes：[deployments/kubernetes/README.md](deployments/kubernetes/README.md)
-- systemd：[deployments/systemd/README.md](deployments/systemd/README.md)
 
 ## 6. 使用发布包
 
 如果发布渠道提供预编译压缩包，应同时取得与目标操作系统和数据库匹配的
-`im-server`、`init-db`、配置模板及校验文件。
+`im-server`、`im-admin`、`init-db`、配置模板及校验文件。
 
 安装前必须：
 

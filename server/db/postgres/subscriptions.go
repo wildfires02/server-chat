@@ -107,12 +107,16 @@ func (a *adapter) SubsForTopic(topic string, keepDeleted bool, opts *t.QueryOpt)
 			q += " AND userid=?"
 			args = append(args, store.DecodeUid(opts.User))
 		}
+		if !opts.Cursor.IsZero() {
+			q += " AND userid>?"
+			args = append(args, store.DecodeUid(opts.Cursor))
+		}
 		if opts.Limit > 0 && opts.Limit < limit {
 			limit = opts.Limit
 		}
 	}
 
-	q += " LIMIT ?"
+	q += " ORDER BY userid ASC LIMIT ?"
 	args = append(args, limit)
 	q, args = expandQuery(q, args...)
 

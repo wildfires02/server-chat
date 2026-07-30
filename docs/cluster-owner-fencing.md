@@ -38,7 +38,9 @@
 | MongoDB | ✅ | 必须配置 Replica Set，使用跨文档事务和 fence 条件写 |
 | RethinkDB | ❌ | 缺少同等级跨文档事务，配置门禁明确拒绝 |
 
-数据库 Schema 版本为 `120`。PostgreSQL 与 MySQL 的新增字段均带中文 COMMENT；MongoDB、RethinkDB 的字段语义记录在 Go 模型中文注释中。
+数据库 Schema 版本为 `121`。PostgreSQL 与 MySQL 的新增字段均带中文 COMMENT；
+MongoDB、RethinkDB 的字段语义记录在 Go 模型中文注释中。`120→121` 为官方大群
+成员游标查询补齐复合索引；MySQL/PostgreSQL 复用既有 `(topic, userid)` 唯一索引。
 
 ## 已验证场景
 

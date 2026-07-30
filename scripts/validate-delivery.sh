@@ -17,52 +17,14 @@ trap cleanup EXIT
 cd "${REPO_ROOT}"
 im_require_command go
 
-# 一次编译全部适配器，既复用真实配置加载器，也提前发现任一 Docker 构建目标
-# 与依赖版本不兼容；这里只执行配置门禁，不连接外部数据库。
+# 一次编译全部适配器，提前发现任一 Docker 构建目标与依赖版本不兼容。
 GOCACHE="${GOCACHE:-${TEMP_DIR}/go-cache}" \
   go build -tags "mysql postgres mongodb rethinkdb" \
   -o "${TEMP_DIR}/im-server" ./cmd/im-server
 
-"${TEMP_DIR}/im-server" --config=configs/im.yaml --validate_config
-
-IM_CLUSTER_CONFIG__SELF=one \
-IM_CLUSTER_CONFIG__ADVERTISE_ADDR=127.0.0.1:12000 \
-IM_CLUSTER_CONFIG__TRANSPORT__LISTEN=127.0.0.1:12000 \
-  "${TEMP_DIR}/im-server" \
-  --config=configs/im.cluster-dev.yaml \
-  --validate_config
-
-IM_CLUSTER_CONFIG__SELF=im-0 \
-IM_CLUSTER_CONFIG__ADVERTISE_ADDR=im-0.im.internal:12000 \
-IM_CLUSTER_CONFIG__TLS__CERT_FILE=/validation/cluster-cert.pem \
-IM_CLUSTER_CONFIG__TLS__KEY_FILE=/validation/cluster-key.pem \
-IM_API_KEY_SALT=T713/rYYgW7g4m3vG6zGRh7+FM1t0T8j13koXScOAj4= \
-IM_AUTH_CONFIG__TOKEN__KEY=wfaY2RgF2S1OQI/ZlK+LSrp1KB2jwAdGAIHQ7JZn+Kc= \
-IM_STORE_CONFIG__UID_KEY=la6YsO+bNX/+XIkOqc5Svw== \
-IM_STORE_CONFIG__ADAPTERS__POSTGRES__DSN=postgresql://validation.invalid/im \
-IM_MEDIA__HANDLERS__S3__ACCESS_KEY_ID=validation-only \
-IM_MEDIA__HANDLERS__S3__SECRET_ACCESS_KEY=validation-only \
-IM_MEDIA__HANDLERS__S3__REGION=validation-only \
-IM_MEDIA__HANDLERS__S3__BUCKET=validation-only \
-  "${TEMP_DIR}/im-server" \
-  --config=configs/im.cluster.yaml \
-  --validate_config
-
-IM_CLUSTER_CONFIG__SELF=im-0 \
-IM_CLUSTER_CONFIG__ADVERTISE_ADDR=im-0.im-headless:12000 \
-IM_CLUSTER_CONFIG__TLS__CERT_FILE=/validation/cluster-cert.pem \
-IM_CLUSTER_CONFIG__TLS__KEY_FILE=/validation/cluster-key.pem \
-IM_API_KEY_SALT=T713/rYYgW7g4m3vG6zGRh7+FM1t0T8j13koXScOAj4= \
-IM_AUTH_CONFIG__TOKEN__KEY=wfaY2RgF2S1OQI/ZlK+LSrp1KB2jwAdGAIHQ7JZn+Kc= \
-IM_STORE_CONFIG__UID_KEY=la6YsO+bNX/+XIkOqc5Svw== \
-IM_STORE_CONFIG__ADAPTERS__POSTGRES__DSN=postgresql://validation.invalid/im \
-IM_MEDIA__HANDLERS__S3__ACCESS_KEY_ID=validation-only \
-IM_MEDIA__HANDLERS__S3__SECRET_ACCESS_KEY=validation-only \
-IM_MEDIA__HANDLERS__S3__REGION=validation-only \
-IM_MEDIA__HANDLERS__S3__BUCKET=validation-only \
-  "${TEMP_DIR}/im-server" \
-  --config=deployments/kubernetes/base/im.cluster.yaml \
-  --validate_config
+# 配置门禁由 Viper 仅 YAML 单元测试执行，不启动数据库或监听器。
+go test ./internal/configutil ./internal/server -run \
+  'Test(ExampleYAMLConfig|AdminYAMLConfig|ProductionClusterYAMLConfig)$'
 
 # 实际部署文件禁止浮动 latest、空密码数据库和旧 envsubst 模板。
 if rg -n \

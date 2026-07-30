@@ -40,4 +40,6 @@ const (
 	ErrRedirected = StoreError("redirected")
 	// ErrClusterFenced 表示数据库已拒绝携带过期集群任期的旧 Owner 写入。
 	ErrClusterFenced = StoreError("cluster owner fenced")
+	// ErrVersionConflict 表示调用方基于过期对象版本提交了修改。
+	ErrVersionConflict = StoreError("version conflict")
 )

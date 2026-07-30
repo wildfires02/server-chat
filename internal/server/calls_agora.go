@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -101,18 +100,12 @@ type agoraCallCredentials struct {
 // newAgoraProvider 解析并校验 Agora 运行时配置。
 func newAgoraProvider(config agoraConfig) (*agoraProvider, error) {
 	appID := strings.TrimSpace(config.AppID)
-	if appID == "" {
-		appID = strings.TrimSpace(os.Getenv("AGORA_APP_ID"))
-	}
 	appCertificate := strings.TrimSpace(config.AppCertificate)
-	if appCertificate == "" {
-		appCertificate = strings.TrimSpace(os.Getenv("AGORA_APP_CERTIFICATE"))
-	}
 	if !isAgoraHexIdentifier(appID) {
-		return nil, errors.New("Agora app_id 或 AGORA_APP_ID 必须是 32 位十六进制字符串")
+		return nil, errors.New("Agora app_id 必须是 32 位十六进制字符串")
 	}
 	if !isAgoraHexIdentifier(appCertificate) {
-		return nil, errors.New("Agora app_certificate 或 AGORA_APP_CERTIFICATE 必须是 32 位十六进制字符串")
+		return nil, errors.New("Agora app_certificate 必须是 32 位十六进制字符串")
 	}
 
 	if config.TokenTTL == 0 {

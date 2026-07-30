@@ -20,7 +20,7 @@ docker run -d --name im-mysql \
   mysql:8.0
 ```
 
-也可以修改 `configs/im.yaml`，或使用 `IM_` 环境变量覆盖已有数据库标量。
+数据库地址、账号和密码直接修改 `configs/im.yaml`。
 
 ## 2. 构建和初始化
 
@@ -37,19 +37,14 @@ go build -tags mysql -o bin/im-server ./cmd/im-server
 
 `--reset=true` 会重建目标数据库，只能用于本地或隔离测试库。
 
-## 3. 配置校验和启动
+## 3. 启动
 
 ```bash
-./bin/im-server \
-  --config=./configs/im.yaml \
-  --validate_config
-
-./bin/im-server \
-  --config=./configs/im.yaml \
-  --static_data=./web/static
+./bin/im-server
 ```
 
-不需要 Web 静态资源时使用 `--static_data=-`。
+需要 Web 静态资源时，把 `configs/im.yaml` 中的 `static_data` 改为
+`./web/static`；不需要时设为 `"-"`。
 
 启动日志必须包含：
 

@@ -73,7 +73,7 @@ func BenchmarkStandaloneJSONSerialize(b *testing.B) {
 	session := &Session{proto: WEBSOCK}
 	message := standaloneBenchmarkMessage()
 	b.ReportAllocs()
-	for range b.N {
+	for b.Loop() {
 		_, _ = session.serialize(message)
 	}
 }
@@ -83,7 +83,7 @@ func BenchmarkStandaloneGRPCSerialize(b *testing.B) {
 	session := &Session{proto: GRPC}
 	message := standaloneBenchmarkMessage()
 	b.ReportAllocs()
-	for range b.N {
+	for b.Loop() {
 		_, _ = session.serialize(message)
 	}
 }
@@ -96,7 +96,7 @@ func BenchmarkStandaloneSessionQueue(b *testing.B) {
 	}
 	message := standaloneBenchmarkMessage()
 	b.ReportAllocs()
-	for range b.N {
+	for b.Loop() {
 		if !session.queueOut(message) {
 			b.Fatal("单机 Session 队列意外执行背压")
 		}

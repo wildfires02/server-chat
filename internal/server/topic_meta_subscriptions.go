@@ -27,6 +27,10 @@ func (t *Topic) replyGetSub(sess *Session, asUid types.Uid, authLevel auth.Level
 		sess.queueOut(ErrMalformedReply(msg, now))
 		return errors.New("invalid MsgGetOpts query")
 	}
+	if req != nil && req.Cursor != "" && types.ParseUserId(req.Cursor).IsZero() {
+		sess.queueOut(ErrMalformedReply(msg, now))
+		return errors.New("invalid subscription cursor")
+	}
 
 	var err error
 
@@ -37,6 +41,8 @@ func (t *Topic) replyGetSub(sess *Session, asUid types.Uid, authLevel auth.Level
 
 	userData := t.perUser[asUid]
 	var subs []types.Subscription
+	memberPageLimit := 0
+	var nextCursor string
 
 	switch t.cat {
 	case types.TopicCatMe:
@@ -167,13 +173,29 @@ func (t *Topic) replyGetSub(sess *Session, asUid types.Uid, authLevel auth.Level
 			}
 			topicName = req.Topic
 		}
+		queryOpts := msgOpts2storeOpts(req)
+		if t.isOfficialLargeGroup() && !asChan {
+			// 官方大群成员查询必须分页，禁止把全量成员加载到响应或 Topic Actor。
+			memberPageLimit = 100
+			if globals.adminControl != nil {
+				memberPageLimit = globals.adminControl.Snapshot().Settings.Topics.MemberListPageSize
+			}
+			if req != nil && req.Limit > 0 && req.Limit < memberPageLimit {
+				memberPageLimit = req.Limit
+			}
+			if queryOpts == nil {
+				queryOpts = &types.QueryOpt{}
+			}
+			// 多读一行用于准确判断是否还有下一页。
+			queryOpts.Limit = memberPageLimit + 1
+		}
 		// 包含 sub.Public。
 		if ifModified.IsZero() {
 			// 无缓存管理。跳过已删除的订阅。
-			subs, err = store.Topics.GetUsers(topicName, msgOpts2storeOpts(req))
+			subs, err = store.Topics.GetUsers(topicName, queryOpts)
 		} else {
 			// 用户管理缓存。也包括已删除的订阅。
-			subs, err = store.Topics.GetUsersAny(topicName, msgOpts2storeOpts(req))
+			subs, err = store.Topics.GetUsersAny(topicName, queryOpts)
 		}
 		// 对所有其它 Topic 类型（如 'sys'、'slf'）不执行任何操作。
 	}
@@ -181,6 +203,10 @@ func (t *Topic) replyGetSub(sess *Session, asUid types.Uid, authLevel auth.Level
 	if err != nil {
 		sess.queueOut(decodeStoreErrorExplicitTs(err, id, msg.Original, now, incomingReqTs, nil))
 		return err
+	}
+	if memberPageLimit > 0 && len(subs) > memberPageLimit {
+		subs = subs[:memberPageLimit]
+		nextCursor = types.ParseUid(subs[len(subs)-1].User).UserId()
 	}
 
 	if len(subs) == 0 {
@@ -193,6 +219,7 @@ func (t *Topic) replyGetSub(sess *Session, asUid types.Uid, authLevel auth.Level
 		Id:        id,
 		Topic:     msg.Original,
 		Sub:       make([]MsgTopicSub, 0, len(subs)),
+		Next:      nextCursor,
 		Timestamp: &now}
 	presencer := (userData.modeGiven & userData.modeWant).IsPresencer()
 	sharer := (userData.modeGiven & userData.modeWant).IsSharer()
@@ -379,6 +406,10 @@ func (t *Topic) replySetSub(sess *Session, pkt *ClientComMessage, asChan bool) e
 	// 如果 set.用户 未设置，请求是针对当前用户
 	if target.IsZero() {
 		target = asUid
+	}
+	if target != asUid && t.isOfficialTopic() {
+		sess.queueOut(ErrPermissionDeniedReply(pkt, now))
+		return errors.New("官方频道成员角色只能通过平台管理接口修改")
 	}
 
 	var err error

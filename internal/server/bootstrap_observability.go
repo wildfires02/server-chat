@@ -10,12 +10,8 @@ import (
 	"chat/server/store"
 )
 
-func initServerStats(mux *http.ServeMux, config configType, overridePath string) {
-	path := overridePath
-	if path == "" {
-		path = config.ExpvarPath
-	}
-	statsInit(mux, path)
+func initServerStats(mux *http.ServeMux, config configType) {
+	statsInit(mux, config.ExpvarPath)
 	statsRegisterInt("Version")
 	version := base10Version(parseVersion(buildstamp))
 	if version <= 0 {

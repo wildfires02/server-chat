@@ -17,16 +17,21 @@ import (
 	"chat/server/logs"
 )
 
-// Run 解析启动参数、初始化依赖并运行即时通信服务。
+// Run 从 Viper YAML 配置初始化依赖并运行即时通信服务。
 func Run() {
 	executable, _ := os.Executable()
-	options := parseServerOptions()
-	logs.Init(os.Stderr, options.logFlags)
-
+	if err := rejectServiceArguments(os.Args); err != nil {
+		logs.Err.Fatal(err)
+	}
 	curwd, err := os.Getwd()
 	if err != nil {
 		logs.Err.Fatal("Couldn't get current working directory: ", err)
 	}
+	config, configFile, err := loadServerConfig(curwd)
+	if err != nil {
+		logs.Err.Fatal("部署配置校验失败: ", err)
+	}
+	logs.Init(os.Stderr, config.LogFlags)
 	logs.Info.Printf("Server v%s:%s:%s; pid %d; %d process(es)",
 		currentVersion,
 		executable,
@@ -34,24 +39,18 @@ func Run() {
 		os.Getpid(),
 		runtime.GOMAXPROCS(runtime.NumCPU()),
 	)
-
-	config := loadServerConfig(curwd, options)
-	if options.validateConfig {
-		logs.Info.Println("配置校验通过")
-		return
-	}
+	logs.Info.Printf("Using Viper config from '%s'", configFile)
+	logs.Info.Printf("Deployment environment '%s', mode '%s'",
+		config.Runtime.Environment, config.Runtime.DeploymentMode)
 
 	mux := http.NewServeMux()
-	initServerStats(mux, config, options.expvarPath)
-	servePprof(mux, options.pprofURL)
+	initServerStats(mux, config)
+	servePprof(mux, config.PprofURL)
 
-	workerID := clusterInit(
-		config.Cluster,
-		&options.clusterSelf,
-		config.Runtime.DeploymentMode,
-	)
+	clusterSelf := ""
+	workerID := clusterInit(config.Cluster, &clusterSelf, config.Runtime.DeploymentMode)
 
-	defer startServerProfiler(curwd, options.pprofFile)()
+	defer startServerProfiler(curwd, config.PprofFile)()
 	defer openServerStore(workerID, config.Store)()
 	defer startServerHealth(mux, config.Health)()
 
@@ -67,8 +66,8 @@ func Run() {
 	}
 	defer startCoreRuntime()()
 
-	tlsConfig := startProtocolRuntime(options, config)
-	registerServerHTTPRoutes(mux, curwd, options, &config, tlsConfig)
+	tlsConfig := startProtocolRuntime(config)
+	registerServerHTTPRoutes(mux, curwd, &config, tlsConfig)
 
 	globals.health.MarkServing()
 	if err := listenAndServe(config.Listen, mux, tlsConfig, signalHandler()); err != nil {

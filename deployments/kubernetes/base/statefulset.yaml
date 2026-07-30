@@ -52,9 +52,6 @@ spec:
           imagePullPolicy: IfNotPresent
           command:
             - /usr/local/bin/im-server
-          args:
-            - --config=/etc/im/im.yaml
-            - --static_data=-
           ports:
             - name: http
               containerPort: 6060
@@ -62,73 +59,6 @@ spec:
               containerPort: 16060
             - name: cluster-grpc
               containerPort: 12000
-          env:
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: IM_CLUSTER_CONFIG__SELF
-              value: "$(POD_NAME)"
-            - name: IM_CLUSTER_CONFIG__ADVERTISE_ADDR
-              value: "$(POD_NAME).im-headless:12000"
-            - name: IM_API_KEY_SALT
-              valueFrom:
-                secretKeyRef:
-                  name: im-runtime-secrets
-                  key: api-key-salt
-            - name: IM_AUTH_CONFIG__TOKEN__KEY
-              valueFrom:
-                secretKeyRef:
-                  name: im-runtime-secrets
-                  key: auth-token-key
-            - name: IM_STORE_CONFIG__UID_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: im-runtime-secrets
-                  key: uid-encryption-key
-            - name: IM_STORE_CONFIG__ADAPTERS__POSTGRES__DSN
-              valueFrom:
-                secretKeyRef:
-                  name: im-runtime-secrets
-                  key: postgres-dsn
-            - name: IM_CLUSTER_CONFIG__CONTROL_PLANE__USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: im-runtime-secrets
-                  key: etcd-username
-                  optional: true
-            - name: IM_CLUSTER_CONFIG__CONTROL_PLANE__PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: im-runtime-secrets
-                  key: etcd-password
-                  optional: true
-            - name: IM_MEDIA__HANDLERS__S3__ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: im-runtime-secrets
-                  key: s3-access-key-id
-            - name: IM_MEDIA__HANDLERS__S3__SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: im-runtime-secrets
-                  key: s3-secret-access-key
-            - name: IM_MEDIA__HANDLERS__S3__REGION
-              valueFrom:
-                secretKeyRef:
-                  name: im-runtime-secrets
-                  key: s3-region
-            - name: IM_MEDIA__HANDLERS__S3__BUCKET
-              valueFrom:
-                secretKeyRef:
-                  name: im-runtime-secrets
-                  key: s3-bucket
-            - name: IM_MEDIA__HANDLERS__S3__ENDPOINT
-              valueFrom:
-                secretKeyRef:
-                  name: im-runtime-secrets
-                  key: s3-endpoint
-                  optional: true
           readinessProbe:
             httpGet:
               path: /readyz
@@ -186,8 +116,12 @@ spec:
               mountPath: /tmp
       volumes:
         - name: config
-          configMap:
-            name: im-server-config
+          # SecretProviderClass 必须按 Pod 身份生成完整 /etc/im/im.yaml。
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: im-node-config
         # CSI Provider 必须按 Pod 名签发候选身份 im-0～im-4 的精确 DNS SAN。
         - name: cluster-tls
           csi:

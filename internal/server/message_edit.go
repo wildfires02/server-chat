@@ -33,6 +33,9 @@ func (t *Topic) editMessage(msg *ClientComMessage, asUid types.Uid) error {
 		(!mode.IsAdmin() && (types.ParseUid(target.From) != asUid || !mode.IsWriter())) {
 		return types.ErrPermissionDenied
 	}
+	if err = t.checkOfficialPublish(asUid, "message", types.TimeNow()); err != nil {
+		return err
+	}
 
 	info, err := validateMessageContent(pub.Kind, pub.Content)
 	if err != nil {

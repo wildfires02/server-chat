@@ -49,6 +49,11 @@ func applyServerRuntimeConfig(config configType) {
 		globals.xFrameOptions = "SAMEORIGIN"
 	}
 	globals.wsCompression = !config.WSCompressionDisabled
+	globals.translation = nil
+	if config.Translation != nil && config.Translation.Enabled {
+		refresh := time.Duration(config.Translation.RefreshInterval) * time.Second
+		globals.translation = newTranslationRuntime(newPersistentTranslationSettingsSource(refresh))
+	}
 }
 
 func startServerMedia(config *configType) func() {
@@ -70,15 +75,18 @@ func startServerMedia(config *configType) func() {
 			logs.Err.Fatalf("Failed to init media handler '%s': %s", config.Media.UseHandler, err)
 		}
 	}
-	if config.Media.GcPeriod <= 0 || config.Media.GcBlockSize <= 0 {
-		return func() {}
+	stopProcessing := startFileProcessing(config.Media.Processing)
+	var stopGC chan<- bool
+	if config.Media.GcPeriod > 0 && config.Media.GcBlockSize > 0 {
+		globals.mediaGcPeriod = time.Second * time.Duration(config.Media.GcPeriod)
+		stopGC = largeFileRunGarbageCollection(globals.mediaGcPeriod, config.Media.GcBlockSize)
 	}
-
-	globals.mediaGcPeriod = time.Second * time.Duration(config.Media.GcPeriod)
-	stop := largeFileRunGarbageCollection(globals.mediaGcPeriod, config.Media.GcBlockSize)
 	return func() {
-		stop <- true
-		logs.Info.Println("Stopped files garbage collector")
+		stopProcessing()
+		if stopGC != nil {
+			stopGC <- true
+			logs.Info.Println("Stopped files garbage collector")
+		}
 	}
 }
 

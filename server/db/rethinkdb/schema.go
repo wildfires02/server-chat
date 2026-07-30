@@ -74,6 +74,13 @@ func (a *adapter) CreateDb(reset bool) error {
 	if _, err := rdb.DB(a.dbName).Table("subscriptions").IndexCreate("Topic").RunWrite(a.conn); err != nil {
 		return err
 	}
+	// Topic_User 复合索引用于官方大群成员稳定游标分页，避免全量内存排序。
+	if _, err := rdb.DB(a.dbName).Table("subscriptions").IndexCreateFunc("Topic_User",
+		func(row rdb.Term) any {
+			return []any{row.Field("Topic"), row.Field("User")}
+		}).RunWrite(a.conn); err != nil {
+		return err
+	}
 
 	// 存储在数据库中的 Topic
 	if _, err := rdb.DB(a.dbName).TableCreate("topics", rdb.TableCreateOpts{PrimaryKey: "Id"}).RunWrite(a.conn); err != nil {
@@ -411,6 +418,20 @@ func (a *adapter) UpgradeDb() error {
 			return err
 		}
 		if err := bumpVersion(a, 120); err != nil {
+			return err
+		}
+	}
+
+	if a.version == 120 {
+		// 数据库 120→121：为官方大群成员游标分页创建 Topic + User 复合索引。
+		// RethinkDB 不支持索引 COMMENT；索引用途记录在此处。
+		if _, err := rdb.DB(a.dbName).Table("subscriptions").IndexCreateFunc("Topic_User",
+			func(row rdb.Term) any {
+				return []any{row.Field("Topic"), row.Field("User")}
+			}).RunWrite(a.conn); err != nil {
+			return err
+		}
+		if err := bumpVersion(a, 121); err != nil {
 			return err
 		}
 	}

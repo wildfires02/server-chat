@@ -61,7 +61,16 @@ func validateDeploymentConfig(config *configType, clusterSelfOverride, pprofURL 
 	}
 	config.Runtime.Environment = environment
 	config.Runtime.DeploymentMode = mode
-
+	if config.Translation != nil && config.Translation.Enabled &&
+		(config.Translation.RefreshInterval < 1 || config.Translation.RefreshInterval > 300) {
+		return fmt.Errorf("translation.refresh_interval 必须在 1..300 秒之间")
+	}
+	if config.Media != nil && mode == deploymentModeCluster &&
+		(environment == environmentStaging || environment == environmentProduction) &&
+		strings.EqualFold(strings.TrimSpace(config.Media.UseHandler), "fs") {
+		return fmt.Errorf("%s 集群的断点续传必须使用共享媒体存储，不能使用本地 fs handler",
+			environment)
+	}
 	var cluster clusterConfig
 	if len(config.Cluster) > 0 {
 		if err := json.Unmarshal(config.Cluster, &cluster); err != nil {

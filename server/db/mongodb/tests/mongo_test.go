@@ -1224,7 +1224,7 @@ func TestTopicDelete(t *testing.T) {
 func TestFileDeleteUnused(t *testing.T) {
 	// time.Now() is correct (as opposite to testData.Now):
 	// the FileFinishUpload uses time.Now() as a timestamp.
-	locs, err := adp.FileDeleteUnused(time.Now().Add(1*time.Minute), 999)
+	locs, err := adp.FileDeleteUnused(time.Now().Add(1*time.Minute), 999, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

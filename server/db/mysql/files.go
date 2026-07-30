@@ -1,5 +1,5 @@
-//go:build mysql
-// +build mysql
+//go:build mysql || (!postgres && !mongodb && !rethinkdb)
+// +build mysql !postgres,!mongodb,!rethinkdb
 
 package mysql
 
@@ -106,7 +106,7 @@ func (a *adapter) FileGet(fid string) (*t.FileDef, error) {
 // FileDeleteUnused 删除 UseCount 为零的记录。若 olderThan 非零，则删除
 // UpdatedAt 早于 olderThan 的未使用记录。
 // 返回已删除文件记录的 FileDef.Location 数组，以便同时删除实际文件。
-func (a *adapter) FileDeleteUnused(olderThan time.Time, limit int) ([]string, error) {
+func (a *adapter) FileDeleteUnused(olderThan time.Time, limit int, protected func(string) bool) ([]string, error) {
 	ctx, cancel := a.getContextForTx()
 	if cancel != nil {
 		defer cancel()
@@ -147,6 +147,9 @@ func (a *adapter) FileDeleteUnused(olderThan time.Time, limit int) ([]string, er
 		var loc string
 		if err = rows.Scan(&id, &loc); err != nil {
 			break
+		}
+		if protected != nil && protected(store.EncodeUid(int64(id)).String()) {
+			continue
 		}
 		if loc != "" {
 			locations = append(locations, loc)

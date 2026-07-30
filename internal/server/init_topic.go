@@ -49,7 +49,7 @@ func topicInit(t *Topic, join *ClientComMessage, h *Hub) {
 		err = initTopicNewGrp(t, join, true)
 	case strings.HasPrefix(t.xoriginal, "grp") || strings.HasPrefix(t.xoriginal, "chn"):
 		// 加载现有群组 Topic（或 Channel）。
-		err = initTopicGrp(t)
+		err = initTopicGrp(t, join)
 	case t.xoriginal == "sys":
 		// 初始化系统 Topic。
 		err = initTopicSys(t)
@@ -653,7 +653,7 @@ func initTopicNewGrp(t *Topic, sreg *ClientComMessage, isChan bool) error {
 
 // 初始化现有群组 Topic。当两个用户尝试同时加载
 // 相同 Topic 时存在竞争条件。这在 hub 层被防止。
-func initTopicGrp(t *Topic) error {
+func initTopicGrp(t *Topic, join *ClientComMessage) error {
 	t.cat = types.TopicCatGrp
 
 	// 检查和验证 Topic 名称合法性
@@ -668,20 +668,43 @@ func initTopicGrp(t *Topic) error {
 		return types.ErrTopicNotFound
 	}
 
-	if err = t.loadSubscribers(); err != nil {
-		return err
-	}
-
 	t.isChan = stopic.UseBt
-
-	// t.owner 由 loadSubscriptions 设置
-
 	t.accessAuth = stopic.Access.Auth
 	t.accessAnon = stopic.Access.Anon
 
 	// 分配标签和辅助数据。
 	t.tags = stopic.Tags
 	t.aux = stopic.Aux
+	t.official, err = officialPolicyFromAux(t.name, t.aux)
+	if err != nil {
+		return err
+	}
+	t.officialRefreshedAt = types.TimeNow()
+
+	if t.isOfficialLargeGroup() {
+		// 官方大群不把全量成员装入 Topic Actor。这里只加载所有者和本次加入者，
+		// 其它成员在进入、发言或管理操作时按需从订阅表读取。
+		t.owner = types.ParseUid(stopic.Owner)
+		if t.owner.IsZero() {
+			return types.ErrInternal
+		}
+		if found, loadErr := t.loadSubscriber(t.owner); loadErr != nil || !found {
+			if loadErr != nil {
+				return loadErr
+			}
+			return types.ErrInternal
+		}
+		if join != nil {
+			joiningUID := types.ParseUserId(join.AsUser)
+			if joiningUID != t.owner {
+				if _, loadErr := t.loadSubscriber(joiningUID); loadErr != nil {
+					return loadErr
+				}
+			}
+		}
+	} else if err = t.loadSubscribers(); err != nil {
+		return err
+	}
 
 	t.public = stopic.Public
 	t.trusted = stopic.Trusted
