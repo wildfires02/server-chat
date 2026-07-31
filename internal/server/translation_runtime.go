@@ -353,7 +353,7 @@ func translationPolicyFingerprint(settings translation.Settings) string {
 func translationCacheKey(topic string, seq int, target, policy, text string) string {
 	digest := sha256.Sum256(fmt.Appendf(nil,
 		"%s\x00%d\x00%s\x00%s\x00%s", topic, seq, target, policy, text))
-	return translationCachePrefix + hex.EncodeToString(digest[:])
+	return translationCachePrefix + hex.EncodeToString(digest[:16])
 }
 
 func completedTranslationData(data *MsgServerData, original string, keepOriginal bool,

@@ -281,7 +281,9 @@ func (t *Topic) maybeEndCallInProgress(from string, msg *ClientComMessage, callD
 			t.name, t.currentCall.seq)
 	}
 
-	t.broadcastToSessions(t.currentCall.infoMessage(constCallEventHangUp))
+	hangUpMsg := t.currentCall.infoMessage(constCallEventHangUp)
+	hangUpMsg.Info.Topic = t.xoriginal
+	t.broadcastToSessions(hangUpMsg)
 	for target := range t.perUser {
 		t.infoCallSubsOffline(from, target, constCallEventHangUp, t.currentCall.seq, nil, "", true)
 	}

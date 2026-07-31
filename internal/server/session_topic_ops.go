@@ -165,7 +165,8 @@ func (s *Session) note(msg *ClientComMessage) {
 			return
 		}
 	case "call":
-		if types.GetTopicCat(msg.RcptTo) != types.TopicCatP2P {
+		cat := types.GetTopicCat(msg.RcptTo)
+		if cat != types.TopicCatP2P && cat != types.TopicCatGrp {
 			return
 		}
 		fallthrough

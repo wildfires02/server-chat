@@ -115,6 +115,7 @@ func statsRegisterHistogram(name string, bounds []float64) {
 // 异步发布整型变量
 func statsSet(name string, val int64) {
 	if globals.statsUpdate != nil {
+		defer func() { _ = recover() }()
 		select {
 		case globals.statsUpdate <- &varUpdate{name, val, false}:
 		default:
@@ -125,6 +126,7 @@ func statsSet(name string, val int64) {
 // 异步发布整型变量的增量（或减量）
 func statsInc(name string, val int) {
 	if globals.statsUpdate != nil {
+		defer func() { _ = recover() }()
 		select {
 		case globals.statsUpdate <- &varUpdate{name, int64(val), true}:
 		default:
@@ -135,6 +137,7 @@ func statsInc(name string, val int) {
 // 异步发布直方图变量的样本值
 func statsAddHistSample(name string, val float64) {
 	if globals.statsUpdate != nil {
+		defer func() { _ = recover() }()
 		select {
 		case globals.statsUpdate <- &varUpdate{varname: name, value: val}:
 		default:
