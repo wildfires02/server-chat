@@ -6,6 +6,24 @@
 > - 安装入口：[安装与构建](../INSTALL.md)
 > - 本地启动：[本地开发启动指南](../STARTUP.md)
 
+## 问：启动时报 `Invalid database version 121. Expected 122` 怎么办？
+
+**答**：二进制要求的持久化结构版本是 `122`，当前数据库仍为 `121`。这不是
+每次代码修改都要升级；只有字段、表、集合、索引或持久化格式发生变化时才提升
+版本。本次 `121 → 122` 是因为群消息 Seen by 新增了订阅 `readhistory`。
+
+先备份数据库，生产环境还要停止写入，然后运行：
+
+```bash
+go run ./cmd/init-db \
+  --config=./configs/im.yaml \
+  --upgrade=true
+```
+
+不要直接修改 `kvmeta`，也不要对有数据的环境使用 `--reset=true`。完整版本历史、
+每次开发和部署应执行的步骤见
+[数据库版本、迁移记录与固定操作流程](database-migrations.md)。
+
 ## 问：在 Docker 中运行时，从哪里可以找到服务端日志？
 **答**：日志位于容器内部的 `/var/log/im.log`。使用以下命令进入正在运行的容器：
 ```bash

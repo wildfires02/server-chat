@@ -24,6 +24,7 @@
 | Docker Compose | [Compose 部署](../deployments/docker/compose/README.md) | 开发单机和开发集群 |
 | Kubernetes | [Kubernetes 部署](../deployments/kubernetes/README.md) | 三至五节点生产模板 |
 | 集群操作 | [生产集群操作手册](cluster-operations.md) | 发布、排空、轮换、扩缩容、回滚 |
+| 数据库升级 | [数据库版本与迁移流程](database-migrations.md) | 版本历史、升级 SOP、验证和回滚 |
 | 监控 | [监控与健康检查](monitoring.md) | 健康端点、运行指标、导出器 |
 | 故障排查 | [常见问题](faq.md) | 常见安装和运行问题 |
 
@@ -41,6 +42,7 @@
 | 联系人、文件处理与素材协议参考 | [contacts-files-assets.md](contacts-files-assets.md) |
 | 用户和主题描述 | [thecard.md](thecard.md) |
 | 音视频通话流程 | [call-establishment.md](call-establishment.md) |
+| 群消息逐成员已读 | [message-seen-by.md](message-seen-by.md) |
 | 国际化 | [translations.md](translations.md) |
 | 双向自动翻译与多供应商配置 | [automatic-translation.md](automatic-translation.md) |
 | Protobuf 源文件 | [`api/pbx/*.proto`](../api/pbx/) |

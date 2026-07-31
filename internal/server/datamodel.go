@@ -59,6 +59,13 @@ type MsgGetQuery struct {
 	Contacts *types.ContactQuery `json:"contacts,omitempty"`
 	// "assets" 贴纸、动态 Emoji 与 GIF 素材目录查询。
 	Assets *types.AssetQuery `json:"assets,omitempty"`
+	// "readers" 查询指定群消息的已读参与者。
+	Readers *MsgGetReaders `json:"readers,omitempty"`
+}
+
+// MsgGetReaders 定义逐消息已读参与者查询参数。
+type MsgGetReaders struct {
+	SeqId int `json:"seq"`
 }
 
 // MsgSearchOpts 定义 Peer 发现与会话内消息搜索参数。
@@ -250,6 +257,8 @@ const (
 	constMsgMetaContacts
 	// constMsgMetaAssets 指定贴纸、动态 Emoji 与 GIF 素材目录。
 	constMsgMetaAssets
+	// constMsgMetaReaders 指定逐消息已读参与者。
+	constMsgMetaReaders
 )
 
 const (
@@ -293,6 +302,8 @@ func parseMsgClientMeta(params string) int {
 			bits |= constMsgMetaContacts
 		case "assets":
 			bits |= constMsgMetaAssets
+		case "readers":
+			bits |= constMsgMetaReaders
 		default:
 			// 忽略未知项
 		}
@@ -971,6 +982,20 @@ type MsgServerMeta struct {
 	Contacts *types.ContactSnapshot `json:"contacts,omitempty"`
 	// Assets 保存贴纸、动态 Emoji 与 GIF 素材目录。
 	Assets *types.AssetCatalog `json:"assets,omitempty"`
+	// Readers 保存指定群消息的已读参与者。
+	Readers *MsgReadParticipants `json:"readers,omitempty"`
+}
+
+// MsgReadParticipant 表示一位已经读到指定消息的群成员。
+type MsgReadParticipant struct {
+	User string     `json:"user"`
+	Date *time.Time `json:"date,omitempty"`
+}
+
+// MsgReadParticipants 表示一条群消息的已读成员列表。
+type MsgReadParticipants struct {
+	SeqId int                  `json:"seq"`
+	Users []MsgReadParticipant `json:"users"`
 }
 
 // MsgSearchResult 是统一的 Peer 发现与消息全文搜索结果。

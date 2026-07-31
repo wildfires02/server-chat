@@ -61,6 +61,11 @@ func (t *Topic) handleMetaGet(msg *ClientComMessage, asUid types.Uid, asChan boo
 			logs.Warn.Printf("topic[%s] meta.Get.Assets failed: %s", t.name, err)
 		}
 	}
+	if msg.MetaWhat&constMsgMetaReaders != 0 {
+		if err := t.replyGetReaders(msg.sess, asUid, asChan, msg); err != nil {
+			logs.Warn.Printf("topic[%s] meta.Get.Readers failed: %s", t.name, err)
+		}
+	}
 }
 
 // handleMetaSet 处理元数据Set消息或事件。

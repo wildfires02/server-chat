@@ -40,7 +40,7 @@ type adapter struct {
 
 const (
 	// adpVersion 指定adp版本。
-	adpVersion = 121
+	adpVersion = 122
 	// adapterName 指定adapter名称。
 	adapterName = "mongodb"
 

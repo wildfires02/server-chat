@@ -33,6 +33,10 @@ go build -tags rethinkdb -o bin/init-db ./cmd/init-db
   --upgrade=true
 ```
 
+数据库版本表示持久化结构修订，不是服务端发布版本。每次版本变化的原因、
+开发检查表、生产升级顺序、验证与回滚要求统一记录在
+[数据库版本、迁移记录与固定操作流程](../../docs/database-migrations.md)。
+
 重建开发数据库：
 
 ```bash
@@ -44,6 +48,15 @@ go build -tags rethinkdb -o bin/init-db ./cmd/init-db
 
 `--reset=true` 会删除并重建目标数据库，禁止对生产库使用。升级和迁移前必须
 完成可恢复备份。
+
+如果 `im-server` 报错：
+
+```text
+Invalid database version 121. Expected 122
+```
+
+应使用目标版本代码执行 `--upgrade=true`。禁止只修改 `kvmeta` 版本值，因为
+这样不会执行对应的 DDL、索引创建或历史数据回填。
 
 ## 3. 参数
 

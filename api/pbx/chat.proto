@@ -122,6 +122,11 @@ message SearchOpts {
 	int32 limit = 8;
 }
 
+// ReadParticipantsQuery identifies the group message whose readers are requested.
+message ReadParticipantsQuery {
+	int32 seq_id = 1;
+}
+
 // ContactQuery 定义联系人全量/增量同步参数。
 message ContactQuery {
 	uint64 since = 1;
@@ -267,6 +272,8 @@ message GetQuery {
 	ContactQuery contacts = 7;
 	// "assets" 素材目录查询参数
 	AssetQuery assets = 8;
+	// "readers" 指定群消息的已读参与者查询参数
+	ReadParticipantsQuery readers = 9;
 }
 
 // SetQuery 定义 SetQuery 的 Protobuf 消息结构。
@@ -865,6 +872,21 @@ message ServerMeta {
 	AssetCatalog assets = 11;
 	// next 是成员列表下一页使用的稳定游标。
 	string next = 12;
+	// readers 保存指定群消息的已读参与者。
+	ReadParticipants readers = 13;
+}
+
+// ReadParticipant is a member who has read the requested group message.
+message ReadParticipant {
+	string user_id = 1;
+	// 读取时间，使用 Epoch 毫秒；0 表示旧数据没有可用时间。
+	int64 date = 2;
+}
+
+// ReadParticipants is the Seen by result for one group message.
+message ReadParticipants {
+	int32 seq_id = 1;
+	repeated ReadParticipant users = 2;
 }
 
 // {info} 通知消息：ServerNote 的服务端副本，补充了 From 和可选的 Src

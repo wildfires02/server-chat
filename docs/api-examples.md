@@ -314,6 +314,47 @@ IM 服务端使用字符编码管理用户访问权限：
 - **机制**：进入群聊或单聊时，前端会在 `localStorage` 中记录 `im_active_topic_name`。
 - **效果**：刷新网页完成自动登录后，客户端会自动寻找并恢复对应的激活窗口，并重新订阅 WebSocket 消息队列，保持聊天上下文不中断。
 
+### 4.9 查询群消息 Seen by `{get what: "readers"}`
+
+仅允许查询本人发送、最近 7 天、100 人以内普通群中的已同步消息：
+
+```json
+{
+  "get": {
+    "id": "readers-42",
+    "topic": "grpYiqEXb4QY6s",
+    "what": "readers",
+    "readers": {
+      "seq": 42
+    }
+  }
+}
+```
+
+响应：
+
+```json
+{
+  "meta": {
+    "id": "readers-42",
+    "topic": "grpYiqEXb4QY6s",
+    "readers": {
+      "seq": 42,
+      "users": [
+        {
+          "user": "usrAlice",
+          "date": "2026-07-31T08:29:12Z"
+        }
+      ]
+    }
+  }
+}
+```
+
+没有 `date` 的成员仍然已读，只是服务端没有可恢复的历史阅读时间。详细限制、
+错误码和数据库 `121 → 122` 原因见
+[群消息 Seen by 协议](message-seen-by.md)。
+
 ## 5. 大文件/附件传输接口 (File API)
 
 ### 5.1 上传文件 `POST /v0/file/u/`

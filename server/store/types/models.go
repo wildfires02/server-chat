@@ -83,6 +83,8 @@ type Subscription struct {
 	RecvSeqId int
 	// 用户报告的已读最新 SeqID
 	ReadSeqId int
+	// 最近七天内逐段记录已读序号推进时间，用于群聊 Seen by 查询。
+	ReadHistory ReadHistory `json:"ReadHistory,omitempty" bson:"readhistory,omitempty"`
 
 	// 该用户请求的访问模式
 	ModeWant AccessMode

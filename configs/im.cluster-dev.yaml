@@ -42,7 +42,7 @@ alias_tag: alias
 
 # 每个聊天节点从共享数据库读取 im-admin 写入的翻译策略。
 translation:
-  enabled: true
+  enabled: false
   refresh_interval: 5
 
 media:

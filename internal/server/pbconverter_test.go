@@ -55,6 +55,13 @@ func TestPbContactsAndAssetsRoundTrip(t *testing.T) {
 				}},
 			}},
 		},
+		Readers: &MsgReadParticipants{
+			SeqId: 42,
+			Users: []MsgReadParticipant{
+				{User: "usrPeer", Date: &now},
+				{User: "usrLegacy"},
+			},
+		},
 	}}
 	gotServer := pbServDeserialize(pbServSerialize(server))
 	if gotServer.Meta == nil || gotServer.Meta.Contacts == nil ||
@@ -63,7 +70,12 @@ func TestPbContactsAndAssetsRoundTrip(t *testing.T) {
 		len(gotServer.Meta.Assets.Assets) != 1 || gotServer.Meta.Assets.Assets[0].Kind != "sticker" ||
 		gotServer.Meta.Assets.Assets[0].Alt != "👋" ||
 		len(gotServer.Meta.Assets.Assets[0].Variants) != 1 ||
-		gotServer.Meta.Assets.Assets[0].Variants[0].Name != "webp" {
+		gotServer.Meta.Assets.Assets[0].Variants[0].Name != "webp" ||
+		gotServer.Meta.Readers == nil || gotServer.Meta.Readers.SeqId != 42 ||
+		len(gotServer.Meta.Readers.Users) != 2 ||
+		gotServer.Meta.Readers.Users[0].Date == nil ||
+		!gotServer.Meta.Readers.Users[0].Date.Equal(now) ||
+		gotServer.Meta.Readers.Users[1].Date != nil {
 		t.Fatalf("contact/asset server round trip mismatch: %#v", gotServer.Meta)
 	}
 }
@@ -79,7 +91,7 @@ func TestPbInternalWorkspacePresenceRoundTrip(t *testing.T) {
 // TestPbGetQueryRoundTripIncludesSyncFields 验证 Pb Get Query Round Trip Includes Sync Fields 相关行为。
 func TestPbGetQueryRoundTripIncludesSyncFields(t *testing.T) {
 	in := &MsgGetQuery{
-		What: "desc sub data del",
+		What: "desc sub data del readers",
 		Desc: &MsgGetOpts{User: "usrA", Topic: "grpA", Limit: 7},
 		Sub:  &MsgGetOpts{User: "usrB", Topic: "grpB", Limit: 8, Cursor: "usrCursor"},
 		Data: &MsgGetOpts{
@@ -100,6 +112,7 @@ func TestPbGetQueryRoundTripIncludesSyncFields(t *testing.T) {
 			PackId: "official", Kind: "sticker", Since: 9, Limit: 20,
 			AssetIds: []string{"wave", "party"},
 		},
+		Readers: &MsgGetReaders{SeqId: 42},
 	}
 
 	got := pbGetQueryDeserialize(pbGetQuerySerialize(in))

@@ -22,7 +22,7 @@ func (a *adapter) SubscriptionGet(topic string, user t.Uid, keepDeleted bool) (*
 		defer cancel()
 	}
 	query := `SELECT createdat,updatedat,deletedat,userid AS user,topic,delid,recvseqid,
-		readseqid,modewant,modegiven,private FROM subscriptions WHERE topic=$1 AND userid=$2`
+		readseqid,readhistory,modewant,modegiven,private FROM subscriptions WHERE topic=$1 AND userid=$2`
 	if !keepDeleted {
 		query += " AND deletedat IS NULL"
 	}
@@ -30,7 +30,7 @@ func (a *adapter) SubscriptionGet(topic string, user t.Uid, keepDeleted bool) (*
 	var userId int64
 	var modeWant, modeGiven []byte
 	err := a.db.QueryRow(ctx, query, topic, store.DecodeUid(user)).Scan(&sub.CreatedAt, &sub.UpdatedAt, &sub.DeletedAt, &userId,
-		&sub.Topic, &sub.DelId, &sub.RecvSeqId, &sub.ReadSeqId, &modeWant, &modeGiven, &sub.Private)
+		&sub.Topic, &sub.DelId, &sub.RecvSeqId, &sub.ReadSeqId, &sub.ReadHistory, &modeWant, &modeGiven, &sub.Private)
 
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -51,7 +51,7 @@ func (a *adapter) SubscriptionGet(topic string, user t.Uid, keepDeleted bool) (*
 // not load deleted 订阅.
 func (a *adapter) SubsForUser(forUser t.Uid) ([]t.Subscription, error) {
 	q := `SELECT createdat,updatedat,deletedat,userid AS user,topic,delid,recvseqid,
-		readseqid,modewant,modegiven FROM subscriptions WHERE userid=$1 AND deletedat IS NULL`
+		readseqid,readhistory,modewant,modegiven FROM subscriptions WHERE userid=$1 AND deletedat IS NULL`
 	args := []any{store.DecodeUid(forUser)}
 
 	ctx, cancel := a.getContext()
@@ -70,7 +70,7 @@ func (a *adapter) SubsForUser(forUser t.Uid) ([]t.Subscription, error) {
 	var modeWant, modeGiven []byte
 	for rows.Next() {
 		if err = rows.Scan(&sub.CreatedAt, &sub.UpdatedAt, &sub.DeletedAt, &userId, &sub.Topic, &sub.DelId,
-			&sub.RecvSeqId, &sub.ReadSeqId, &modeWant, &modeGiven); err != nil {
+			&sub.RecvSeqId, &sub.ReadSeqId, &sub.ReadHistory, &modeWant, &modeGiven); err != nil {
 			break
 		}
 
@@ -91,7 +91,7 @@ func (a *adapter) SubsForUser(forUser t.Uid) ([]t.Subscription, error) {
 // 后者不加载。
 func (a *adapter) SubsForTopic(topic string, keepDeleted bool, opts *t.QueryOpt) ([]t.Subscription, error) {
 	q := `SELECT createdat,updatedat,deletedat,userid AS user,topic,delid,recvseqid,
-		readseqid,modewant,modegiven,private FROM subscriptions WHERE topic=?`
+		readseqid,readhistory,modewant,modegiven,private FROM subscriptions WHERE topic=?`
 
 	args := []any{topic}
 	if !keepDeleted {
@@ -136,7 +136,7 @@ func (a *adapter) SubsForTopic(topic string, keepDeleted bool, opts *t.QueryOpt)
 	var modeWant, modeGiven []byte
 	for rows.Next() {
 		if err = rows.Scan(&sub.CreatedAt, &sub.UpdatedAt, &sub.DeletedAt, &userId, &sub.Topic, &sub.DelId,
-			&sub.RecvSeqId, &sub.ReadSeqId, &modeWant, &modeGiven, &sub.Private); err != nil {
+			&sub.RecvSeqId, &sub.ReadSeqId, &sub.ReadHistory, &modeWant, &modeGiven, &sub.Private); err != nil {
 			break
 		}
 

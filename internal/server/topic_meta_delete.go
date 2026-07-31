@@ -378,13 +378,14 @@ func (t *Topic) replyDelSub(sess *Session, asUid types.Uid, msg *ClientComMessag
 			return nil
 		}
 		pud = perUserData{
-			modeWant:  sub.ModeWant,
-			modeGiven: sub.ModeGiven,
-			private:   sub.Private,
-			delID:     sub.DelId,
-			readID:    sub.ReadSeqId,
-			recvID:    sub.RecvSeqId,
-			isChan:    isChannelSub,
+			modeWant:    sub.ModeWant,
+			modeGiven:   sub.ModeGiven,
+			private:     sub.Private,
+			delID:       sub.DelId,
+			readID:      sub.ReadSeqId,
+			readHistory: append(types.ReadHistory(nil), sub.ReadHistory...),
+			recvID:      sub.RecvSeqId,
+			isChan:      isChannelSub,
 		}
 	}
 

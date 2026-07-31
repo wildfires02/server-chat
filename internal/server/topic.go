@@ -140,6 +140,8 @@ type perUserData struct {
 	recvID int
 	// readID 保存read标识。
 	readID int
+	// 最近七天的逐消息已读时间检查点。
+	readHistory types.ReadHistory
 	// 最新一次删除操作的 ID
 	delID int
 

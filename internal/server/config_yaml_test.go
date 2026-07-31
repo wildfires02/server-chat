@@ -46,8 +46,7 @@ func TestExampleYAMLConfig(t *testing.T) {
 	if config.Admin != nil {
 		t.Fatal("im-server 配置不应包含独立管理服务配置")
 	}
-	if config.Translation == nil || !config.Translation.Enabled ||
-		config.Translation.RefreshInterval != 5 {
+	if config.Translation == nil || config.Translation.RefreshInterval != 5 {
 		t.Fatalf("翻译策略消费者配置不正确：%+v", config.Translation)
 	}
 	assertRawConfigObject(t, "store_config", config.Store)

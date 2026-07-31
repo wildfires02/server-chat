@@ -386,6 +386,12 @@ func (a *adapter) UpgradeDb() error {
 		}
 	}
 
+	if a.version == 121 {
+		if err := bumpVersion(a, 122); err != nil {
+			return err
+		}
+	}
+
 	if a.version != adpVersion {
 		return errors.New("Failed to perform database upgrade to version " + strconv.Itoa(adpVersion) +
 			". DB is still at " + strconv.Itoa(a.version))

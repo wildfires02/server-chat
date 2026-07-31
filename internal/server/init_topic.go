@@ -291,12 +291,13 @@ func initTopicP2P(t *Topic, sreg *ClientComMessage) error {
 				lastUA:    subs[i].GetUserAgent(),
 				topicName: types.ParseUid(subs[(i+1)%2].User).UserId(),
 
-				private:   subs[i].Private,
-				modeWant:  subs[i].ModeWant,
-				modeGiven: subs[i].ModeGiven,
-				delID:     subs[i].DelId,
-				recvID:    subs[i].RecvSeqId,
-				readID:    subs[i].ReadSeqId,
+				private:     subs[i].Private,
+				modeWant:    subs[i].ModeWant,
+				modeGiven:   subs[i].ModeGiven,
+				delID:       subs[i].DelId,
+				recvID:      subs[i].RecvSeqId,
+				readID:      subs[i].ReadSeqId,
+				readHistory: append(types.ReadHistory(nil), subs[i].ReadHistory...),
 			}
 		}
 	} else {
@@ -505,18 +506,20 @@ func initTopicP2P(t *Topic, sreg *ClientComMessage) error {
 		userData.modeGiven = sub1.ModeGiven
 		userData.delID = sub1.DelId
 		userData.readID = sub1.ReadSeqId
+		userData.readHistory = append(types.ReadHistory(nil), sub1.ReadHistory...)
 		userData.recvID = sub1.RecvSeqId
 		t.perUser[userID1] = userData
 
 		t.perUser[userID2] = perUserData{
-			public:    sub2.GetPublic(),
-			trusted:   sub2.GetTrusted(),
-			topicName: userID1.UserId(),
-			modeWant:  sub2.ModeWant,
-			modeGiven: sub2.ModeGiven,
-			delID:     sub2.DelId,
-			readID:    sub2.ReadSeqId,
-			recvID:    sub2.RecvSeqId,
+			public:      sub2.GetPublic(),
+			trusted:     sub2.GetTrusted(),
+			topicName:   userID1.UserId(),
+			modeWant:    sub2.ModeWant,
+			modeGiven:   sub2.ModeGiven,
+			delID:       sub2.DelId,
+			readID:      sub2.ReadSeqId,
+			readHistory: append(types.ReadHistory(nil), sub2.ReadHistory...),
+			recvID:      sub2.RecvSeqId,
 		}
 	}
 
@@ -883,12 +886,13 @@ func (t *Topic) loadSubscribers() error {
 		sub := &subs[i]
 		uid := types.ParseUid(sub.User)
 		t.perUser[uid] = perUserData{
-			delID:     sub.DelId,
-			readID:    sub.ReadSeqId,
-			recvID:    sub.RecvSeqId,
-			private:   sub.Private,
-			modeWant:  sub.ModeWant,
-			modeGiven: sub.ModeGiven,
+			delID:       sub.DelId,
+			readID:      sub.ReadSeqId,
+			readHistory: append(types.ReadHistory(nil), sub.ReadHistory...),
+			recvID:      sub.RecvSeqId,
+			private:     sub.Private,
+			modeWant:    sub.ModeWant,
+			modeGiven:   sub.ModeGiven,
 		}
 
 		if (sub.ModeGiven & sub.ModeWant).IsOwner() {

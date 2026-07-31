@@ -485,8 +485,14 @@ func (t *Topic) handleNoteBroadcast(msg *ClientComMessage) {
 		}
 
 		// 未读消息数减少
+		previousReadID := pud.readID
 		unread = pud.readID - msg.Note.SeqId
 		pud.readID = msg.Note.SeqId
+		if t.cat == types.TopicCatGrp && !t.isChan && !asChan {
+			readAt := types.TimeNow()
+			pud.readHistory.Append(previousReadID+1, pud.readID, readAt,
+				readAt.Add(-messageReadersRetention))
+		}
 		if pud.readID > pud.recvID {
 			pud.recvID = pud.readID
 		}
@@ -522,6 +528,9 @@ func (t *Topic) handleNoteBroadcast(msg *ClientComMessage) {
 		}
 		if read > 0 {
 			upd["ReadSeqId"] = read
+			if t.cat == types.TopicCatGrp && !t.isChan && !asChan {
+				upd["ReadHistory"] = pud.readHistory
+			}
 		}
 		if err := store.Subs.Update(topicName, asUid, upd); err != nil {
 			logs.Warn.Printf("topic[%s]: 更新 SeqRead/Recv 计数器失败: %v", t.name, err)

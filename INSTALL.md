@@ -102,7 +102,8 @@ store_config:
 
 `--reset=true` 会删除并重建目标数据库，禁止对生产库使用。升级已有数据库应先
 完成备份，再使用 `--upgrade=true`。完整参数见
-[数据库初始化工具](cmd/init-db/README.md)。
+[数据库初始化工具](cmd/init-db/README.md)，每个版本的原因、固定升级顺序和回滚
+要求见[数据库版本与迁移流程](docs/database-migrations.md)。
 
 ## 5. 启动安装
 

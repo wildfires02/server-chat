@@ -190,6 +190,7 @@ func (a *adapter) CreateDb(reset bool) error {
 			delid     INT DEFAULT 0 COMMENT '用户已同步的最新删除操作序列号',
 			recvseqid INT DEFAULT 0 COMMENT '用户已送达的最新消息序列号',
 			readseqid INT DEFAULT 0 COMMENT '用户已读的最新消息序列号',
+			readhistory JSON COMMENT '最近七天逐消息已读时间检查点',
 			modewant  CHAR(8) COMMENT '用户请求的访问模式',
 			modegiven CHAR(8) COMMENT 'Topic授予的访问模式',
 			private   JSON COMMENT '仅该订阅用户可见的私有资料',
@@ -696,6 +697,15 @@ func (a *adapter) UpgradeDb() error {
 		// 数据库 120→121：subscriptions_topic_userid 已覆盖官方大群成员游标分页，
 		// 无需新增重复索引，仅同步数据库版本。
 		if err := bumpVersion(a, 121); err != nil {
+			return err
+		}
+	}
+
+	if a.version == 121 {
+		if _, err := a.db.Exec("ALTER TABLE subscriptions ADD COLUMN readhistory JSON NULL COMMENT '最近七天逐消息已读时间检查点' AFTER readseqid"); err != nil {
+			return err
+		}
+		if err := bumpVersion(a, 122); err != nil {
 			return err
 		}
 	}

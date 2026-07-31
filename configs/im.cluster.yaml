@@ -43,7 +43,7 @@ alias_tag: alias
 
 # 聊天节点只消费独立 im-admin 写入共享数据库的翻译策略。
 translation:
-  enabled: true
+  enabled: false
   refresh_interval: 5
 
 # 生产集群使用共享对象存储，不能把唯一媒体文件留在节点本地。

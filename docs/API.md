@@ -398,6 +398,51 @@ get --search=release --scope=peers --limit=20 fnd
 
 广播频道读者在发布、编辑、定时发送和输入状态路径上都由服务端强制只读，即使旧订阅数据错误地含有 `W` 位也不能发言。普通群的 `member` 角色保留双向读写能力。
 
+#### 群消息 Seen by
+
+普通群中，消息发送者可查询最近 7 天、100 人以内群聊的逐消息已读成员：
+
+```json
+{
+  "get": {
+    "id": "readers-42",
+    "topic": "grpYiqEXb4QY6s",
+    "what": "readers",
+    "readers": {
+      "seq": 42
+    }
+  }
+}
+```
+
+服务端返回 `{meta.readers}`，排除发送者本人，并按阅读时间从新到旧排序：
+
+```json
+{
+  "meta": {
+    "id": "readers-42",
+    "topic": "grpYiqEXb4QY6s",
+    "readers": {
+      "seq": 42,
+      "users": [
+        {
+          "user": "usrAlice",
+          "date": "2026-07-31T08:29:12Z"
+        },
+        {
+          "user": "usrLegacy"
+        }
+      ]
+    }
+  }
+}
+```
+
+`date` 省略表示成员已读，但数据库升级前没有可信阅读时间。该查询只允许消息
+发送者使用，不支持 P2P、广播频道、超过 100 人的群或超过 7 天的消息。完整
+权限、错误码、时间检查点和数据库版本说明见
+[message-seen-by.md](message-seen-by.md)。
+
 ## 音视频通话 (Video Calls)
 
 协议 `0.30` 同时保留两种媒体通话路径：
@@ -528,6 +573,9 @@ webrtc:
 
 // {note} 已读/送达通知；提供 id 时服务端在状态持久化后返回确认
 { "note": { "id": "read-15", "topic": "grpYiqEXb4QY6s", "what": "read", "seq": 15 } }
+
+// 查询本人发送的 seq=15 被哪些群成员读过
+{ "get": { "id": "readers-15", "topic": "grpYiqEXb4QY6s", "what": "readers", "readers": { "seq": 15 } } }
 ```
 
 协议 `0.30` 的消息字段：
@@ -624,6 +672,9 @@ Drafty 图片示例（视频使用 `VD`、音频/语音使用 `AU`、文件使�
 
 // 已读/送达状态已持久化；重复状态返回 208 及当前游标
 { "ctrl": { "id": "read-15", "code": 200, "text": "ok", "params": { "what": "read", "seq": 15 } } }
+
+// 群消息逐成员已读结果；旧数据可能省略 date
+{ "meta": { "id": "readers-15", "topic": "grpYiqEXb4QY6s", "readers": { "seq": 15, "users": [{ "user": "usrAlice", "date": "2026-07-31T08:29:12Z" }] } } }
 
 // {pres} 在线状态变更通知
 { "pres": { "topic": "me", "src": "usr2il9suCbuko", "what": "on" } }

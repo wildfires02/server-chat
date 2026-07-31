@@ -218,7 +218,8 @@ func (t *Topic) cacheSubscriber(sub *types.Subscription) {
 	}
 	t.perUser[uid] = perUserData{
 		delID: sub.DelId, readID: sub.ReadSeqId, recvID: sub.RecvSeqId,
-		private: sub.Private, modeWant: sub.ModeWant, modeGiven: sub.ModeGiven,
+		readHistory: append(types.ReadHistory(nil), sub.ReadHistory...),
+		private:     sub.Private, modeWant: sub.ModeWant, modeGiven: sub.ModeGiven,
 	}
 	if (sub.ModeGiven & sub.ModeWant).IsOwner() {
 		t.owner = uid

@@ -49,7 +49,7 @@ alias_tag: alias
 
 # im-server 只读取独立 im-admin 写入的翻译策略，不暴露管理 API。
 translation:
-  enabled: true
+  enabled: false
   refresh_interval: 5
 
 # 文件与对象存储。

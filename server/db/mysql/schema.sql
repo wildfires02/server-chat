@@ -23,7 +23,7 @@ CREATE TABLE kvmeta(
 	INDEX kvmeta_createdat_key(createdat, `key`)
 ) COMMENT='数据库版本及全局键值元数据';
 
-INSERT INTO kvmeta(`key`, `value`) VALUES("version", "121");
+INSERT INTO kvmeta(`key`, `value`) VALUES("version", "122");
 
 CREATE TABLE users(
 	id 			BIGINT NOT NULL COMMENT '用户唯一ID',
@@ -138,6 +138,7 @@ CREATE TABLE subscriptions(
 	delid		INT DEFAULT 0 COMMENT '用户已同步的最新删除操作序列号',
 	recvseqid	INT DEFAULT 0 COMMENT '用户已送达的最新消息序列号',
 	readseqid	INT DEFAULT 0 COMMENT '用户已读的最新消息序列号',
+	readhistory JSON COMMENT '最近七天逐消息已读时间检查点',
 	modewant	CHAR(8) COMMENT '用户请求的访问模式',
 	modegiven	CHAR(8) COMMENT 'Topic授予的访问模式',
 	private		JSON COMMENT '仅该订阅用户可见的私有资料',

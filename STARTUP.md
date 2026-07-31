@@ -111,7 +111,7 @@ go run ./cmd/im-cli \
 | 现象 | 处理 |
 | --- | --- |
 | MySQL 连接失败 | 等待容器完成初始化，并核对 `localhost:3306` 和密码 |
-| 数据库版本不匹配 | 备份后运行 `init-db --upgrade=true`；开发库可重置 |
+| 数据库版本不匹配 | 按[数据库迁移 SOP](docs/database-migrations.md)备份并运行 `./bin/init-db --config=./configs/im.yaml --upgrade=true` |
 | `address already in use` | 停止占用进程，或修改 YAML 中的 `listen`、`grpc_listen` |
 | 静态目录不存在 | 将 YAML 中的 `static_data` 设为 `"-"`，或提供实际构建目录 |
 | `/readyz` 返回失败 | 查看启动日志、数据库连接和运行模式校验结果 |
@@ -123,4 +123,5 @@ go run ./cmd/im-cli \
 - 单机模式的测试、基准和安全边界：[docs/standalone.md](docs/standalone.md)
 - 服务端配置与环境变量：[configs/README.md](configs/README.md)
 - 协议与报文：[docs/API.md](docs/API.md)
+- 数据库版本历史与每次升级步骤：[docs/database-migrations.md](docs/database-migrations.md)
 - Docker 开发环境：[deployments/docker/compose/README.md](deployments/docker/compose/README.md)

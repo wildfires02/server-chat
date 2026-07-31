@@ -173,8 +173,40 @@ func pbServMetaSerialize(meta *MsgServerMeta) *pbx.ServerMsg_Meta {
 			Search:   pbSearchResultSerialize(meta.Search),
 			Contacts: pbContactSnapshotSerialize(meta.Contacts),
 			Assets:   pbAssetCatalogSerialize(meta.Assets),
+			Readers:  pbReadParticipantsSerialize(meta.Readers),
 		},
 	}
+}
+
+func pbReadParticipantsSerialize(readers *MsgReadParticipants) *pbx.ReadParticipants {
+	if readers == nil {
+		return nil
+	}
+	out := &pbx.ReadParticipants{SeqId: int32(readers.SeqId)}
+	for _, reader := range readers.Users {
+		out.Users = append(out.Users, &pbx.ReadParticipant{
+			UserId: reader.User,
+			Date:   timeToInt64(reader.Date),
+		})
+	}
+	return out
+}
+
+func pbReadParticipantsDeserialize(readers *pbx.ReadParticipants) *MsgReadParticipants {
+	if readers == nil {
+		return nil
+	}
+	out := &MsgReadParticipants{SeqId: int(readers.GetSeqId())}
+	for _, reader := range readers.GetUsers() {
+		if reader == nil {
+			continue
+		}
+		out.Users = append(out.Users, MsgReadParticipant{
+			User: reader.GetUserId(),
+			Date: int64ToTime(reader.GetDate()),
+		})
+	}
+	return out
 }
 
 // pbSearchResultSerialize 将统一搜索结果转换为 Protobuf。
@@ -376,6 +408,7 @@ func pbServDeserialize(pkt *pbx.ServerMsg) *ServerComMessage {
 			Search:   pbSearchResultDeserialize(meta.GetSearch()),
 			Contacts: pbContactSnapshotDeserialize(meta.GetContacts()),
 			Assets:   pbAssetCatalogDeserialize(meta.GetAssets()),
+			Readers:  pbReadParticipantsDeserialize(meta.GetReaders()),
 		}
 	}
 	return &msg

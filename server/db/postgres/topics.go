@@ -62,11 +62,11 @@ func createSubscription(ctx context.Context, tx pgx.Tx, sub *t.Subscription, und
 		}
 		if undelete {
 			_, err = tx.Exec(ctx, "UPDATE subscriptions SET createdat=$1,updatedat=$2,deletedat=NULL,modeWant=$3,modeGiven=$4,"+
-				"delid=0,recvseqid=0,readseqid=0 WHERE topic=$5 AND userid=$6",
+				"delid=0,recvseqid=0,readseqid=0,readhistory=NULL WHERE topic=$5 AND userid=$6",
 				sub.CreatedAt, sub.UpdatedAt, sub.ModeWant.String(), sub.ModeGiven.String(), sub.Topic, decoded_uid)
 		} else {
 			_, err = tx.Exec(ctx, "UPDATE subscriptions SET createdat=$1,updatedat=$2,deletedat=NULL,modeWant=$3,modeGiven=$4,"+
-				"delid=0,recvseqid=0,readseqid=0,private=$5 WHERE topic=$6 AND userid=$7",
+				"delid=0,recvseqid=0,readseqid=0,readhistory=NULL,private=$5 WHERE topic=$6 AND userid=$7",
 				sub.CreatedAt, sub.UpdatedAt, sub.ModeWant.String(), sub.ModeGiven.String(), jpriv,
 				sub.Topic, decoded_uid)
 		}
@@ -409,7 +409,7 @@ func (a *adapter) UsersForTopic(topic string, keepDeleted bool, opts *t.QueryOpt
 
 	// Fetch all subscribed 用户. The number of 用户 is not large
 	q := `SELECT s.createdat,s.updatedat,s.deletedat,s.userid,s.topic,s.delid,s.recvseqid,
-		s.readseqid,s.modewant,s.modegiven,u.public,u.trusted,u.lastseen,u.useragent,s.private
+		s.readseqid,s.readhistory,s.modewant,s.modegiven,u.public,u.trusted,u.lastseen,u.useragent,s.private
 		FROM subscriptions AS s JOIN users AS u ON s.userid=u.id
 		WHERE s.topic=?`
 	args := []any{topic}
@@ -474,7 +474,7 @@ func (a *adapter) UsersForTopic(topic string, keepDeleted bool, opts *t.QueryOpt
 		if err = rows.Scan(
 			&sub.CreatedAt, &sub.UpdatedAt, &sub.DeletedAt,
 			&userId, &sub.Topic, &sub.DelId, &sub.RecvSeqId,
-			&sub.ReadSeqId, &modeWant, &modeGiven,
+			&sub.ReadSeqId, &sub.ReadHistory, &modeWant, &modeGiven,
 			&public, &trusted, &lastSeen, &userAgent, &sub.Private); err != nil {
 			break
 		}

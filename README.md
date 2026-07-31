@@ -55,6 +55,7 @@ curl --fail http://127.0.0.1:6060/readyz
 - WebSocket、HTTP 长轮询和 gRPC 双向流。
 - 单聊、群组、广播频道、多设备同步和细粒度访问控制。
 - 消息编辑、撤回、回复、转发、反应、置顶和定时消息。
+- 100 人以内普通群的逐消息 Seen by 成员与阅读时间查询。
 - 本地文件系统与 S3 兼容对象存储。
 - WebRTC 点对点信令和 Agora 群组通话服务端令牌。
 - 独立 `im-admin` 进程：Casbin 角色权限、Domain 绑定、翻译策略、基础产品策略和
@@ -84,6 +85,8 @@ curl --fail http://127.0.0.1:6060/readyz
 - [服务端协议参考](docs/API.md)
 - [接口调用示例](docs/api-examples.md)
 - [监控与健康检查](docs/monitoring.md)
+- [数据库版本、迁移记录与固定操作流程](docs/database-migrations.md)
+- [群消息 Seen by 协议](docs/message-seen-by.md)
 - [常见问题](docs/faq.md)
 - [统一产品需求与管理后台接口](docs/im-product-requirements.md)
 

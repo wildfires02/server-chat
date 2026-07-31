@@ -260,6 +260,7 @@ func (a *adapter) CreateDb(reset bool) error {
 			delid     INT DEFAULT 0,
 			recvseqid INT DEFAULT 0,
 			readseqid INT DEFAULT 0,
+			readhistory JSON,
 			modewant  VARCHAR(8),
 			modegiven VARCHAR(8),
 			private   JSON,
@@ -280,6 +281,7 @@ func (a *adapter) CreateDb(reset bool) error {
 		COMMENT ON COLUMN subscriptions.delid IS '用户已同步的最新删除操作序列号';
 		COMMENT ON COLUMN subscriptions.recvseqid IS '用户已送达的最新消息序列号';
 		COMMENT ON COLUMN subscriptions.readseqid IS '用户已读的最新消息序列号';
+		COMMENT ON COLUMN subscriptions.readhistory IS '最近七天逐消息已读时间检查点';
 		COMMENT ON COLUMN subscriptions.modewant IS '用户请求的访问模式';
 		COMMENT ON COLUMN subscriptions.modegiven IS 'Topic授予的访问模式';
 		COMMENT ON COLUMN subscriptions.private IS '仅该订阅用户可见的私有资料';`); err != nil {
@@ -716,6 +718,16 @@ func (a *adapter) UpgradeDb() error {
 		// 数据库 120→121：subscriptions_topic_userid 已覆盖官方大群成员游标分页，
 		// 无需新增重复索引，仅同步数据库版本。
 		if err := bumpVersion(a, 121); err != nil {
+			return err
+		}
+	}
+
+	if a.version == 121 {
+		if _, err := a.db.Exec(ctx, `ALTER TABLE subscriptions ADD COLUMN readhistory JSON;
+			COMMENT ON COLUMN subscriptions.readhistory IS '最近七天逐消息已读时间检查点';`); err != nil {
+			return err
+		}
+		if err := bumpVersion(a, 122); err != nil {
 			return err
 		}
 	}
