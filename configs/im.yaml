@@ -275,7 +275,7 @@ push:
 
 # 点对点 WebRTC 与 Agora 群组通话。
 webrtc:
-  enabled: false
+  enabled: true
   call_establishment_timeout: 30
   ice_servers:
     - urls:
@@ -292,10 +292,10 @@ webrtc:
   # 内嵌 ice_servers 为空时，可引用以 ice_servers 为根键的独立 YAML 文件。
   ice_servers_file: ""
   agora:
-    enabled: false
+    enabled: true
     # 推荐通过 AGORA_APP_ID 和 AGORA_APP_CERTIFICATE 注入。
-    app_id: ""
-    app_certificate: ""
+    app_id: "b547e4eff8274ca5ab14b4015f3b0105"
+    app_certificate: "74e69faed5d143df9ad4850e1fd542a0"
     token_ttl: 3600
     channel_prefix: im
     max_participants: 128

@@ -312,8 +312,8 @@ func (t *Topic) handlePubBroadcast(msg *ClientComMessage) {
 		if head == nil {
 			head = make(map[string]any)
 		}
-		if t.cat == types.TopicCatGrp {
-			// 服务端决定群组通话提供方，忽略客户端伪造的 provider。
+		if globals.agora != nil {
+			// 服务端统一决定 Agora 通话提供方，忽略客户端伪造的 provider。
 			head["call-provider"] = constCallProviderAgora
 		} else {
 			head["call-provider"] = constCallProviderWebRTC

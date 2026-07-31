@@ -246,6 +246,12 @@ func (t *Topic) handleAgoraCallEvent(msg *ClientComMessage, asUid types.Uid) {
 	case constCallEventLeave:
 		t.leaveAgoraCall(msg, asUid)
 	case constCallEventHangUp:
+		if t.cat == types.TopicCatP2P {
+			if t.canHangUpWebRTCCall(msg, asUid) {
+				t.maybeEndCallInProgress(msg.AsUser, msg, false)
+			}
+			return
+		}
 		originatorUID, _ := t.getCallOriginator()
 		if asUid != originatorUID && !mode.IsAdmin() {
 			if msg.Id != "" {
@@ -254,8 +260,13 @@ func (t *Topic) handleAgoraCallEvent(msg *ClientComMessage, asUid types.Uid) {
 			return
 		}
 		t.maybeEndCallInProgress(msg.AsUser, msg, false)
-	case constCallEventOffer, constCallEventAnswer, constCallEventIceCandidate,
-		constCallEventRinging, constCallEventAccept:
+	case constCallEventRinging, constCallEventAccept:
+		if t.cat == types.TopicCatP2P {
+			t.handleWebRTCCallAnswer(msg, asUid)
+			return
+		}
+		fallthrough
+	case constCallEventOffer, constCallEventAnswer, constCallEventIceCandidate:
 		// Agora RTC 不通过业务 WebSocket 交换 SDP 或 ICE。
 		if msg.Id != "" {
 			msg.sess.queueOut(ErrOperationNotAllowedReply(msg, types.TimeNow()))

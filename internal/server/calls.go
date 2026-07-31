@@ -160,7 +160,7 @@ func (t *Topic) getCallOriginator() (types.Uid, *Session) {
 func (t *Topic) handleCallInvite(msg *ClientComMessage, asUid types.Uid) {
 	provider := callProvider(constCallProviderWebRTC)
 	var agoraState *agoraCallData
-	if t.cat == types.TopicCatGrp {
+	if globals.agora != nil {
 		provider = callProvider(constCallProviderAgora)
 		agoraState = &agoraCallData{
 			channel: globals.agora.channelName(t.name, t.lastID),
