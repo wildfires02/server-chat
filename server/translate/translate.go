@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	defaultTimeout          = 1500 * time.Millisecond
+	defaultTimeout          = 5000 * time.Millisecond
 	defaultFailureThreshold = 3
 	defaultOpenDuration     = 30 * time.Second
 	defaultMaxAttempts      = 3
@@ -294,7 +294,7 @@ type textPlaceholder struct {
 func protectText(text string) (string, []textPlaceholder) {
 	var placeholders []textPlaceholder
 	protected := protectedTextPattern.ReplaceAllStringFunc(text, func(value string) string {
-		token := fmt.Sprintf("⟦IM%d⟧", len(placeholders))
+		token := fmt.Sprintf("XIM%dX", len(placeholders))
 		placeholders = append(placeholders, textPlaceholder{token: token, value: value})
 		return token
 	})
@@ -303,10 +303,17 @@ func protectText(text string) (string, []textPlaceholder) {
 
 func restoreText(text string, placeholders []textPlaceholder) (string, error) {
 	for _, placeholder := range placeholders {
-		if strings.Count(text, placeholder.token) != 1 {
-			return "", errors.New("translate: protected placeholder was changed")
+		if strings.Count(text, placeholder.token) == 1 {
+			text = strings.Replace(text, placeholder.token, placeholder.value, 1)
+			continue
 		}
-		text = strings.Replace(text, placeholder.token, placeholder.value, 1)
+		// Fallback: case-insensitive match (e.g. if provider lowercases token to xim0x)
+		pattern := regexp.MustCompile("(?i)" + regexp.QuoteMeta(placeholder.token))
+		if len(pattern.FindAllString(text, -1)) == 1 {
+			text = pattern.ReplaceAllString(text, placeholder.value)
+			continue
+		}
+		return "", errors.New("translate: protected placeholder was changed")
 	}
 	return text, nil
 }
@@ -665,6 +672,14 @@ func deepLLanguage(language string) string {
 	return strings.ToUpper(strings.ReplaceAll(language, "_", "-"))
 }
 
+func libreLanguage(language string) string {
+	language = strings.ToLower(strings.TrimSpace(language))
+	if index := strings.IndexAny(language, "-_"); index >= 0 {
+		return language[:index]
+	}
+	return language
+}
+
 type libreProvider struct {
 	client   *http.Client
 	endpoint *url.URL
@@ -676,9 +691,12 @@ func (provider *libreProvider) Translate(ctx context.Context, request Request) (
 	source := normalizeSource(request.SourceLanguage)
 	if source == "" {
 		source = "auto"
+	} else {
+		source = libreLanguage(source)
 	}
+	target := libreLanguage(request.TargetLanguage)
 	body := map[string]any{
-		"q": request.Text, "source": source, "target": request.TargetLanguage, "format": "text",
+		"q": request.Text, "source": source, "target": target, "format": "text",
 	}
 	if provider.key != "" {
 		body["api_key"] = provider.key

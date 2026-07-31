@@ -58,7 +58,7 @@ func NormalizeSettings(settings *Settings) {
 		settings.FailurePolicy = "hold"
 	}
 	if settings.DefaultTimeoutMS == 0 {
-		settings.DefaultTimeoutMS = 1500
+		settings.DefaultTimeoutMS = 5000
 	}
 	if settings.MaxAttempts == 0 {
 		settings.MaxAttempts = 3

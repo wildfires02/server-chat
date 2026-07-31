@@ -151,7 +151,7 @@ func TestProtectedValuesAreRestoredAndValidated(t *testing.T) {
 	if restored != "Translated Pay $1,200 to @alice: https://example.com/a?id=7 and `code()`" {
 		t.Fatalf("unexpected restored text: %q", restored)
 	}
-	if _, err = restoreText(strings.Replace(protected, "⟦IM0⟧", "changed", 1),
+	if _, err = restoreText(strings.Replace(protected, "XIM0X", "changed", 1),
 		placeholders); err == nil {
 		t.Fatal("changed placeholder must be rejected")
 	}
