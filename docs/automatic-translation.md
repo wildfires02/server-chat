@@ -148,3 +148,18 @@ fail-closed 行为：接收方不会看到未翻译原文。数据库中出现�
 
 `pending` 和最终状态使用相同的 `topic + seq`，客户端应按该键替换现有气泡，而不是
 新增一条消息。
+
+## 供应商申请与推荐部署架构
+
+| 翻译服务商 | 官方入口 | 免费额度 | 建议应用场景 |
+| :--- | :--- | :--- | :--- |
+| **LibreTranslate** | 开源 Docker 本地部署 (`docker run -d -p 5000:5000 libretranslate/libretranslate`) | 完全免费 | 0 成本本地测试、保底备份节点 |
+| **DeepL API** | [deepl.com/pro-api](https://www.deepl.com/pro-api) | 每月免费 50万 字符 | 追求最高翻译精度、跨境商务聊天 |
+| **Azure AI Translator** | [azure.microsoft.com](https://azure.microsoft.com) | 每月免费 200万 字符 (F0) | 企业级稳定输出，免费额度大 |
+| **Google Cloud Translation** | [cloud.google.com/translate](https://cloud.google.com/translate) | 每月免费 50万 字符 | 多语种覆盖全 |
+| **Amazon Translate** | [aws.amazon.com/translate](https://aws.amazon.com/translate) | 首年每月免费 200万 字符 | AWS 基础设施体系生态集成 |
+
+### 生产环境推荐组合策略
+- **主用 (Priority 10)**：配置 DeepL 或 Azure AI Translator，利用其免费额度获得高质量翻译。
+- **备用 (Priority 20)**：部署本地 LibreTranslate Docker 容器。一旦云端 API 额度耗尽或网络异常，系统自动无缝降级到本地 LibreTranslate 兜底，保证聊天功能服务永不断线。
+
