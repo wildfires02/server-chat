@@ -91,7 +91,7 @@ func (sess *Session) writeLoop() {
 
 	defer func() {
 		ticker.Stop()
-		// Break readLoop.
+		//打破readLoop。
 		sess.closeWS()
 	}()
 

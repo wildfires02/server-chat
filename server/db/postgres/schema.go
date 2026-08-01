@@ -754,7 +754,7 @@ func addTags(ctx context.Context, tx pgx.Tx, table, keyName string, keyVal any, 
 		return nil
 	}
 
-	//addTags(ctx, tx, "usertags", "userid", decoded_uid, add, reset == nil)
+	//添加标签（ctx，tx，“用户标签”，“userid”，解码_uid，添加，重置== nil）
 	sql := "INSERT INTO " + table + " (" + keyName + ",tag) VALUES($1,$2)"
 	if ignoreDups {
 		sql += " ON CONFLICT DO NOTHING"

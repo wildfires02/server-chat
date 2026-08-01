@@ -70,6 +70,11 @@ func (t *Topic) handleMetaGet(msg *ClientComMessage, asUid types.Uid, asChan boo
 
 // handleMetaSet 处理元数据Set消息或事件。
 func (t *Topic) handleMetaSet(msg *ClientComMessage, asUid types.Uid, asChan bool, authLevel auth.Level) {
+	if msg.MetaWhat&constMsgMetaInvite != 0 {
+		if err := t.replySetInvite(msg.sess, asUid, msg); err != nil {
+			logs.Warn.Printf("topic[%s] meta.Set.Invite failed: %v", t.name, err)
+		}
+	}
 	if msg.MetaWhat&constMsgMetaDesc != 0 {
 		if err := t.replySetDesc(msg.sess, asUid, asChan, authLevel, msg); err == nil {
 			// 通知插件更新

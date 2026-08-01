@@ -123,7 +123,7 @@ func (cc *Config) GetIntField(what, field string) int {
 }
 
 // AndroidVisibilityType 定义通知可见性常量
-// https://developer.android.com/reference/android/app/Notification.html#visibility
+//https://developer.android.com/reference/android/app/Notification.html#visibility
 type AndroidVisibilityType string
 
 const (
@@ -284,7 +284,7 @@ const (
 )
 
 // Aps 是 APNS 载荷。说明请参见：
-// https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification#2943363
+//Https://developer.apple.com/cn/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification#2943363
 type Aps struct {
 	// Alert 保存Alert。
 	Alert *ApsAlert `json:"alert,omitempty"`
@@ -547,7 +547,7 @@ func DecodeGoogleApiError(err error) (decoded *GApiError, errs []error) {
 					errs = append(errs, fmt.Errorf("error.Details errorCode is not a string: %T", details["errorCode"]))
 				}
 			case "type.googleapis.com/google.rpc.BadRequest":
-				// dst.fcmErrCode == INVALID_ARGUMENT
+				//Dst.fcm错误代码==无效_参数
 				if fieldViolations, ok := details["fieldViolations"].([]any); !ok {
 					errs = append(errs, fmt.Errorf("wrong type of error.Details 'fieldViolations': %T", details["fieldViolations"]))
 				} else {

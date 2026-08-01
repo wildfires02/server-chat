@@ -170,7 +170,7 @@ func initTopicMe(t *Topic, sreg *ClientComMessage) error {
 	t.updated = user.UpdatedAt
 
 	// 以下值在 'me' 中明确不设置。
-	// t.touched, t.lastId, t.delId
+	//T. 触摸，t.lastId，t.delId
 
 	// 'me' 没有所有者，t.owner = nil
 
@@ -220,7 +220,7 @@ func initTopicFnd(t *Topic, sreg *ClientComMessage) error {
 	// 'fnd' 没有所有者，t.owner = nil
 
 	// 不支持向 fnd 发布
-	// t.lastId = 0, t.delId = 0, t.touched = nil
+	//t.lastId = 0，t.delId = 0，t.touched = nil
 
 	return nil
 }
@@ -275,8 +275,8 @@ func initTopicP2P(t *Topic, sreg *ClientComMessage) error {
 	// P2P Topic 的默认用户访问权限未设置，因为未使用。
 	// 其它用户无法加入 Topic，因为 Topic 名称的构造方式。
 	// 两个参与者相互设置对方的访问权限。
-	// t.accessAuth = getDefaultAccess(t.cat, true)
-	// t.accessAnon = getDefaultAccess(t.cat, false)
+	//t.accessAuth = getDefaultAccess（t.cat，true）
+	//t.accessAnon = getDefaultAccess（t.cat，false）
 
 	// t.public 和 t.trusted 不用于 p2p Topic，因为每个用户获得不同的 public/trusted。
 
@@ -724,7 +724,7 @@ func initTopicGrp(t *Topic, join *ClientComMessage) error {
 	// 初始化接收 Session 在线更新的 Channel。
 	t.supd = make(chan *sessionUpdate, 32)
 
-	t.xoriginal = t.name // Topic 可能由 Channel 读者加载；确保是 grpXXX，而不是 chnXXX。
+	t.xoriginal = t.name //主题可能由频道读者加载；确保是grpXXX，而不是chnXXX。
 
 	return nil
 }

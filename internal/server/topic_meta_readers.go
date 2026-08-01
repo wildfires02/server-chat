@@ -14,7 +14,7 @@ const (
 	messageReadersMaxMembers = 100
 )
 
-// replyGetReaders returns the members who have read an eligible outgoing group message.
+//replyGetReaders返回已阅读符合条件的出站群组消息的成员。
 func (t *Topic) replyGetReaders(sess *Session, asUid types.Uid, asChan bool, msg *ClientComMessage) error {
 	now := types.TimeNow()
 	if msg.Get.Readers == nil || msg.Get.Readers.SeqId <= 0 {

@@ -49,7 +49,7 @@ func expectSlicesEqual(t *testing.T, name string, expected, gotten []string) {
 
 // TestStringSliceDelta 验证 String Slice Delta 相关行为。
 func TestStringSliceDelta(t *testing.T) {
-	// Case format:
+	//案例格式：
 	// - inputs: old, new
 	// - expected outputs: added, removed, intersection
 	cases := [][5][]string{

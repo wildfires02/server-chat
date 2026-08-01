@@ -323,7 +323,7 @@ func (t *Topic) subscriptionReply(asChan bool, msg *ClientComMessage) error {
 	var err error
 	var modeChanged *MsgAccessMode
 	// 创建新订阅或修改现有订阅
-	if modeChanged, err = t.thisUserSub(msg.sess, msg, asUid, asChan, mode, private); err != nil {
+	if modeChanged, err = t.thisUserSub(msg.sess, msg, asUid, asChan, mode, private, msgsub.Invite); err != nil {
 		return err
 	}
 

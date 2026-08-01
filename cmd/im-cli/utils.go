@@ -39,7 +39,7 @@ type Card struct {
 	Note string `json:"note,omitempty"`
 }
 
-// MakeTheCard creates a JSON string for user public profile.
+//MakeTheCard为用户公共配置文件创建一个JSON字符串。
 func MakeTheCard(fn, photoPath, note string) (string, error) {
 	card := Card{
 		Fn:   fn,
@@ -75,7 +75,7 @@ func MakeTheCard(fn, photoPath, note string) (string, error) {
 	return string(b), nil
 }
 
-// SaveCookie saves token and user to cookie file.
+//SaveCookie将令牌和用户保存到cookie文件中。
 func SaveCookie(filename, user, token string) error {
 	if filename == "" {
 		filename = DefaultCookieFile
@@ -91,7 +91,7 @@ func SaveCookie(filename, user, token string) error {
 	return os.WriteFile(filename, data, 0600)
 }
 
-// ReadCookie reads token and user from cookie file.
+//ReadCookie从cookie文件中读取令牌和用户。
 func ReadCookie(filename string) (*CookieData, error) {
 	if filename == "" {
 		filename = DefaultCookieFile
@@ -107,7 +107,7 @@ func ReadCookie(filename string) (*CookieData, error) {
 	return &c, nil
 }
 
-// ParseCred parses "scheme:value" or "email:alice@example.com".
+//ParseCred解析“scheme:value”或“email:alice@example.com”。
 func ParseCred(credStr string) (string, string) {
 	parts := strings.SplitN(credStr, ":", 2)
 	if len(parts) == 2 {
@@ -116,7 +116,7 @@ func ParseCred(credStr string) (string, string) {
 	return "email", credStr
 }
 
-// PrettyJSON formats an object or json bytes into indented JSON.
+//PrettyJSON将对象或json字节格式化为缩进的JSON。
 func PrettyJSON(v interface{}) string {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
@@ -125,7 +125,7 @@ func PrettyJSON(v interface{}) string {
 	return string(b)
 }
 
-// SplitArgs splits command line into tokens taking single/double quotes into account.
+//SplitArgs将命令行划分为令牌，同时考虑单/双引号。
 func SplitArgs(input string) []string {
 	var args []string
 	var current strings.Builder

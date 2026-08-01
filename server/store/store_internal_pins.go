@@ -25,8 +25,8 @@ var internalPinKindLimits = map[types.InternalPinKind]int{
 	types.InternalPinMessage:      300,
 }
 
-// InternalPinPersistenceInterface persists the employee-private workspace independently
-// from public topic and message metadata.
+//InternalPinPersistenceInterface獨立地持續員工私人工作區
+// 来自公共主题和消息元数据。
 type InternalPinPersistenceInterface interface {
 	Apply(org string, owner types.Uid, mutation types.InternalPinMutation) (*types.InternalPin, bool, error)
 	Query(org string, owner types.Uid, query types.InternalPinQuery) (*types.InternalPinSnapshot, error)
@@ -40,7 +40,7 @@ type internalPinWorkspace struct {
 	Pins        map[string]types.InternalPin `json:"pins"`
 }
 
-// InternalPins is the process-wide private workspace mapper.
+//InternalPins是全流程专用工作区映射器。
 var InternalPins InternalPinPersistenceInterface
 
 func internalPinWorkspaceKey(org string, owner types.Uid) string {
@@ -127,8 +127,8 @@ func (internalPinMapper) Apply(org string, owner types.Uid,
 		}
 		current, found := workspace.Pins[targetKey]
 
-		// Semantic no-ops make retries safe even when the caller still has the
-		// pre-mutation version.
+		//语义无操作使重試安全，即使呼叫者仍然有
+		//突变前版本。
 		if mutation.Op == types.InternalPinDelete && (!found || current.State == types.InternalPinDeleted) {
 			if !found {
 				current = pinFromMutation(targetKey, mutation)

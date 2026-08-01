@@ -102,7 +102,15 @@ type MsgSetSub struct {
 	Role string `json:"role,omitempty"`
 }
 
-// MsgSetDesc 是在 set.what == "desc" 时用于更新属性的结构体。
+//MsgSetInvite 请求生成可分享且由服务端签名的群组邀请链接。
+// 令牌通过控制响应返回，不会写入 Topic 描述。
+type MsgSetInvite struct {
+	//ExpiresIn以秒为单位的期限有效期；服务端将限制在安全范围内，
+	// 未提供时使用默认值。
+	ExpiresIn int64 `json:"expires_in,omitempty"`
+}
+
+//MsgSetDesc 在 set.what == "desc" 时用于更新属性的结构体。
 type MsgSetDesc struct {
 	// 默认访问权限模式。
 	DefaultAcs *MsgDefaultAcsMode `json:"defacs,omitempty"`
@@ -136,6 +144,8 @@ type MsgSetQuery struct {
 	Tags []string `json:"tags,omitempty"`
 	// 账号凭证更新
 	Cred *MsgCredClient `json:"cred,omitempty"`
+	// 生成供非成员加入群组的签名邀请链接。
+	Invite *MsgSetInvite `json:"invite,omitempty"`
 	// 辅助数据更新
 	Aux map[string]any `json:"aux,omitempty"`
 	// 联系人或联系人分组 CRUD，仅允许在 me Topic 使用。
@@ -227,6 +237,9 @@ type MsgClientSub struct {
 	// 镜像 {get} 查询选项
 	Get *MsgGetQuery `json:"get,omitempty"`
 
+	//邀请是服务端签名的群组邀请令牌，仅在创建新的群组订阅时校验。
+	Invite string `json:"invite,omitempty"`
+
 	// 集群内部专有字段
 
 	// 本次订阅是否创建了新的 Topic。
@@ -259,6 +272,8 @@ const (
 	constMsgMetaAssets
 	// constMsgMetaReaders 指定逐消息已读参与者。
 	constMsgMetaReaders
+	//constMsgMetaInvite 指定簽發群組邀請連結。
+	constMsgMetaInvite
 )
 
 const (
@@ -790,18 +805,18 @@ type MsgReaction struct {
 	Count int `json:"count"`
 }
 
-// MsgTranslation describes the per-recipient view of an automatically
-// translated message.
+//MsgTranslation描述了自动的每个收件人视图
+// 翻译的消息。
 type MsgTranslation struct {
-	// Status is one of original, pending, completed, failed.
+	//状态为原始、待定、已完成、失败。
 	Status string `json:"status"`
-	// SourceLanguage is detected locally or by the selected provider.
+	//源语言在本地或由选定的提供商检测到。
 	SourceLanguage string `json:"source_language,omitempty"`
-	// TargetLanguage is the language requested for this recipient.
+	//目标语言是该收件人请求的语言。
 	TargetLanguage string `json:"target_language,omitempty"`
-	// Provider identifies the backend used without exposing credentials.
+	//提供商在不暴露凭据的情况下识别所使用的后端。
 	Provider string `json:"provider,omitempty"`
-	// Original is included only when the administrator enables KeepOriginal.
+	//仅当管理员启用KeepOriginal时，才会包含原件。
 	Original any `json:"original,omitempty"`
 }
 
@@ -835,7 +850,7 @@ type MsgServerData struct {
 	Head map[string]any `json:"head,omitempty"`
 	// Content 保存正文。
 	Content any `json:"content"`
-	// Translation describes asynchronous, per-recipient machine translation.
+	//翻译描述了非同步的、每个收件人的机器翻译。
 	Translation *MsgTranslation `json:"translation,omitempty"`
 }
 

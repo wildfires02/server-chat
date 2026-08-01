@@ -63,6 +63,9 @@ func (s *Session) set(msg *ClientComMessage) {
 	if msg.Set.Cred != nil {
 		msg.MetaWhat |= constMsgMetaCred
 	}
+	if msg.Set.Invite != nil {
+		msg.MetaWhat |= constMsgMetaInvite
+	}
 	if msg.Set.Aux != nil {
 		msg.MetaWhat |= constMsgMetaAux
 	}
@@ -83,7 +86,7 @@ func (s *Session) set(msg *ClientComMessage) {
 			s.queueOut(ErrServiceUnavailableReply(msg, msg.Timestamp))
 			logs.Err.Println("s.set: sub.meta 管道已满, topic ", msg.RcptTo, s.sid)
 		}
-	} else if msg.MetaWhat&(constMsgMetaTags|constMsgMetaCred|constMsgMetaAux|constMsgMetaContacts|constMsgMetaAssets) != 0 {
+	} else if msg.MetaWhat&(constMsgMetaTags|constMsgMetaCred|constMsgMetaAux|constMsgMetaContacts|constMsgMetaAssets|constMsgMetaInvite) != 0 {
 		logs.Warn.Println("s.set: 设置标签/凭证/扩展字段仅限已订阅 Topic", msg.MetaWhat)
 		s.queueOut(ErrPermissionDeniedReply(msg, msg.Timestamp))
 	} else {
@@ -218,7 +221,7 @@ func (s *Session) expandTopicName(msg *ClientComMessage) (string, *ServerComMess
 	} else if msg.Original == "slf" {
 		routeTo = types.ParseUserId(msg.AsUser).SlfName()
 	} else if strings.HasPrefix(msg.Original, "usr") {
-		// p2p Topic
+		//P2p主题
 		uid1 := types.ParseUserId(msg.AsUser)
 		uid2 := types.ParseUserId(msg.Original)
 		if uid2.IsZero() {

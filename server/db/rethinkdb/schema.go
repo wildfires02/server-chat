@@ -289,7 +289,7 @@ func (a *adapter) UpgradeDb() error {
 			return err
 		}
 
-		// Topic
+		//主题
 
 		// 为所有 DeletedAt 不为空的 Topic 添加 StateDeleted 状态。
 		if _, err := rdb.DB(a.dbName).Table("topics").

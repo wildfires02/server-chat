@@ -155,9 +155,9 @@ func normalizeDocument(document *Document) error {
 	if document.OfficialTopics == nil {
 		document.OfficialTopics = make(map[string]OfficialTopic)
 	}
-	// Older documents exposed an inert enabled flag before provider support
-	// existed. Keep upgrades bootable and fail closed until an administrator
-	// explicitly saves at least one provider.
+	//较旧的文档在提供商支持之前暴露了惰性启用的标志
+	//存在。 保持升级可启动并关闭失败，直到管理员
+	//明确地保存至少一个提供商。
 	legacyTranslation := document.Settings.Translation.Enabled &&
 		document.Settings.Translation.DefaultTimeoutMS == 0 &&
 		document.Settings.Translation.Providers == nil

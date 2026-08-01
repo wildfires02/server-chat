@@ -1,5 +1,5 @@
 // 调试工具。在响应 HTTP 请求时转储指定的性能分析数据。
-// 		http(s)://<host-name>/<configured-path>/<profile-name>
+//Http://<主机名称>/<配置路径>/<配置文件名称>
 // 可能的性能分析名称列表参见 godoc：https://golang.org/pkg/runtime/pprof/#Profile
 
 // Package server 实现即时通信服务端的协议、路由和业务逻辑。

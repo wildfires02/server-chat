@@ -230,7 +230,7 @@ func (a *adapter) FileLinkAttachments(topic string, userId, msgId t.Uid, fids []
 		}
 	}()
 
-	// Messages are editable too: replace their links instead of accumulating stale files.
+	//消息也是可编辑的：替换其链接，而不是积累陈旧的文件。
 	sql := "DELETE FROM filemsglinks WHERE " + linkBy + "=?"
 	_, err = tx.Exec(sql, linkId)
 	if err != nil {

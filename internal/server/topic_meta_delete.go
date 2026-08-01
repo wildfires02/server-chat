@@ -12,7 +12,7 @@ import (
 )
 
 // replyGetDel 是对 get[what=del] 请求的响应：加载已删除消息 ID 列表，作为 {meta} 发送给
-// Session
+// 会议
 // 响应仅发送给单个 Session 而不是 Topic 中的所有 Session
 func (t *Topic) replyGetDel(sess *Session, asUid types.Uid, req *MsgGetOpts, msg *ClientComMessage) error {
 	now := types.TimeNow()

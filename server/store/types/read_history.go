@@ -9,17 +9,17 @@ import (
 
 const maxReadHistoryCheckpoints = 4096
 
-// ReadCheckpoint records when a contiguous range of messages became read.
+//ReadCheckpoint记录连续范围的消息被读取时。
 type ReadCheckpoint struct {
 	LowSeqId  int       `json:"low" bson:"low"`
 	HighSeqId int       `json:"high" bson:"high"`
 	ReadAt    time.Time `json:"at" bson:"at"`
 }
 
-// ReadHistory is a rolling list of read checkpoints for a subscription.
+//ReadHistory是订阅的读取检查点的滚动列表。
 type ReadHistory []ReadCheckpoint
 
-// Append records a read-sequence advance and drops checkpoints older than cutoff.
+// 附加记录读取序列前进，并丢弃比截止时更早的检查点。
 func (history *ReadHistory) Append(lowSeqId, highSeqId int, readAt, cutoff time.Time) {
 	if history == nil || lowSeqId <= 0 || highSeqId < lowSeqId {
 		return
@@ -42,7 +42,7 @@ func (history *ReadHistory) Append(lowSeqId, highSeqId int, readAt, cutoff time.
 	}
 }
 
-// TimeFor returns when the subscription first advanced past seqId.
+// 当订阅首次超过seqId时，TimeFor将返回。
 func (history ReadHistory) TimeFor(seqId int) (time.Time, bool) {
 	for _, checkpoint := range history {
 		if seqId >= checkpoint.LowSeqId && seqId <= checkpoint.HighSeqId {
@@ -52,7 +52,7 @@ func (history ReadHistory) TimeFor(seqId int) (time.Time, bool) {
 	return time.Time{}, false
 }
 
-// Value serializes the history for SQL JSON columns.
+// 值对SQL JSON列的历史记录进行序列化。
 func (history ReadHistory) Value() (driver.Value, error) {
 	if len(history) == 0 {
 		return nil, nil
@@ -60,7 +60,7 @@ func (history ReadHistory) Value() (driver.Value, error) {
 	return json.Marshal(history)
 }
 
-// Scan deserializes the history returned by SQL adapters.
+// 扫描将SQL适配器返回的历史记录反序列化。
 func (history *ReadHistory) Scan(value any) error {
 	if history == nil {
 		return fmt.Errorf("types.ReadHistory: Scan on nil receiver")

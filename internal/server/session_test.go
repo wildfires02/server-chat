@@ -113,7 +113,7 @@ func TestDispatchInvalidVersion(t *testing.T) {
 	msg := &ClientComMessage{
 		Hi: &MsgClientHi{
 			Id: "123",
-			// Invalid version string.
+			//版本字符串无效。
 			Version: "INVALID VERSION STRING",
 		},
 	}
@@ -137,7 +137,7 @@ func TestDispatchUnsupportedVersion(t *testing.T) {
 	msg := &ClientComMessage{
 		Hi: &MsgClientHi{
 			Id: "123",
-			// Invalid version string.
+			//版本字符串无效。
 			Version: "0.1",
 		},
 	}
@@ -169,7 +169,7 @@ func TestDispatchLogin(t *testing.T) {
 	}
 	ss.EXPECT().GetLogicalAuthHandler("basic").Return(aa)
 	aa.EXPECT().Authenticate([]byte(secret), gomock.Any()).Return(authRec, nil, nil)
-	// Token generation.
+	//代币生成。
 	ss.EXPECT().GetLogicalAuthHandler("token").Return(aa)
 	token := "<==auth-token==>"
 	expires, _ := time.Parse(time.RFC822, "01 Jan 50 00:00 UTC")
@@ -294,7 +294,7 @@ func TestDispatchAlreadySubscribed(t *testing.T) {
 			},
 		},
 	}
-	// Pretend the Session's already subscribed to Topic 'me'.
+	//假定会话已经订阅了主题“我”。
 	s.subs = make(map[string]*Subscription)
 	s.subs[uid.UserId()] = &Subscription{}
 
@@ -315,7 +315,7 @@ func TestDispatchSubscribeJoinChannelFull(t *testing.T) {
 	go s.testWriteLoop(&r, &wg)
 
 	hub := &Hub{
-		// Make it unbuffered with no readers - so emit operation fails immediately.
+		//让它不受缓冲，没有阅读器——因此发射操作会立即失败。
 		join: make(chan *ClientComMessage),
 	}
 	globals.hub = hub
@@ -407,7 +407,7 @@ func TestDispatchLeaveUnsubMe(t *testing.T) {
 	msg := &ClientComMessage{
 		Leave: &MsgClientLeave{
 			Id: "123",
-			// Cannot unsubscribe from 'me'.
+			//无法取消订阅“我”。
 			Topic: "me",
 			Unsub: true,
 		},
@@ -429,8 +429,8 @@ func TestDispatchLeaveUnknownTopic(t *testing.T) {
 	wg.Add(1)
 	go s.testWriteLoop(&r, &wg)
 
-	// Session isn't subscribed to Topic 'me'.
-	// And wants to leave it => no change.
+	//会话未订阅主题“我”。
+	//并且想离开它=>没有变化。
 	s.subs = make(map[string]*Subscription)
 
 	msg := &ClientComMessage{
@@ -456,8 +456,8 @@ func TestDispatchLeaveUnsubFromUnknownTopic(t *testing.T) {
 	wg.Add(1)
 	go s.testWriteLoop(&r, &wg)
 
-	// Session isn't subscribed to Topic 'me'.
-	// And wants to leave & unsubscribe from it.
+	//会话未订阅主题“我”。
+	//并且想要离开并取消订阅它。
 	s.subs = make(map[string]*Subscription)
 
 	msg := &ClientComMessage{
@@ -538,8 +538,8 @@ func TestDispatchPublishBroadcastChannelFull(t *testing.T) {
 	destUid := types.Uid(2)
 	topicName := uid.P2PName(destUid)
 
-	// Make broadcast Channel unbuffered with no reader -
-	// emit op will fail.
+	//使广播频道不受缓冲，没有阅读器-
+	//发射操作将失败。
 	brdcst := make(chan *ClientComMessage)
 	s.subs = make(map[string]*Subscription)
 	s.subs[topicName] = &Subscription{
@@ -678,7 +678,7 @@ func TestDispatchGetMetaChannelFull(t *testing.T) {
 	destUid := types.Uid(2)
 	topicName := uid.P2PName(destUid)
 
-	// Unbuffered chan with no readers - emit will fail.
+	//没有阅读器的无缓冲chan-发射将失败。
 	meta := make(chan *ClientComMessage)
 	s.subs = make(map[string]*Subscription)
 	s.subs[topicName] = &Subscription{
@@ -770,7 +770,7 @@ func TestDispatchSetMalformedWhat(t *testing.T) {
 			Id:          "123",
 			Topic:       destUid.UserId(),
 			MsgSetQuery: MsgSetQuery{
-				// No meta requests.
+				//没有元请求。
 			},
 		},
 	}
@@ -794,7 +794,7 @@ func TestDispatchSetMetaChannelFull(t *testing.T) {
 	destUid := types.Uid(2)
 	topicName := uid.P2PName(destUid)
 
-	// Unbuffered meta Channel w/ no readers - emit will fail.
+	//没有阅读器的无缓冲元通道-发射将失败。
 	meta := make(chan *ClientComMessage)
 	s.subs = make(map[string]*Subscription)
 	s.subs[topicName] = &Subscription{
@@ -806,7 +806,7 @@ func TestDispatchSetMetaChannelFull(t *testing.T) {
 			Id:    "123",
 			Topic: destUid.UserId(),
 			MsgSetQuery: MsgSetQuery{
-				// No meta requests.
+				//没有元请求。
 				Desc: &MsgSetDesc{},
 				Sub:  &MsgSetSub{},
 				Tags: []string{"abc"},
@@ -906,7 +906,7 @@ func TestDispatchDelMetaChanFull(t *testing.T) {
 	destUid := types.Uid(2)
 	topicName := uid.P2PName(destUid)
 
-	// Unbuffered chan - to simulate a full buffered chan.
+	//未缓冲的chan-模拟一个完整的缓冲的chan。
 	meta := make(chan *ClientComMessage)
 	s.subs = make(map[string]*Subscription)
 	s.subs[topicName] = &Subscription{
@@ -940,7 +940,7 @@ func TestDispatchDelUnsubscribedSession(t *testing.T) {
 	go s.testWriteLoop(&r, &wg)
 
 	destUid := types.Uid(2)
-	// Session isn't subscribed.
+	//会话未订阅。
 	s.subs = make(map[string]*Subscription)
 	msg := &ClientComMessage{
 		Del: &MsgClientDel{
@@ -1024,7 +1024,7 @@ func TestDispatchNoteBroadcastChanFull(t *testing.T) {
 	destUid := types.Uid(2)
 	topicName := uid.P2PName(destUid)
 
-	// Unbuffered chan - to simulate a full buffered chan.
+	//未缓冲的chan-模拟一个完整的缓冲的chan。
 	brdcst := make(chan *ClientComMessage)
 	s.subs = make(map[string]*Subscription)
 	s.subs[topicName] = &Subscription{
@@ -1099,7 +1099,7 @@ func TestDispatchAccNew(t *testing.T) {
 		State:     types.StateOK,
 	}
 	ss.EXPECT().GetLogicalAuthHandler("basic").Return(aa)
-	// This login is available.
+	//此登入可用。
 	aa.EXPECT().IsUnique([]byte(secret), remoteAddr).Return(true, nil)
 	uu.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(user *types.User, private any) (*types.User, error) {
@@ -1108,7 +1108,7 @@ func TestDispatchAccNew(t *testing.T) {
 		})
 	aa.EXPECT().AddRecord(gomock.Any(), []byte(secret), remoteAddr).Return(authRec, nil)
 
-	// Token generation.
+	//代币生成。
 	ss.EXPECT().GetLogicalAuthHandler("token").Return(aa)
 	token := "<==auth-token==>"
 	aa.EXPECT().GenSecret(gomock.Any()).Return([]byte(token), time.Now(), nil)

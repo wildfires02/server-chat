@@ -25,34 +25,34 @@ type responses struct {
 	messages []any
 }
 
-// Test fixture.
+//测试夹具。
 type TopicTestHelper struct {
 	// numUsers 保存numUsers。
 	numUsers int
 	// uids 保存uids列表。
 	uids []types.Uid
 
-	// Gomock controller.
+	//Gomock控制器。
 	ctrl *gomock.Controller
 
-	// Session.
+	//会议。
 	sessions []*Session
 	// sessWg 保存sessWg。
 	sessWg *sync.WaitGroup
-	// Per-Session responses (i.e. what gets dumped into Session' write loops).
+	//每个会话的响应（即被转储到会话的写入循环中的内容）。
 	results []*responses
 
-	// Hub.
+	//枢纽。
 	hub *Hub
 	// 消息 captured from Hub.route Channel on the per-用户 (RcptTo) basis.
 	hubMessages map[string][]*ServerComMessage
-	// For stopping hub loop.
+	//用于停止集线器回路。
 	hubDone chan bool
 
-	// Topic.
+	//主题。
 	topic *Topic
 
-	// Mock objects.
+	//模拟对象。
 	mm *mock_store.MockMessagesPersistenceInterface
 	// uu 保存uu。
 	uu *mock_store.MockUsersPersistenceInterface
@@ -66,12 +66,12 @@ type TopicTestHelper struct {
 func (b *TopicTestHelper) finish() {
 	b.topic.killTimer.Stop()
 	b.topic.callEstablishmentTimer.Stop()
-	// Stop Session write loops.
+	//停止会话写入循环。
 	for _, s := range b.sessions {
 		close(s.send)
 	}
 	b.sessWg.Wait()
-	// Hub loop.
+	//轮毂环。
 	close(b.hub.routeSrv)
 	close(b.hub.routeCli)
 	<-b.hubDone
@@ -98,11 +98,11 @@ func (b *TopicTestHelper) setUp(t *testing.T, numUsers int, cat types.TopicCat, 
 	b.numUsers = numUsers
 	b.uids = make([]types.Uid, numUsers)
 	for i := range numUsers {
-		// Can't use 0 as a valid uid.
+		//不能使用0作为有效的uid。
 		b.uids[i] = types.Uid(i + 1)
 	}
 
-	// Mocks.
+	//嘲笑。
 	b.ctrl = gomock.NewController(t)
 	b.mm = mock_store.NewMockMessagesPersistenceInterface(b.ctrl)
 	b.uu = mock_store.NewMockUsersPersistenceInterface(b.ctrl)
@@ -112,7 +112,7 @@ func (b *TopicTestHelper) setUp(t *testing.T, numUsers int, cat types.TopicCat, 
 	store.Users = b.uu
 	store.Topics = b.tt
 	store.Subs = b.ss
-	// Session.
+	//会议。
 	b.sessions = make([]*Session, b.numUsers)
 	b.results = make([]*responses, b.numUsers)
 	b.sessWg = &sync.WaitGroup{}
@@ -122,7 +122,7 @@ func (b *TopicTestHelper) setUp(t *testing.T, numUsers int, cat types.TopicCat, 
 		b.sessions[i] = s
 	}
 
-	// Hub.
+	//枢纽。
 	b.hub = &Hub{
 		routeCli: make(chan *ClientComMessage, 10),
 		routeSrv: make(chan *ServerComMessage, 10),
@@ -132,7 +132,7 @@ func (b *TopicTestHelper) setUp(t *testing.T, numUsers int, cat types.TopicCat, 
 	b.hubDone = make(chan bool)
 	go b.hub.testHubLoop(t, b.hubMessages, b.hubDone)
 
-	// Topic.
+	//主题。
 	pu := make(map[types.Uid]perUserData)
 	ps := make(map[*Session]perSessionData)
 	for i, uid := range b.uids {
@@ -232,7 +232,7 @@ func TestHandleBroadcastDataP2P(t *testing.T) {
 	helper.topic.handleClientMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -319,7 +319,7 @@ func TestHandleBroadcastCall(t *testing.T) {
 	helper.topic.handleClientMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -547,7 +547,7 @@ func TestHandleBroadcastDataGroup(t *testing.T) {
 	helper.topic.handleClientMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -556,11 +556,11 @@ func TestHandleBroadcastDataGroup(t *testing.T) {
 		t.Errorf("Topic.lastID: expected 1, found %d", helper.topic.lastID)
 	}
 	// 消息 uid0 -> uid1, uid2, uid3.
-	// Uid0 is the sender.
+	//Uid0是发件人。
 	if len(helper.results[0].messages) != 0 {
 		t.Fatalf("Uid0 is the sender: expected 0 messages, got %d", len(helper.results[0].messages))
 	}
-	// Uid3 is not a Topic reader.
+	//Uid3不是主题阅读器。
 	if len(helper.results[3].messages) != 0 {
 		t.Fatalf("Uid3 isn't allowed to read messages: expected 0 messages, got %d", len(helper.results[3].messages))
 	}
@@ -779,7 +779,7 @@ func TestHandleBroadcastDataMissingWritePermission(t *testing.T) {
 	helper.topic.handleClientMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -832,7 +832,7 @@ func TestHandleBroadcastDataDbError(t *testing.T) {
 	helper.topic.handleClientMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -879,13 +879,13 @@ func TestHandleBroadcastDataInactiveTopic(t *testing.T) {
 		sess: helper.sessions[0],
 	}
 
-	// Deactivate Topic.
+	//停用主题。
 	helper.topic.markDeleted()
 
 	helper.topic.handleClientMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -942,12 +942,12 @@ func TestHandleBroadcastInfoP2P(t *testing.T) {
 	helper.topic.handleClientMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
 
-	// Topic metadata.
+	//主题元数据。
 	if actualReadId := helper.topic.perUser[from].readID; actualReadId != readId {
 		t.Errorf("perUser[%s].readID: expected %d, found %d.", from.UserId(), readId, actualReadId)
 	}
@@ -968,7 +968,7 @@ func TestHandleBroadcastInfoP2P(t *testing.T) {
 	res := helper.results[1].messages[0].(*ServerComMessage)
 	if res.Info != nil {
 		info := res.Info
-		// Topic name will be fixed (to -> from).
+		//主题名称将被固定（到->从）。
 		if info.Topic != from.UserId() {
 			t.Errorf("Info.Topic: expected '%s', found '%s'", to.UserId(), info.Topic)
 		}
@@ -1059,12 +1059,12 @@ func TestHandleBroadcastInfoBogusNotification(t *testing.T) {
 	helper.topic.handleClientMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
 
-	// Read id should not be updated.
+	//不应更新读取ID。
 	if actualReadId := helper.topic.perUser[from].readID; actualReadId != 0 {
 		t.Errorf("perUser[%s].readID: expected 0, found %d.", from.UserId(), actualReadId)
 	}
@@ -1075,7 +1075,7 @@ func TestHandleBroadcastInfoBogusNotification(t *testing.T) {
 		}
 	}
 
-	// Nothing should be routed through the hub.
+	//任何内容都不应该通过枢纽进行路由。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hubhelper.route did not expect any messages, however %d received.", len(helper.hubMessages))
 	}
@@ -1113,12 +1113,12 @@ func TestHandleBroadcastInfoFilterOutRecvWithoutRPermission(t *testing.T) {
 	helper.topic.handleClientMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
 
-	// Read id should not be updated.
+	//不应更新读取ID。
 	if actualReadId := helper.topic.perUser[from].readID; actualReadId != 0 {
 		t.Errorf("perUser[%s].readID: expected 0, found %d.", from.UserId(), actualReadId)
 	}
@@ -1129,7 +1129,7 @@ func TestHandleBroadcastInfoFilterOutRecvWithoutRPermission(t *testing.T) {
 		}
 	}
 
-	// Nothing should be routed through the hub.
+	//任何内容都不应该通过枢纽进行路由。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hubhelper.route did not expect any messages, however %d received.", len(helper.hubMessages))
 	}
@@ -1167,12 +1167,12 @@ func TestHandleBroadcastInfoFilterOutKpWithoutWPermission(t *testing.T) {
 	helper.topic.handleClientMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
 
-	// Read id should not be updated.
+	//不应更新读取ID。
 	if actualReadId := helper.topic.perUser[from].readID; actualReadId != 0 {
 		t.Errorf("perUser[%s].readID: expected 0, found %d.", from.UserId(), actualReadId)
 	}
@@ -1183,7 +1183,7 @@ func TestHandleBroadcastInfoFilterOutKpWithoutWPermission(t *testing.T) {
 		}
 	}
 
-	// Nothing should be routed through the hub.
+	//任何内容都不应该通过枢纽进行路由。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hubhelper.route did not expect any messages, however %d received.", len(helper.hubMessages))
 	}
@@ -1223,16 +1223,16 @@ func TestHandleBroadcastInfoDuplicatedRead(t *testing.T) {
 	helper.topic.handleClientMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
 
-	// Read id should not be updated.
+	//不应更新读取ID。
 	if actualReadId := helper.topic.perUser[from].readID; actualReadId != 8 {
 		t.Errorf("perUser[%s].readID: expected 8, found %d.", from.UserId(), actualReadId)
 	}
-	// The retry is acknowledged but not broadcast again.
+	//已确认重试，但不会再次广播。
 	if len(helper.results[0].messages) != 1 {
 		t.Fatalf("sender should receive one duplicate acknowledgement, got %d", len(helper.results[0].messages))
 	}
@@ -1244,7 +1244,7 @@ func TestHandleBroadcastInfoDuplicatedRead(t *testing.T) {
 		t.Fatalf("duplicate read was broadcast again: %d messages", len(helper.results[1].messages))
 	}
 
-	// Nothing should be routed through the hub.
+	//任何内容都不应该通过枢纽进行路由。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hubhelper.route did not expect any messages, however %d received.", len(helper.hubMessages))
 	}
@@ -1279,12 +1279,12 @@ func TestHandleBroadcastInfoDbError(t *testing.T) {
 	helper.topic.handleClientMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
 
-	// Read id should not be updated.
+	//不应更新读取ID。
 	if actualReadId := helper.topic.perUser[from].readID; actualReadId != 0 {
 		t.Errorf("perUser[%s].readID: expected 0, found %d.", from.UserId(), actualReadId)
 	}
@@ -1295,7 +1295,7 @@ func TestHandleBroadcastInfoDbError(t *testing.T) {
 		}
 	}
 
-	// Nothing should be routed through the hub.
+	//任何内容都不应该通过枢纽进行路由。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hubhelper.route did not expect any messages, however %d received.", len(helper.hubMessages))
 	}
@@ -1309,7 +1309,7 @@ func TestHandleBroadcastInfoInvalidChannelAccess(t *testing.T) {
 	helper := TopicTestHelper{}
 	helper.setUp(t, numUsers, types.TopicCatGrp, topicName, true)
 	// This is not a Channel. However, we will try to handle an info 消息 where
-	// the Topic is referenced as "chn".
+	//主题被称为“chn”。
 	helper.topic.isChan = false
 	defer helper.tearDown()
 	// Pretend we have 10 消息.
@@ -1337,12 +1337,12 @@ func TestHandleBroadcastInfoInvalidChannelAccess(t *testing.T) {
 	helper.topic.handleClientMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
 
-	// Read id should not be updated.
+	//不应更新读取ID。
 	if actualReadId := helper.topic.perUser[from].readID; actualReadId != 0 {
 		t.Errorf("perUser[%s].readID: expected 0, found %d.", from.UserId(), actualReadId)
 	}
@@ -1352,7 +1352,7 @@ func TestHandleBroadcastInfoInvalidChannelAccess(t *testing.T) {
 			t.Errorf("User %d is not expected to receive any messages, %d received.", i, numMessages)
 		}
 	}
-	// Nothing should be routed through the hub.
+	//任何内容都不应该通过枢纽进行路由。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hubhelper.route did not expect any messages, however %d received.", len(helper.hubMessages))
 	}
@@ -1395,13 +1395,13 @@ func TestHandleBroadcastInfoChannelProcessing(t *testing.T) {
 	helper.topic.handleClientMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
 
-	// Topic metadata.
-	// We do not update read ids for Channel Topic.
+	//主题元数据。
+	//我们不更新频道主题的已读ID。
 	if actualReadId := helper.topic.perUser[from].readID; actualReadId != 0 {
 		t.Errorf("perUser[%s].readID: expected 0, found %d.", from.UserId(), actualReadId)
 	}
@@ -1412,7 +1412,7 @@ func TestHandleBroadcastInfoChannelProcessing(t *testing.T) {
 		}
 	}
 
-	// Send a pres back to the sender.
+	//向发件人发送回复。
 	if len(helper.hubMessages) != 1 {
 		t.Fatalf("Hubhelper.route did not expect any messages, however %d received.", len(helper.hubMessages))
 	}
@@ -1465,12 +1465,12 @@ func TestHandleBroadcastPresMe(t *testing.T) {
 	helper.topic.handleServerMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
 
-	// Topic metadata.
+	//主题元数据。
 	if online := helper.topic.perSubs[srcUid.UserId()].online; !online {
 		t.Errorf("User %s is expected to be online.", srcUid.UserId())
 	}
@@ -1524,18 +1524,18 @@ func TestHandleBroadcastPresInactiveTopic(t *testing.T) {
 		},
 	}
 
-	// Deactivate Topic.
+	//停用主题。
 	helper.topic.markDeleted()
 
 	helper.topic.handleServerMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
 
-	// Topic metadata.
+	//主题元数据。
 	if online := helper.topic.perSubs[srcUid.UserId()].online; online {
 		t.Errorf("User %s is expected to be offline.", srcUid.UserId())
 	}
@@ -1584,7 +1584,7 @@ func NoChangeInStatusTest(t *testing.T, subscriptionStatus int, what string) *To
 		Pres: &MsgServerPres{
 			Topic: "me",
 			Src:   srcUid.UserId(),
-			// No change in online status.
+			//在线状态没有变化。
 			What: what,
 		},
 	}
@@ -1592,12 +1592,12 @@ func NoChangeInStatusTest(t *testing.T, subscriptionStatus int, what string) *To
 	helper.topic.handleServerMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
 
-	// Topic metadata.
+	//主题元数据。
 	if online := helper.topic.perSubs[srcUid.UserId()].online; online {
 		t.Errorf("User %s is expected to be offline.", srcUid.UserId())
 	}
@@ -1659,7 +1659,7 @@ func TestReplyGetDescInvalidOpts(t *testing.T) {
 	}
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -1674,16 +1674,16 @@ func TestReplyGetDescInvalidOpts(t *testing.T) {
 	if resp.Ctrl.Code != 400 {
 		t.Errorf("response code: expected 400, found: %d", resp.Ctrl.Code)
 	}
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub isn't expected to receive any messages, received %d", len(helper.hubMessages))
 	}
 }
 
-// Verifies ctrl codes in Session outputs.
+//验证会话输出中的ctrl代码。
 func registerSessionVerifyOutputs(t *testing.T, sessionOutput *responses, expectedCtrlCodes []int) {
 	t.Helper()
-	// Session output.
+	//会话输出。
 	if len(sessionOutput.messages) == len(expectedCtrlCodes) {
 		n := len(expectedCtrlCodes)
 		for i := range n {
@@ -1717,7 +1717,7 @@ func TestRegisterSessionMe(t *testing.T) {
 
 	uid := helper.uids[0]
 
-	// Add a couple more Session.
+	//再添加几个会话。
 	for i := 1; i < 3; i++ {
 		s, r := helper.newSession(fmt.Sprintf("sid%d", i), uid)
 		helper.sessions = append(helper.sessions, s)
@@ -1737,7 +1737,7 @@ func TestRegisterSessionMe(t *testing.T) {
 	}
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -1754,11 +1754,11 @@ func TestRegisterSessionMe(t *testing.T) {
 	if online != 3 {
 		t.Errorf("Number of online sessions: expected 3, found %d", online)
 	}
-	// Session output.
+	//会话输出。
 	for _, r := range helper.results {
 		registerSessionVerifyOutputs(t, r, []int{http.StatusOK})
 	}
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub isn't expected to receive any messages, received %d", len(helper.hubMessages))
 	}
@@ -1788,13 +1788,13 @@ func TestRegisterSessionInactiveTopic(t *testing.T) {
 		sess:   s,
 	}
 
-	// Deactivate Topic.
+	//停用主题。
 	helper.topic.markDeleted()
 
 	helper.topic.registerSession(join)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -1806,9 +1806,9 @@ func TestRegisterSessionInactiveTopic(t *testing.T) {
 	if online != 0 {
 		t.Errorf("Number of online sessions: expected 0, found %d", online)
 	}
-	// Session output.
+	//会话输出。
 	registerSessionVerifyOutputs(t, helper.results[0], []int{http.StatusServiceUnavailable})
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub isn't expected to receive any messages, received %d", len(helper.hubMessages))
 	}
@@ -1848,7 +1848,7 @@ func TestRegisterSessionUserSpecifiedInSetMessage(t *testing.T) {
 	helper.topic.registerSession(join)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -1860,9 +1860,9 @@ func TestRegisterSessionUserSpecifiedInSetMessage(t *testing.T) {
 	if online != 0 {
 		t.Errorf("Number of online sessions: expected 0, found %d", online)
 	}
-	// Session output.
+	//会话输出。
 	registerSessionVerifyOutputs(t, helper.results[0], []int{http.StatusBadRequest})
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub isn't expected to receive any messages, received %d", len(helper.hubMessages))
 	}
@@ -1902,7 +1902,7 @@ func TestRegisterSessionInvalidWantStrInSetMessage(t *testing.T) {
 	helper.topic.registerSession(join)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -1914,9 +1914,9 @@ func TestRegisterSessionInvalidWantStrInSetMessage(t *testing.T) {
 	if online != 0 {
 		t.Errorf("Number of online sessions: expected 0, found %d", online)
 	}
-	// Session output.
+	//会话输出。
 	registerSessionVerifyOutputs(t, helper.results[0], []int{http.StatusBadRequest})
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub isn't expected to receive any messages, received %d", len(helper.hubMessages))
 	}
@@ -1959,7 +1959,7 @@ func TestRegisterSessionMaxSubscriberCountExceeded(t *testing.T) {
 	helper.topic.registerSession(join)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -1971,9 +1971,9 @@ func TestRegisterSessionMaxSubscriberCountExceeded(t *testing.T) {
 	if online != 0 {
 		t.Errorf("Number of online sessions: expected 0, found %d", online)
 	}
-	// Session output.
+	//会话输出。
 	registerSessionVerifyOutputs(t, r, []int{http.StatusUnprocessableEntity})
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub isn't expected to receive any messages, received %d", len(helper.hubMessages))
 	}
@@ -1982,7 +1982,7 @@ func TestRegisterSessionMaxSubscriberCountExceeded(t *testing.T) {
 // TestRegisterSessionLowAuthLevelWithSysTopic 验证 Register Session Low Auth Level With Sys Topic 相关行为。
 func TestRegisterSessionLowAuthLevelWithSysTopic(t *testing.T) {
 	topicName := "sys"
-	// No one is subscribed to sys.
+	//没有人订阅系统。
 	numUsers := 0
 	helper := TopicTestHelper{}
 	helper.setUp(t, numUsers, types.TopicCatSys, topicName, false)
@@ -2012,7 +2012,7 @@ func TestRegisterSessionLowAuthLevelWithSysTopic(t *testing.T) {
 	helper.topic.registerSession(join)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -2024,9 +2024,9 @@ func TestRegisterSessionLowAuthLevelWithSysTopic(t *testing.T) {
 	if online != 0 {
 		t.Errorf("Number of online sessions: expected 0, found %d", online)
 	}
-	// Session output.
+	//会话输出。
 	registerSessionVerifyOutputs(t, r, []int{http.StatusForbidden})
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub isn't expected to receive any messages, received %d", len(helper.hubMessages))
 	}
@@ -2039,7 +2039,7 @@ func TestRegisterSessionNewChannelGetSubDbError(t *testing.T) {
 	numUsers := 1
 	helper := TopicTestHelper{}
 	helper.setUp(t, numUsers, types.TopicCatGrp, topicName, false)
-	// It is a Channel.
+	//这是一个频道。
 	helper.topic.isChan = true
 	defer helper.tearDown()
 	if len(helper.topic.sessions) != 0 {
@@ -2069,7 +2069,7 @@ func TestRegisterSessionNewChannelGetSubDbError(t *testing.T) {
 	helper.topic.registerSession(join)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -2081,9 +2081,9 @@ func TestRegisterSessionNewChannelGetSubDbError(t *testing.T) {
 	if online != 0 {
 		t.Errorf("Number of online sessions: expected 0, found %d", online)
 	}
-	// Session output.
+	//会话输出。
 	registerSessionVerifyOutputs(t, r, []int{http.StatusInternalServerError})
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub isn't expected to receive any messages, received %d", len(helper.hubMessages))
 	}
@@ -2124,7 +2124,7 @@ func TestRegisterSessionCreateSubFailed(t *testing.T) {
 	helper.topic.registerSession(join)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -2136,9 +2136,9 @@ func TestRegisterSessionCreateSubFailed(t *testing.T) {
 	if online != 0 {
 		t.Errorf("Number of online sessions: expected 0, found %d", online)
 	}
-	// Session output.
+	//会话输出。
 	registerSessionVerifyOutputs(t, r, []int{http.StatusInternalServerError})
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub isn't expected to receive any messages, received %d", len(helper.hubMessages))
 	}
@@ -2151,7 +2151,7 @@ func TestRegisterSessionAsChanUserNotChanSubcriber(t *testing.T) {
 	numUsers := 1
 	helper := TopicTestHelper{}
 	helper.setUp(t, numUsers, types.TopicCatGrp, topicName, false)
-	// The Topic is a Channel.
+	//主题是一个渠道。
 	helper.topic.isChan = true
 	defer helper.tearDown()
 	if len(helper.topic.sessions) != 0 {
@@ -2178,7 +2178,7 @@ func TestRegisterSessionAsChanUserNotChanSubcriber(t *testing.T) {
 	helper.topic.registerSession(join)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -2190,9 +2190,9 @@ func TestRegisterSessionAsChanUserNotChanSubcriber(t *testing.T) {
 	if online != 0 {
 		t.Errorf("Number of online sessions: expected 0, found %d", online)
 	}
-	// Session output. Tell the subscriber to use non-Channel name.
+	//会话输出。 告知订阅者使用非渠道名称。
 	registerSessionVerifyOutputs(t, r, []int{http.StatusSeeOther})
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub isn't expected to receive any messages, received %d", len(helper.hubMessages))
 	}
@@ -2240,7 +2240,7 @@ func TestRegisterSessionOwnerBansHimself(t *testing.T) {
 	helper.topic.registerSession(join)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -2252,9 +2252,9 @@ func TestRegisterSessionOwnerBansHimself(t *testing.T) {
 	if online != 0 {
 		t.Errorf("Number of online sessions: expected 0, found %d", online)
 	}
-	// Session output.
+	//会话输出。
 	registerSessionVerifyOutputs(t, r, []int{http.StatusForbidden})
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub isn't expected to receive any messages, received %d", len(helper.hubMessages))
 	}
@@ -2289,7 +2289,7 @@ func TestRegisterSessionInvalidOwnershipTransfer(t *testing.T) {
 			Topic: topicName,
 			Set: &MsgSetQuery{
 				Sub: &MsgSetSub{
-					// Want ownership.
+					//想要所有权。
 					Mode: "JPRWSO",
 				},
 			},
@@ -2302,7 +2302,7 @@ func TestRegisterSessionInvalidOwnershipTransfer(t *testing.T) {
 	helper.topic.registerSession(join)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -2314,9 +2314,9 @@ func TestRegisterSessionInvalidOwnershipTransfer(t *testing.T) {
 	if online != 0 {
 		t.Errorf("Number of online sessions: expected 0, found %d", online)
 	}
-	// Session output.
+	//会话输出。
 	registerSessionVerifyOutputs(t, r, []int{http.StatusForbidden})
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub isn't expected to receive any messages, received %d", len(helper.hubMessages))
 	}
@@ -2343,7 +2343,7 @@ func TestRegisterSessionMetadataUpdateFails(t *testing.T) {
 	pud.modeGiven = types.ModeCPublic
 	helper.topic.perUser[uid] = pud
 
-	// Want ownership.
+	//想要所有权。
 	newWant := "JRWP"
 	join := &ClientComMessage{
 		Original: topicName,
@@ -2361,13 +2361,13 @@ func TestRegisterSessionMetadataUpdateFails(t *testing.T) {
 
 		sess: s,
 	}
-	// DB call fails.
+	//数据库调用失败。
 	helper.ss.EXPECT().Update(topicName, uid, gomock.Any()).Return(types.ErrInternal)
 
 	helper.topic.registerSession(join)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -2379,9 +2379,9 @@ func TestRegisterSessionMetadataUpdateFails(t *testing.T) {
 	if online != 0 {
 		t.Errorf("Number of online sessions: expected 0, found %d", online)
 	}
-	// Session output.
+	//会话输出。
 	registerSessionVerifyOutputs(t, r, []int{http.StatusInternalServerError})
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub isn't expected to receive any messages, received %d", len(helper.hubMessages))
 	}
@@ -2408,7 +2408,7 @@ func TestRegisterSessionOwnerChangeDbCallFails(t *testing.T) {
 	pud.modeWant = types.ModeCPublic
 	helper.topic.perUser[uid] = pud
 
-	// Want ownership.
+	//想要所有权。
 	newWant := "JRWPASO"
 	join := &ClientComMessage{
 		Original: topicName,
@@ -2426,13 +2426,13 @@ func TestRegisterSessionOwnerChangeDbCallFails(t *testing.T) {
 		sess:    s,
 	}
 	helper.ss.EXPECT().Update(topicName, uid, gomock.Any()).Return(nil).Times(2)
-	// OwnerChange call fails.
+	//所有者更改通话失败。
 	helper.tt.EXPECT().OwnerChange(topicName, uid).Return(types.ErrInternal)
 
 	helper.topic.registerSession(join)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -2445,7 +2445,7 @@ func TestRegisterSessionOwnerChangeDbCallFails(t *testing.T) {
 		t.Errorf("Number of online sessions: expected 0, found %d", online)
 	}
 	registerSessionVerifyOutputs(t, r, []int{})
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub isn't expected to receive any messages, received %d", len(helper.hubMessages))
 	}
@@ -2462,7 +2462,7 @@ func TestUnregisterSessionSimple(t *testing.T) {
 	uid := helper.uids[0]
 	helper.uu.EXPECT().UpdateLastSeen(uid, gomock.Any(), gomock.Any()).Return(nil)
 
-	// Add a couple more Session.
+	//再添加几个会话。
 	for i := 1; i < 3; i++ {
 		s, r := helper.newSession(fmt.Sprintf("sid%d", i), uid)
 		helper.sessions = append(helper.sessions, s)
@@ -2473,7 +2473,7 @@ func TestUnregisterSessionSimple(t *testing.T) {
 		helper.topic.perUser[uid] = pu
 	}
 
-	// Initial online and attach Session counts.
+	//初始在线并附加会话计数。
 	if len(helper.topic.sessions) != 3 {
 		helper.finish()
 		t.Fatalf("Initially attached sessions: expected 3 vs found %d", len(helper.topic.sessions))
@@ -2496,7 +2496,7 @@ func TestUnregisterSessionSimple(t *testing.T) {
 	helper.topic.unregisterSession(leave)
 
 	helper.finish()
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -2510,9 +2510,9 @@ func TestUnregisterSessionSimple(t *testing.T) {
 	if online := helper.topic.perUser[uid].online; online != 2 {
 		t.Errorf("Number of online sessions after unregistering: expected 2, found %d", online)
 	}
-	// Session output.
+	//会话输出。
 	registerSessionVerifyOutputs(t, r, []int{http.StatusOK})
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub isn't expected to receive any messages, received %d", len(helper.hubMessages))
 	}
@@ -2528,7 +2528,7 @@ func TestUnregisterSessionInactiveTopic(t *testing.T) {
 
 	uid := helper.uids[0]
 
-	// Initial online and attach Session counts.
+	//初始在线并附加会话计数。
 	if len(helper.topic.sessions) != 1 {
 		helper.finish()
 		t.Fatalf("Initially attached sessions: expected 1 vs found %d", len(helper.topic.sessions))
@@ -2549,13 +2549,13 @@ func TestUnregisterSessionInactiveTopic(t *testing.T) {
 		init:   true,
 	}
 
-	// Deactivate Topic.
+	//停用主题。
 	helper.topic.markDeleted()
 
 	helper.topic.unregisterSession(leave)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -2569,9 +2569,9 @@ func TestUnregisterSessionInactiveTopic(t *testing.T) {
 	if online := helper.topic.perUser[uid].online; online != 1 {
 		t.Errorf("Number of online sessions after unregistering: expected 1, found %d", online)
 	}
-	// Session output.
+	//会话输出。
 	registerSessionVerifyOutputs(t, r, []int{http.StatusServiceUnavailable})
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub isn't expected to receive any messages, received %d", len(helper.hubMessages))
 	}
@@ -2588,7 +2588,7 @@ func TestUnregisterSessionUnsubscribe(t *testing.T) {
 	uid := helper.uids[2]
 	helper.ss.EXPECT().Delete(topicName, uid).Return(nil)
 
-	// Add a couple more Session.
+	//再添加几个会话。
 	for i := range 2 {
 		s, r := helper.newSession(fmt.Sprintf("sid-uid-%d-%d", uid, i), uid)
 		helper.sessions = append(helper.sessions, s)
@@ -2599,7 +2599,7 @@ func TestUnregisterSessionUnsubscribe(t *testing.T) {
 		helper.topic.perUser[uid] = pu
 	}
 
-	// Initial online and attach Session counts.
+	//初始在线并附加会话计数。
 	if len(helper.topic.sessions) != 5 {
 		helper.finish()
 		t.Fatalf("Initially attached sessions: expected 5 vs found %d", len(helper.topic.sessions))
@@ -2621,7 +2621,7 @@ func TestUnregisterSessionUnsubscribe(t *testing.T) {
 	helper.topic.unregisterSession(leave)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -2635,16 +2635,16 @@ func TestUnregisterSessionUnsubscribe(t *testing.T) {
 	if pu, ok := helper.topic.perUser[uid]; pu.online != 0 || ok {
 		t.Errorf("Number of online sessions after unsubscribing: expected 2, found %d; perUser entry found: %t", pu.online, ok)
 	}
-	// Session output. Session 2, 3, 4 are the evicted/unsubscribed uid.
+	//会话输出。 第2、3、4节是被驱逐/未订阅的uid。
 	for i := 2; i < 5; i++ {
 		r := helper.results[i]
 		registerSessionVerifyOutputs(t, r, []int{http.StatusResetContent})
 	}
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 2 {
 		t.Errorf("Hub messages recipients: expected 2, received %d", len(helper.hubMessages))
 	}
-	// Group presSubs.
+	//团体presSubs。
 	if grpPres, ok := helper.hubMessages[topicName]; ok {
 		if len(grpPres) != 2 {
 			t.Fatalf("Group presence messages: expected 2, got %d", len(grpPres))
@@ -2717,7 +2717,7 @@ func TestUnregisterSessionOwnerCannotUnsubscribe(t *testing.T) {
 	helper.topic.unregisterSession(leave)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -2731,9 +2731,9 @@ func TestUnregisterSessionOwnerCannotUnsubscribe(t *testing.T) {
 	if online := helper.topic.perUser[uid].online; online != 1 {
 		t.Errorf("Number of online sessions after failed unsubscribing: expected 1, found %d.", online)
 	}
-	// Session output.
+	//会话输出。
 	registerSessionVerifyOutputs(t, r, []int{http.StatusForbidden})
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub messages recipients: expected 0, received %d", len(helper.hubMessages))
 	}
@@ -2762,13 +2762,13 @@ func TestUnregisterSessionUnsubDeleteCallFails(t *testing.T) {
 		sess:   s,
 		init:   true,
 	}
-	// DB call fails.
+	//数据库调用失败。
 	helper.ss.EXPECT().Delete(topicName, uid).Return(types.ErrInternal)
 
 	helper.topic.unregisterSession(leave)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -2782,9 +2782,9 @@ func TestUnregisterSessionUnsubDeleteCallFails(t *testing.T) {
 	if online := helper.topic.perUser[uid].online; online != 1 {
 		t.Errorf("Number of online sessions after failed unsubscribing: expected 1, found %d.", online)
 	}
-	// Session output.
+	//会话输出。
 	registerSessionVerifyOutputs(t, r, []int{http.StatusInternalServerError})
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub messages recipients: expected 0, received %d", len(helper.hubMessages))
 	}
@@ -2800,7 +2800,7 @@ func TestHandleMetaChanErr(t *testing.T) {
 	helper.setUp(t, numUsers, types.TopicCatGrp, topicName, false)
 
 	// This is not a Channel. However, we will try to handle an info 消息 where
-	// the Topic is referenced as "chn".
+	//主题被称为“chn”。
 	helper.topic.isChan = false
 	// Empty 消息 since this 请求 should trigger an 错误 anyway.
 	meta := &ClientComMessage{
@@ -2812,14 +2812,14 @@ func TestHandleMetaChanErr(t *testing.T) {
 	helper.topic.handleMeta(meta)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
 
-	// Session output.
+	//会话输出。
 	registerSessionVerifyOutputs(t, helper.results[0], []int{http.StatusNotFound})
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub messages recipients: expected 0, received %d", len(helper.hubMessages))
 	}
@@ -2857,7 +2857,7 @@ func TestHandleMetaGet(t *testing.T) {
 	helper.topic.handleMeta(meta)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -2876,7 +2876,7 @@ func TestHandleMetaGet(t *testing.T) {
 			t.Error("Expected only meta or ctrl messages.")
 		}
 	}
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Errorf("Hub messages recipients: expected 0, received %d", len(helper.hubMessages))
 	}
@@ -2949,7 +2949,7 @@ func TestHandleMetaSetDescMePublicPrivate(t *testing.T) {
 	helper.topic.handleMeta(meta)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -2965,11 +2965,11 @@ func TestHandleMetaSetDescMePublicPrivate(t *testing.T) {
 	if msg.Ctrl.Code != 200 {
 		t.Errorf("Response code: expected 200, found %d", msg.Ctrl.Code)
 	}
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 1 {
 		t.Fatalf("Hub messages recipients: expected 1, received %d", len(helper.hubMessages))
 	}
-	// Make sure uid's Session are notified.
+	//确保通知 uid 的会话。
 	if userPres, ok := helper.hubMessages[uid.UserId()]; ok {
 		if len(userPres) != 1 {
 			t.Fatalf("User presence messages: expected 1, got %d", len(userPres))
@@ -3008,12 +3008,12 @@ func TestHandleSessionUpdateSessToForeground(t *testing.T) {
 	helper.topic.handleSessionUpdate(supd, &uaAgent, nil)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
 
-	// Expect online count bumped up to 2.
+	//预计在线计数增加到2个。
 	if online := helper.topic.perUser[uid].online; online != 2 {
 		t.Errorf("online count for %s: expected 2, found %d", uid.UserId(), online)
 	}
@@ -3036,12 +3036,12 @@ func TestHandleSessionUpdateUserAgent(t *testing.T) {
 	helper.topic.handleSessionUpdate(supd, &uaAgent, timer)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
 
-	// online count stays 1.
+	//在线计数保持1。
 	if online := helper.topic.perUser[uid].online; online != 1 {
 		t.Errorf("online count for %s: expected 1, found %d", uid.UserId(), online)
 	}
@@ -3065,7 +3065,7 @@ func TestHandleUATimerEvent(t *testing.T) {
 	helper.topic.handleUATimerEvent("newUA")
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -3073,11 +3073,11 @@ func TestHandleUATimerEvent(t *testing.T) {
 	if helper.topic.userAgent != "newUA" {
 		t.Errorf("Topic's user agent: expected 'newUA', found '%s'", helper.topic.userAgent)
 	}
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 1 {
 		t.Fatalf("Hub messages recipients: expected 1, received %d", len(helper.hubMessages))
 	}
-	// Make sure uid's Session are notified.
+	//确保通知 uid 的会话。
 	if userPres, ok := helper.hubMessages[uid.UserId()]; ok {
 		if len(userPres) != 1 {
 			t.Fatalf("User presence messages: expected 1, got %d", len(userPres))
@@ -3117,7 +3117,7 @@ func TestHandleTopicTimeout(t *testing.T) {
 	helper.topic.handleTopicTimeout(helper.hub, "newUA", uaTimer, notifTimer)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -3130,11 +3130,11 @@ func TestHandleTopicTimeout(t *testing.T) {
 	}
 	uaTimer.Stop()
 	notifTimer.Stop()
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 1 {
 		t.Fatalf("Hub messages recipients: expected 1, received %d", len(helper.hubMessages))
 	}
-	// Make sure uid's Session are notified.
+	//确保通知 uid 的会话。
 	if userPres, ok := helper.hubMessages[uid.UserId()]; ok {
 		if len(userPres) != 1 {
 			t.Fatalf("User presence messages: expected 1, got %d", len(userPres))
@@ -3173,7 +3173,7 @@ func TestHandleTopicTermination(t *testing.T) {
 	helper.topic.handleTopicTermination(exit)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -3191,7 +3191,7 @@ func TestHandleTopicTermination(t *testing.T) {
 			t.Errorf("Session %d is expected to detach from topic '%s', found '%s'.", i, topicName, val)
 		}
 	}
-	// Presence notifications.
+	//存在通知。
 	if len(helper.hubMessages) != 0 {
 		t.Fatalf("Hub messages recipients: expected 0, received %d", len(helper.hubMessages))
 	}
@@ -3224,7 +3224,7 @@ func TestHandleBroadcastDataWithAttachments(t *testing.T) {
 	helper.topic.handleClientMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -3260,7 +3260,7 @@ func TestHandleBroadcastInfoChannelWithMultipleReaders(t *testing.T) {
 	readId := 12
 	from := helper.uids[0]
 
-	// Set up multiple Channel readers
+	//设置多个频道阅读器
 	for i := 1; i < numUsers; i++ {
 		uid := helper.uids[i]
 		pud := helper.topic.perUser[uid]
@@ -3284,7 +3284,7 @@ func TestHandleBroadcastInfoChannelWithMultipleReaders(t *testing.T) {
 	helper.topic.handleClientMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -3296,7 +3296,7 @@ func TestHandleBroadcastInfoChannelWithMultipleReaders(t *testing.T) {
 		}
 	}
 
-	// Only sender gets presence notification
+	//只有发件人才会收到出席通知
 	if len(helper.hubMessages) != 1 {
 		t.Fatalf("Hub expected exactly 1 recipient, got %d", len(helper.hubMessages))
 	}
@@ -3330,7 +3330,7 @@ func TestRegisterSessionWithComplexModeString(t *testing.T) {
 			Topic: topicName,
 			Set: &MsgSetQuery{
 				Sub: &MsgSetSub{
-					Mode: "JRWPAS", // Complex mode string with multiple 权限
+					Mode: "JRWPAS", //具有多个权限的复杂模式字符串
 				},
 			},
 		},
@@ -3344,7 +3344,7 @@ func TestRegisterSessionWithComplexModeString(t *testing.T) {
 	helper.topic.registerSession(join)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -3392,7 +3392,7 @@ func TestHandleBroadcastDataGroupWithMutedUser(t *testing.T) {
 	helper.topic.handleClientMsg(msg)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
@@ -3424,7 +3424,7 @@ func TestUnregisterSessionWithPendingCall(t *testing.T) {
 	s := helper.sessions[0]
 	r := helper.results[0]
 
-	// Set up a pending call matching the actual videoCall structure
+	//设置与实际视频通话结构相匹配的待处理通话
 	helper.topic.currentCall = &videoCall{
 		seq:     123,
 		parties: make(map[string]callPartyData),
@@ -3449,12 +3449,12 @@ func TestUnregisterSessionWithPendingCall(t *testing.T) {
 	helper.topic.unregisterSession(leave)
 	helper.finish()
 
-	// Check for errors from testHubLoop
+	//检查testHubLoop是否有错误
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
 
-	// Verify Session was unregistered
+	//验证会话是否已取消注册
 	if len(helper.topic.sessions) != 1 {
 		t.Errorf("Attached sessions: expected 1, found %d", len(helper.topic.sessions))
 	}
@@ -3462,7 +3462,7 @@ func TestUnregisterSessionWithPendingCall(t *testing.T) {
 		t.Errorf("Session subscriptions: expected 0, found %d", len(s.subs))
 	}
 
-	// Verify call party was removed (if the implementation handles this)
+	//验证呼叫方是否已删除（如果实现处理此操作）
 	if helper.topic.currentCall != nil && helper.topic.currentCall.parties != nil {
 		if _, exists := helper.topic.currentCall.parties[s.sid]; exists {
 			t.Error("Call party should have been removed when session unregistered")
@@ -3473,7 +3473,7 @@ func TestUnregisterSessionWithPendingCall(t *testing.T) {
 		t.Fatalf("`responses` expected to contain 3 elements, found %d", len(r.messages))
 	}
 
-	// Expected one of each: {data}, {info}, {ctrl}.
+	//预计每个一个：{data}、{info}、{ctrl}。
 	var found = 0
 	for _, msg := range r.messages {
 		m := msg.(*ServerComMessage)
@@ -3511,7 +3511,7 @@ func TestUnregisterSessionWithPendingCall(t *testing.T) {
 // TestReplyDelMsgHardDelete 验证 Reply Del Msg Hard Delete 相关行为。
 func TestReplyDelMsgHardDelete(t *testing.T) {
 	// Test hard delete scenario - hard deletes affect all 用户 equally
-	// and don't update individual unread counters the same way as soft deletes
+	//不要以与软删除相同的方式更新单个未读计数器
 
 	topicName := "p2pTest"
 	helper := TopicTestHelper{}
@@ -3519,14 +3519,14 @@ func TestReplyDelMsgHardDelete(t *testing.T) {
 	defer helper.tearDown()
 
 	user1 := helper.uids[0] // 用户 with delete 权限
-	user2 := helper.uids[1] // Other 用户
+	user2 := helper.uids[1] //其他用户
 
 	// Set up initial state: user2 has read up to 消息 5, Topic has 消息 up to 10
 	helper.topic.lastID = 10
 
 	pud1 := helper.topic.perUser[user1]
 	pud1.readID = 10
-	pud1.modeGiven = types.ModeCFull // Full 权限 including delete
+	pud1.modeGiven = types.ModeCFull //包括删除在内的完整权限
 	pud1.modeWant = types.ModeCFull
 	helper.topic.perUser[user1] = pud1
 
@@ -3542,9 +3542,9 @@ func TestReplyDelMsgHardDelete(t *testing.T) {
 			Id:   "del123",
 			What: "msg",
 			DelSeq: []MsgRange{
-				{LowId: 7, HiId: 9}, // Deletes 消息 7 and 8 [7, 9)
+				{LowId: 7, HiId: 9}, //删除消息7和8 [7, 9)
 			},
-			Hard: true, // Hard delete
+			Hard: true, //硬删除
 		},
 		AsUser: user1.UserId(),
 		sess:   helper.sessions[0],
@@ -3554,10 +3554,10 @@ func TestReplyDelMsgHardDelete(t *testing.T) {
 	// Mock the 消息 deletion for hard delete (forUser = types.ZeroUid)
 	helper.mm.EXPECT().DeleteList(topicName, 1, types.ZeroUid, gomock.Any(), []types.Range{{Low: 7, Hi: 9}}).Return(nil)
 
-	// Call the function under test
+	//调用正在测试的函数
 	err := helper.topic.replyDelMsg(helper.sessions[0], user1, false, msg)
 
-	// Verify
+	//验证
 	if err != nil {
 		t.Fatalf("replyDelMsg failed: %v", err)
 	}
@@ -3577,7 +3577,7 @@ func TestReplyDelMsgHardDelete(t *testing.T) {
 
 // TestReplyDelMsgUpdatesUnreadCounters 验证 Reply Del Msg Updates Unread Counters 相关行为。
 func TestReplyDelMsgUpdatesUnreadCounters(t *testing.T) {
-	// This test simulates the scenario from issue #898:
+	//这个测试模拟了问题 898 中的情景：
 	// 1. User1 sends 消息 to User2
 	// 2. User1 deletes some 消息 (soft delete)
 	// 3. Verify that the unread calculation logic works correctly
@@ -3587,19 +3587,19 @@ func TestReplyDelMsgUpdatesUnreadCounters(t *testing.T) {
 	helper.setUp(t, 2, types.TopicCatP2P, topicName, true)
 	defer helper.tearDown()
 
-	user1 := helper.uids[0] // Sender/deleter
-	user2 := helper.uids[1] // Recipient
+	user1 := helper.uids[0] //发件人/删除人
+	user2 := helper.uids[1] //收件人
 
 	// Set up initial state: user2 has read up to 消息 5, Topic has 消息 up to 10
 	// So user2 has 5 unread 消息 (6, 7, 8, 9, 10)
 	helper.topic.lastID = 10
 
 	pud1 := helper.topic.perUser[user1]
-	pud1.readID = 10 // user1 has read all
+	pud1.readID = 10 //用户1已全部阅读
 	helper.topic.perUser[user1] = pud1
 
 	pud2 := helper.topic.perUser[user2]
-	pud2.readID = 5 // user2 has 5 unread 消息
+	pud2.readID = 5 //用户2有5个未读消息
 	helper.topic.perUser[user2] = pud2
 
 	// Simulate user1 deleting 消息 7 and 8 (2 of user2's unread 消息)
@@ -3608,9 +3608,9 @@ func TestReplyDelMsgUpdatesUnreadCounters(t *testing.T) {
 			Id:   "del123",
 			What: "msg",
 			DelSeq: []MsgRange{
-				{LowId: 7, HiId: 9}, // Deletes 消息 7 and 8 [7, 9)
+				{LowId: 7, HiId: 9}, //删除消息7和8 [7, 9)
 			},
-			Hard: false, // Soft delete
+			Hard: false, //软删除
 		},
 		AsUser: user1.UserId(),
 		sess:   helper.sessions[0],
@@ -3620,10 +3620,10 @@ func TestReplyDelMsgUpdatesUnreadCounters(t *testing.T) {
 	// Mock the 消息 deletion
 	helper.mm.EXPECT().DeleteList(topicName, 1, user1, time.Duration(0), []types.Range{{Low: 7, Hi: 9}}).Return(nil)
 
-	// Call the function under test
+	//调用正在测试的函数
 	err := helper.topic.replyDelMsg(helper.sessions[0], user1, false, msg)
 
-	// Verify
+	//验证
 	if err != nil {
 		t.Fatalf("replyDelMsg failed: %v", err)
 	}
@@ -3632,10 +3632,10 @@ func TestReplyDelMsgUpdatesUnreadCounters(t *testing.T) {
 	helper.finish()
 	registerSessionVerifyOutputs(t, helper.results[0], []int{http.StatusOK})
 
-	// The key verification is that calculateUnreadInRanges should have been called
-	// with the correct parameters. We can test this indirectly by testing the function:
+	//關鍵的驗證是，calculateUnreadInRanges本應被呼叫
+	//用正确的参数。 我们可以通过测试函数来间接测试这个：
 	ranges := []types.Range{{Low: 7, Hi: 9}}
-	unreadDeleted := calculateUnreadInRanges(5, 10, ranges) // user2's readID=5, lastID=10
+	unreadDeleted := calculateUnreadInRanges(5, 10, ranges) //用户2的readID=5，lastID=10
 	if unreadDeleted != 2 {
 		t.Errorf("Expected 2 unread messages to be deleted for user2, got %d", unreadDeleted)
 	}
@@ -3682,7 +3682,7 @@ func TestCalculateUnreadInRanges(t *testing.T) {
 			name:     "single message deleted",
 			readID:   5,
 			lastID:   10,
-			ranges:   []types.Range{{Low: 7, Hi: 0}}, // Hi: 0 means single 消息
+			ranges:   []types.Range{{Low: 7, Hi: 0}}, //嗨：0表示单消息
 			expected: 1,
 		},
 		{
@@ -3715,7 +3715,7 @@ func TestCalculateUnreadInRanges(t *testing.T) {
 // TestMain 验证 Main 相关行为。
 func TestMain(m *testing.M) {
 	logs.Init(os.Stderr, "stdFlags")
-	// Set max subscriber count to effective infinity.
+	//将最大订阅者数量设置为有效无限。
 	globals.maxSubscriberCount = 1_000_000_000
 	os.Exit(m.Run())
 }

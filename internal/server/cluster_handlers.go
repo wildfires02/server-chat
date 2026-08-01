@@ -132,7 +132,7 @@ func (c *Cluster) TopicMaster(msg *ClusterReq, rejected *bool) error {
 		}
 
 	case ProxyReqBgSession, ProxyReqMeUserAgent:
-		// sess could be nil
+		//Sess可能是nil
 		if t := globals.hub.topicGet(msg.RcptTo); t != nil {
 			if t.supd == nil {
 				logs.Err.Panicln("cluster: invalid topic category in session update", t.name, msg.ReqType)

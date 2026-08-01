@@ -43,7 +43,7 @@ import (
 type configType struct {
 	// If Reset=true test will recreate 数据库 every time it runs
 	Reset bool `json:"reset_db_data"`
-	// Configurations for individual adapters.
+	//单个适配器的配置。
 	Adapters map[string]json.RawMessage `json:"adapters"`
 }
 
@@ -87,7 +87,7 @@ func TestUserCreate(t *testing.T) {
 
 // TestCredUpsert 验证 Cred Upsert 相关行为。
 func TestCredUpsert(t *testing.T) {
-	// Test just inserts:
+	//测试只是插入：
 	for i := 0; i < 2; i++ {
 		inserted, err := adp.CredUpsert(testData.Creds[i])
 		if err != nil {
@@ -98,7 +98,7 @@ func TestCredUpsert(t *testing.T) {
 		}
 	}
 
-	// Test duplicate:
+	//测试重复：
 	_, err := adp.CredUpsert(testData.Creds[1])
 	if err != types.ErrDuplicate {
 		t.Error("Should return duplicate error but got", err)
@@ -108,7 +108,7 @@ func TestCredUpsert(t *testing.T) {
 		t.Error("Should return duplicate error but got", err)
 	}
 
-	// Test add new unvalidated credentials
+	//测试添加新的未经验证的凭据
 	inserted, err := adp.CredUpsert(testData.Creds[3])
 	if err != nil {
 		t.Fatal(err)
@@ -124,7 +124,7 @@ func TestCredUpsert(t *testing.T) {
 		t.Error("Should be updated, but inserted")
 	}
 
-	// Just insert other creds (used in other tests)
+	//只需插入其他可信（用于其他测试）
 	for _, cred := range testData.Creds[4:] {
 		_, err = adp.CredUpsert(cred)
 		if err != nil {
@@ -142,7 +142,7 @@ func TestAuthAddRecord(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	//Test duplicate
+	//测试重复
 	err := adp.AuthAddRecord(types.ParseUserId("usr"+testData.Users[0].Id), testData.Recs[0].Scheme,
 		testData.Recs[0].Unique, testData.Recs[0].AuthLvl, testData.Recs[0].Secret, testData.Recs[0].Expires)
 	if err != types.ErrDuplicate {
@@ -231,7 +231,7 @@ func TestFileStartUpload(t *testing.T) {
 
 // ================== Read tests ==================================
 func TestUserGet(t *testing.T) {
-	// Test not found
+	//未找到测试
 	got, err := adp.UserGet(types.ParseUserId("dummyuserid"))
 	if err == nil && got != nil {
 		t.Error("user should be nil.")
@@ -248,7 +248,7 @@ func TestUserGet(t *testing.T) {
 
 // TestUserGetAll 验证 User Get All 相关行为。
 func TestUserGetAll(t *testing.T) {
-	// Test not found
+	//未找到测试
 	got, err := adp.UserGetAll(types.ParseUserId("dummyuserid"), types.ParseUserId("otherdummyid"))
 	if err != nil {
 		t.Fatal(err)
@@ -273,7 +273,7 @@ func TestUserGetAll(t *testing.T) {
 
 // TestUserGetByCred 验证 User Get By Cred 相关行为。
 func TestUserGetByCred(t *testing.T) {
-	// Test not found
+	//未找到测试
 	got, err := adp.UserGetByCred("foo", "bar")
 	if err != nil {
 		t.Fatal(err)
@@ -298,7 +298,7 @@ func TestCredGetActive(t *testing.T) {
 		t.Error(mismatchErrorString("Credential", got, testData.Creds[3]))
 	}
 
-	// Test not found
+	//未找到测试
 	got, err = adp.CredGetActive(types.ParseUserId("dummyusrid"), "")
 	if err != nil {
 		t.Error(err)
@@ -351,7 +351,7 @@ func TestAuthGetUniqueRecord(t *testing.T) {
 		t.Error(mismatchErrorString("Auth record", got, want))
 	}
 
-	// Test not found
+	//未找到测试
 	uid, _, _, _, err = adp.AuthGetUniqueRecord("qwert:asdfg")
 	if err == nil && !uid.IsZero() {
 		t.Error("Auth record found but shouldn't. Uid:", uid.String())
@@ -375,7 +375,7 @@ func TestAuthGetRecord(t *testing.T) {
 		t.Error(mismatchErrorString("Auth record", got, want))
 	}
 
-	// Test not found
+	//未找到测试
 	recId, _, _, _, err = adp.AuthGetRecord(types.ParseUserId("dummyuserid"), "scheme")
 	if err != types.ErrNotFound {
 		t.Error("Auth record found but shouldn't. recId:", recId)
@@ -391,7 +391,7 @@ func TestTopicGet(t *testing.T) {
 	if !reflect.DeepEqual(got, testData.Topics[0]) {
 		t.Error(mismatchErrorString("Topic", got, testData.Topics[0]))
 	}
-	// Test not found
+	//未找到测试
 	got, err = adp.TopicGet("asdfasdfasdf")
 	if err != nil {
 		t.Fatal(err)
@@ -434,8 +434,8 @@ func TestTopicsForUser(t *testing.T) {
 		t.Error(mismatchErrorString("Subs length (IMS)", len(gotSubs), 1))
 	}
 
-	// time.Now() is correct (as opposite to testData.Now)
-	// Topic is modified using time.Now().
+	//time.Now（）是正确的（与testData.Now相反）
+	//使用time.Now()修改主題。
 	ims = time.Now().Add(15 * time.Minute)
 	gotSubs, err = adp.TopicsForUser(types.ParseUserId("usr"+testData.Users[0].Id), false, &qOpts)
 	if err != nil {
@@ -501,7 +501,7 @@ func TestSubscriptionGet(t *testing.T) {
 	if !cmp.Equal(got, testData.Subs[0], opts) {
 		t.Error(mismatchErrorString("Subs", got, testData.Subs[0]))
 	}
-	// Test not found
+	//未找到测试
 	got, err = adp.SubscriptionGet("dummytopic", types.ParseUserId("dummyuserid"), false)
 	if err != nil {
 		t.Error(err)
@@ -521,7 +521,7 @@ func TestSubsForUser(t *testing.T) {
 		t.Error(mismatchErrorString("Subs length", len(gotSubs), 1))
 	}
 
-	// Test not found
+	//未找到测试
 	gotSubs, err = adp.SubsForUser(types.ParseUserId("usr12345678"))
 	if err != nil {
 		t.Error(err)
@@ -544,7 +544,7 @@ func TestSubsForTopic(t *testing.T) {
 	if len(gotSubs) != 1 {
 		t.Error(mismatchErrorString("Subs length", len(gotSubs), 1))
 	}
-	// Test not found
+	//未找到测试
 	gotSubs, err = adp.SubsForTopic("dummytopicid", false, nil)
 	if err != nil {
 		t.Error(err)
@@ -593,9 +593,9 @@ func TestMessageGetAll(t *testing.T) {
 
 // TestFileGet 验证 File Get 相关行为。
 func TestFileGet(t *testing.T) {
-	// General test done during TestFileFinishUpload().
+	//在TestFileFinishUpload（）期间完成的一般测试。
 
-	// Test not found
+	//未找到测试
 	got, err := adp.FileGet("dummyfileid")
 	if err != nil {
 		if got != nil {
@@ -695,7 +695,7 @@ func TestCredConfirm(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Test fields are updated
+	//測試欄位已更新
 	var got types.Credential
 	err = db.Collection("credentials").FindOne(ctx, b.M{
 		"user":   testData.Creds[3].User,
@@ -707,7 +707,7 @@ func TestCredConfirm(t *testing.T) {
 	if got.UpdatedAt.Equal(got.CreatedAt) {
 		t.Error("Credential not updated correctly")
 	}
-	// and uncomfirmed credential deleted
+	//以及未经确认的凭证被删除
 	err = db.Collection("credentials").FindOne(ctx, b.M{"_id": testData.Creds[3].User + ":" + got.Method + ":" + got.Value}).Decode(&got)
 	if err != mdb.ErrNoDocuments {
 		t.Error("Uncomfirmed credential not deleted")
@@ -732,14 +732,14 @@ func TestAuthUpdRecord(t *testing.T) {
 		t.Error(mismatchErrorString("Secret", got.Secret, rec.Secret))
 	}
 
-	// Test with auth ID (unique) change
+	//使用身份验证ID（唯一）更改进行测试
 	newId := "basic:bob12345"
 	err = adp.AuthUpdRecord(types.ParseUserId("usr"+rec.UserId), rec.Scheme, newId,
 		rec.AuthLvl, newSecret, rec.Expires)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Test if old ID deleted
+	//测试旧ID是否已删除
 	err = db.Collection("auth").FindOne(ctx, b.M{"_id": rec.Unique}).Decode(&got)
 	if err == nil || err != mdb.ErrNoDocuments {
 		t.Errorf("Unique not changed. Got error: %v; ID: %v", err, got.Unique)
@@ -856,7 +856,7 @@ func TestDeviceUpsert(t *testing.T) {
 	if !reflect.DeepEqual(got.DeviceArray[0], testData.Devs[0]) {
 		t.Error(mismatchErrorString("Device", got.DeviceArray[0], testData.Devs[0]))
 	}
-	// Test update
+	//测试更新
 	testData.Devs[0].Platform = "Web"
 	err = adp.DeviceUpsert(types.ParseUserId("usr"+testData.Users[0].Id), testData.Devs[0])
 	if err != nil {
@@ -984,7 +984,7 @@ func TestPCacheUpsert(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Test duplicate with failOnDuplicate = true
+	//使用failOnDuplicate = true测试重复
 	err = adp.PCacheUpsert("test_key2", "test_value2", true)
 	if err != nil {
 		t.Fatal(err)
@@ -1006,7 +1006,7 @@ func TestPCacheGet(t *testing.T) {
 		t.Error(mismatchErrorString("Cache value", value, "test_value"))
 	}
 
-	// Test not found
+	//未找到测试
 	_, err = adp.PCacheGet("nonexistent")
 	if err != types.ErrNotFound {
 		t.Error("Expected not found error")
@@ -1020,7 +1020,7 @@ func TestPCacheDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Verify deleted
+	//验证已删除
 	_, err = adp.PCacheGet("test_key")
 	if err != types.ErrNotFound {
 		t.Error("Key should be deleted")
@@ -1029,11 +1029,11 @@ func TestPCacheDelete(t *testing.T) {
 
 // TestPCacheExpire 验证 P Cache Expire 相关行为。
 func TestPCacheExpire(t *testing.T) {
-	// Insert some test keys with prefix
+	//插入一些带有前缀的测试键
 	adp.PCacheUpsert("prefix_key1", "value1", false)
 	adp.PCacheUpsert("prefix_key2", "value2", false)
 
-	// Expire keys older than now (should delete all test keys)
+	//过期的密钥比现在更早（应该删除所有测试密钥）
 	err := adp.PCacheExpire("prefix_", time.Now().Add(1*time.Minute))
 	if err != nil {
 		t.Fatal(err)
@@ -1076,7 +1076,7 @@ func TestCredDel(t *testing.T) {
 
 // TestAuthDelScheme 验证 Auth Del Scheme 相关行为。
 func TestAuthDelScheme(t *testing.T) {
-	// tested during TestAuthUpdRecord
+	//在TestAuthUpdRecord期间进行测试
 }
 
 // TestAuthDelAllRecords 验证 Auth Del All Records 相关行为。
@@ -1098,7 +1098,7 @@ func TestAuthDelAllRecords(t *testing.T) {
 
 // TestSubsDelForUser 验证 Subs Del For User 相关行为。
 func TestSubsDelForUser(t *testing.T) {
-	// Tested during TestUserDelete (both hard and soft deletions)
+	//在TestUserDelete期间进行测试（硬删除和软删除）
 }
 
 // TestMessageDeleteList 验证 Message Delete List 相关行为。
@@ -1222,8 +1222,8 @@ func TestTopicDelete(t *testing.T) {
 
 // TestFileDeleteUnused 验证 File Delete Unused 相关行为。
 func TestFileDeleteUnused(t *testing.T) {
-	// time.Now() is correct (as opposite to testData.Now):
-	// the FileFinishUpload uses time.Now() as a timestamp.
+	//time.Now（）是正確的（與testData.Now相反）：
+	//FileFinishUpload使用time.Now()作为时间戳。
 	locs, err := adp.FileDeleteUnused(time.Now().Add(1*time.Minute), 999, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -1279,7 +1279,7 @@ func TestUserUnreadCount(t *testing.T) {
 		}
 	}
 
-	// Test not found (even if the account is not found, the call must return one record).
+	//未找到测试（即使找不到帐户，通话也必须返回一条记录）。
 	uid := types.ParseUserId("dummyuserid")
 	counts, err = adp.UserUnreadCount(uid)
 	if err != nil {

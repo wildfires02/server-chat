@@ -229,8 +229,8 @@ func populateAssetFileMetadata(rawURL string, mimeType *string, size *int64, sha
 	return nil
 }
 
-// PopulateMediaAssetMetadata uses trusted upload records for local files. External
-// CDN assets must provide their digest and metadata in the root mutation.
+// 填充媒体资产元数据将受信任的上传记录用于本地文件。 外在的
+//CDN资产必须在根突变中提供其摘要和元数据。
 func PopulateMediaAssetMetadata(asset *types.MediaAsset) error {
 	if asset == nil {
 		return types.ErrMalformed

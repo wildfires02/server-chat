@@ -114,7 +114,7 @@ func (t *Topic) replyGetDesc(sess *Session, asUid types.Uid, _ bool, opts *MsgGe
 			}
 
 			// 确保汇报的值合理：
-			// t.delID <= pud.delID; t.readID <= t.recvID <= t.lastID
+			//t.delID <= pud.delID；t.readID <= t.recvID <= t.lastID
 			desc.DelId = max(pud.delID, t.delID)
 			desc.ReadSeqId = pud.readID
 			desc.RecvSeqId = max(pud.recvID, pud.readID)
@@ -313,7 +313,7 @@ func (t *Topic) replySetDesc(sess *Session, asUid types.Uid, asChan bool,
 	}
 
 	if sendCommon || sendPriv {
-		// t.public/t.trusted, t.accessAuth/Anon have changed, announce
+		//t.public/t.trusted，t.accessAuth/Anon已更改，宣布
 		if sendCommon {
 			if t.cat == types.TopicCatMe {
 				t.presUsersOfInterest("upd", "")

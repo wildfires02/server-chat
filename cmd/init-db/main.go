@@ -60,7 +60,7 @@ func (t tTrusted) IsZero() bool {
 	return !t.Verified && !t.Staff
 }
 
-// DefAccess is default access mode.
+//DefAccess是默认访问模式。
 type DefAccess struct {
 	// Auth 保存认证。
 	Auth string `json:"auth"`
@@ -205,7 +205,7 @@ type P2PSub struct {
 	CreatedAt string `json:"createdAt"`
 	// Users 指示是否启用或满足Users。
 	Users []P2PUser `json:"users"`
-	// Cached value 'user1:user2' as a surrogare Topic name
+	//缓存值“user1:user2”作为代理主题名称
 	pair string
 }
 
@@ -227,12 +227,12 @@ type Data struct {
 	datapath string
 }
 
-// Generate random string as a name of the group Topic
+// 生成随机字符串作为组主题的名称
 func genTopicName() string {
 	return "grp" + store.Store.GetUidString()
 }
 
-// Generates password of length n
+// 生成长度为n的密码
 func getPassword(n int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-/.+?=&"
 

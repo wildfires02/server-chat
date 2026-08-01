@@ -471,7 +471,7 @@ func serveStatus(wrt http.ResponseWriter, req *http.Request) {
 		Topics:    make([]debugTopic, 0, 10),
 		UserCache: make([]debugCachedUser, 0, 10),
 	}
-	// Session.
+	//会议。
 	globals.sessionStore.Range(func(sid string, s *Session) bool {
 		keys := make([]string, 0, len(s.subs))
 		for tn := range s.subs {
@@ -492,7 +492,7 @@ func serveStatus(wrt http.ResponseWriter, req *http.Request) {
 		})
 		return true
 	})
-	// Topic.
+	//主题。
 	globals.hub.topics.Range(func(_, t any) bool {
 		topic := t.(*Topic)
 		psd := make([]string, 0, len(topic.sessions))

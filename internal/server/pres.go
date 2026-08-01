@@ -706,11 +706,11 @@ func (t *Topic) presPubMessageDelete(uid types.Uid, mode types.AccessMode, delID
 
 	params := &presParams{delID: delID, delSeq: list}
 
-	// Case V.2
+	//案例V.2
 	user := uid.UserId()
 	t.presSubsOnline("del", user, params, &presFilters{singleUser: user}, skip)
 
-	// Case V.1
+	//案例V.1
 	t.presSingleUserOffline(uid, mode, "del", params, skip, true)
 }
 

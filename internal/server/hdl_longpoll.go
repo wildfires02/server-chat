@@ -157,11 +157,11 @@ func serveLongPoll(wrt http.ResponseWriter, req *http.Request) {
 
 	// 确保响应不被缓存
 	if req.ProtoAtLeast(1, 1) {
-		wrt.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate") // HTTP 1.1
+		wrt.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate") //HTTP 1.1
 	} else {
-		wrt.Header().Set("Pragma", "no-cache") // HTTP 1.0
+		wrt.Header().Set("Pragma", "no-cache") //HTTP 1.0
 	}
-	wrt.Header().Set("Expires", "0") // Proxies
+	wrt.Header().Set("Expires", "0") //代理
 
 	// 根据不同的 HTTP 请求方法做出对应分发处理
 	switch req.Method {

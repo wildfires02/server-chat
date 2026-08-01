@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"chat/api/pbx"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -178,7 +179,7 @@ func (b *Bot) sendMsg(msg *pbx.ClientMsg) error {
 	return b.stream.Send(msg)
 }
 
-// Plugin Server Interface Implementation
+// 插件服务器接口实现
 func (b *Bot) Account(ctx context.Context, req *pbx.AccountEvent) (*pbx.Unused, error) {
 	action := "unknown"
 	switch req.Action {
@@ -471,7 +472,7 @@ func main() {
 		log.Fatalf("Failed to start plugin server: %v", err)
 	}
 
-	// Dial gRPC connection
+	//拨号gRPC连接
 	var opts []grpc.DialOption
 	if *ssl {
 		tlsConfig := &tls.Config{}
@@ -491,7 +492,7 @@ func main() {
 
 	client := pbx.NewNodeClient(conn)
 
-	// Interrupt handling
+	//中断处理
 	ctx, cancel := context.WithCancel(context.Background())
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -511,7 +512,7 @@ func main() {
 
 		bot.stream = stream
 
-		// Auth setup
+		//授权设置
 		var scheme string
 		var secret []byte
 		if *loginToken != "" {
@@ -533,7 +534,7 @@ func main() {
 		bot.hello()
 		bot.login(scheme, secret)
 
-		// Recv loop
+		//Recv循环
 		for {
 			inMsg, err := stream.Recv()
 			if err != nil {

@@ -49,7 +49,7 @@ func main() {
 		fmt.Printf("Web host: %s\n", *webHost)
 	}
 
-	// Determine if stdout is an interactive terminal
+	//确定stdout是否是交互式终端
 	fi, _ := os.Stdin.Stat()
 	isInteractive := (fi.Mode() & os.ModeCharDevice) != 0
 
@@ -101,7 +101,7 @@ func main() {
 		}
 	}
 
-	// Prepare gRPC connection dial options
+	//准备gRPC连接拨号选项
 	var dialOpts []grpc.DialOption
 	if *useSSL {
 		tlsConfig := &tls.Config{

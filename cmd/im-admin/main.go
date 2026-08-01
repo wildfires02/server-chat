@@ -1,4 +1,4 @@
-// Package main provides the independently started IM management API.
+// 软件包主提供独立启动的IM管理API。
 package main
 
 import "chat/internal/server"

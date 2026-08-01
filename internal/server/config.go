@@ -56,9 +56,9 @@ type mediaProcessingConfig struct {
 	LibreOffice  string `json:"libreoffice"`
 }
 
-// adminAPIConfig controls the standalone Svelte management API. The bootstrap
-// token is temporary: Groupbuying identity and Casbin policy synchronization
-// will replace it in the final integration phase.
+//adminAPIConfig控制独立的Svelte管理API。 引导
+// 令牌是临时的：团购身份和Casbin政策同步
+// 将在最终集成阶段替换它。
 type adminAPIConfig struct {
 	Enabled        bool     `json:"enabled"`
 	WorkerID       int      `json:"worker_id"`
@@ -66,8 +66,8 @@ type adminAPIConfig struct {
 	AllowedOrigins []string `json:"allowed_origins"`
 }
 
-// translationConsumerConfig controls how im-server consumes settings written
-// by the independently started im-admin process.
+//translationConsumerConfig控制im-server使用编写的设置方式
+// 通过独立启动的im-admin进程。
 type translationConsumerConfig struct {
 	Enabled         bool `json:"enabled"`
 	RefreshInterval int  `json:"refresh_interval"`
@@ -75,7 +75,7 @@ type translationConsumerConfig struct {
 
 // 配置文件内容
 type configType struct {
-	// LogFlags controls console log formatting. It is loaded from YAML by Viper.
+	//日志标志控制控制台日志格式。 它由Viper从YAML加载的。
 	LogFlags string `json:"log_flags"`
 	// Runtime 保存显式运行环境和单机/集群部署模式。
 	Runtime runtimeConfig `json:"runtime"`
@@ -167,8 +167,8 @@ type configType struct {
 	Media *mediaConfig `json:"media"`
 	// WebRTC 保存WebRTC。
 	WebRTC json.RawMessage `json:"webrtc"`
-	// Admin is consumed only by the standalone im-admin entrypoint.
+	//管理员仅由独立的im-admin入口点消耗。
 	Admin *adminAPIConfig `json:"admin,omitempty"`
-	// Translation enables the chat-side consumer of im-admin translation settings.
+	//翻译启用了im-admin翻译设置的聊天端消费者。
 	Translation *translationConsumerConfig `json:"translation,omitempty"`
 }

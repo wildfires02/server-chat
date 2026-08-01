@@ -76,7 +76,7 @@ func (c *Client) NextID() int64 {
 
 // Run 启动并运行Run处理流程。
 func (c *Client) Run(ctx context.Context, initialLoginMsg *pbx.ClientMsg) error {
-	// Send Hi message
+	//发送嗨信息
 	hiMsg := &pbx.ClientMsg{
 		Message: &pbx.ClientMsg_Hi{
 			Hi: &pbx.ClientHi{
@@ -96,7 +96,7 @@ func (c *Client) Run(ctx context.Context, initialLoginMsg *pbx.ClientMsg) error 
 		return fmt.Errorf("failed to send Hi: %w", err)
 	}
 
-	// Send initial login message if provided
+	//如果提供，请发送初始登录消息
 	if initialLoginMsg != nil {
 		if c.Verbose {
 			fmt.Printf("=> Login: %s\n", PrettyJSON(initialLoginMsg))
@@ -106,13 +106,13 @@ func (c *Client) Run(ctx context.Context, initialLoginMsg *pbx.ClientMsg) error 
 		}
 	}
 
-	// Start receive loop
+	//开始接收循环
 	errChan := make(chan error, 1)
 	go func() {
 		errChan <- c.receiveLoop()
 	}()
 
-	// Read input commands from stdin
+	//从stdin读取输入命令
 	scanner := bufio.NewScanner(os.Stdin)
 
 	if c.Interactive {

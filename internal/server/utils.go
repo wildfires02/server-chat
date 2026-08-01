@@ -828,10 +828,10 @@ func isRoutableIP(ipStr string) bool {
 
 	privateIPBlocksOnce.Do(func() {
 		for _, cidr := range []string{
-			"10.0.0.0/8",     // RFC1918
-			"172.16.0.0/12",  // RFC1918
-			"192.168.0.0/16", // RFC1918
-			"fc00::/7",       // RFC4193, IPv6 unique local addr
+			"10.0.0.0/8",     //RFC1918
+			"172.16.0.0/12",  //RFC1918
+			"192.168.0.0/16", //RFC1918
+			"fc00::/7",       //RFC4193，IPv6唯一本地地址
 		} {
 			_, block, _ := net.ParseCIDR(cidr)
 			privateIPBlocks = append(privateIPBlocks, block)

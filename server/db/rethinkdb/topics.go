@@ -72,7 +72,7 @@ func (a *adapter) TopicGet(topic string) (*t.Topic, error) {
 	var tt = new(t.Topic)
 	if err = cursor.One(tt); err != nil {
 		if err == rdb.ErrEmptyResult {
-			err = nil // Topic 未找到时无错误。
+			err = nil //主题未找到时无错误。
 		}
 		return nil, err
 	}

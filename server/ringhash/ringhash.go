@@ -1,5 +1,5 @@
 // Package ringhash 实现一致性环哈希：
-// https://en.wikipedia.org/wiki/Consistent_hashing
+//https://en.wikipedia.org/wiki/Consistent_hashing
 package ringhash
 
 import (

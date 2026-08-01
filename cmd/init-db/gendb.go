@@ -29,7 +29,7 @@ func genDb(data *Data, p2pDel bool) {
 		return
 	}
 
-	// Add authentication record
+	//添加认证记录
 	authHandler := store.Store.GetAuthHandler("basic")
 	authHandler.Init([]byte(`{"add_to_tags": true}`), "basic")
 
@@ -98,11 +98,11 @@ func genDb(data *Data, p2pDel bool) {
 				log.Fatal("Unknown authLevel", uu.AuthLevel)
 			}
 		}
-		// Add authentication record
+		//添加认证记录
 		authHandler := store.Store.GetAuthHandler("basic")
 		passwd := uu.Password
 		if passwd == "(random)" {
-			// Generate random password
+			//生成随机密码
 			passwd = getPassword(8)
 			botAccount = uu.Username
 		}
@@ -112,7 +112,7 @@ func genDb(data *Data, p2pDel bool) {
 		}
 		nameIndex[uu.Username] = user.Id
 
-		// Add address book as fnd.private
+		//将地址簿添加为fnd.private
 		if len(uu.AddressBook) > 0 {
 			if err := store.Subs.Update(user.Uid().FndName(), user.Uid(),
 				map[string]any{"Private": strings.Join(uu.AddressBook, ",")}); err != nil {
@@ -188,7 +188,7 @@ func genDb(data *Data, p2pDel bool) {
 		topic := uid1.P2PName(uid2)
 		created := getCreatedTime(ss.CreatedAt)
 
-		// Assign default access mode
+		//分配預設訪問模式
 		defaultMode := types.ModeCP2P
 		if p2pDel {
 			defaultMode = types.ModeCP2PD
@@ -198,7 +198,7 @@ func genDb(data *Data, p2pDel bool) {
 		s1want := defaultMode
 		s1given := defaultMode
 
-		// Check of non-default access mode was provided
+		//提供了非默认访问模式的检查
 		if ss.Users[0].Want != "" {
 			if err := s0want.UnmarshalText([]byte(ss.Users[0].Want)); err != nil {
 				log.Fatal(err)
@@ -295,7 +295,7 @@ func genDb(data *Data, p2pDel bool) {
 				data.Messages[i], data.Messages[j] = data.Messages[j], data.Messages[i]
 			})
 
-			// Starting 4 days ago.
+			//从4天前开始。
 			timestamp := now.Add(time.Hour * time.Duration(-24*4))
 			toInsert := 96 // 96 is the maximum, otherwise 消息 may appear in the future
 			// Initial maximum increment of the 消息 sent time in milliseconds
@@ -343,10 +343,10 @@ func genDb(data *Data, p2pDel bool) {
 				}
 
 				// New increment: remaining time until 'now' divided by the number of 消息 to be inserted,
-				// then converted to milliseconds.
+				//然后转换为毫秒。
 				increment = int(now.Sub(timestamp).Nanoseconds() / int64(toInsert-i) / 1000000)
 
-				// log.Printf("Msg.seq=%d at %v, Topic='%s' from='%s'", msg.SeqId, msg.CreatedAt, Topic, from.UserId())
+				//log.Printf("Msg.seq=%d at %v, Topic='%s' from='%s'", msg.SeqId, msg.CreatedAt, Topic, from.UserId())
 			}
 		} else {
 			// Only one 消息 is provided. Just insert it into every Topic.
@@ -414,7 +414,7 @@ func genDb(data *Data, p2pDel bool) {
 	log.Println("Sample data processing completed.")
 }
 
-// Go json cannot unmarshal Duration from a string, thus this hack.
+//Go json无法从字符串中取消Duration，因此这个黑客攻击。
 func getCreatedTime(delta string) time.Time {
 	dd, err := time.ParseDuration(delta)
 	if err != nil && delta != "" {

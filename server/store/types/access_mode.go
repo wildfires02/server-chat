@@ -107,7 +107,7 @@ Loop:
 			if m0 != ModeUnset {
 				return ModeUnset, errors.New("AccessMode: access N cannot be combined with any other")
 			}
-			m0 = ModeNone // N 表示显式无访问权限，所有位清除
+			m0 = ModeNone //N表示表示式无访问权限，所有位清除
 			break Loop
 		default:
 			return ModeUnset, errors.New("AccessMode: invalid character '" + string(b[i]) + "'")

@@ -10,7 +10,7 @@ import (
 
 // thisUserSub 完成this用户订阅所需的内部处理。
 func (t *Topic) thisUserSub(sess *Session, pkt *ClientComMessage, asUid types.Uid, asChan bool, want string,
-	private any) (*MsgAccessMode, error) {
+	private any, invite string) (*MsgAccessMode, error) {
 
 	now := types.TimeNow()
 	asLvl := auth.Level(pkt.AuthLvl)
@@ -28,6 +28,44 @@ func (t *Topic) thisUserSub(sess *Session, pkt *ClientComMessage, asUid types.Ui
 
 	var err error
 	userData, existingSub := t.perUser[asUid]
+	hasInvite := invite != "" && t.cat == types.TopicCatGrp
+	if hasInvite && !validateTopicInvite(invite, t.name, now) {
+		sess.queueOut(ErrPermissionDeniedReply(pkt, now))
+		return nil, errors.New("group invitation token is invalid, expired, or belongs to another topic")
+	}
+
+	// 旧客户端的“移除成员”操作错误地写入了封禁 ACL，而不是删除订阅。
+	// 有效邀请必须能恢复这类记录，否则被踢出的成员无法通过邀请重新加入。
+	if existingSub && !userData.deleted && hasInvite && !userData.modeGiven.IsJoiner() {
+		oldWant, oldGiven := userData.modeWant, userData.modeGiven
+		memberAccess := types.ModeJoin | types.ModeRead | types.ModeWrite | types.ModePres
+		userData.modeWant = memberAccess
+		userData.modeGiven = memberAccess
+		if err := store.Subs.Update(t.name, asUid, map[string]any{
+			"ModeWant":  userData.modeWant,
+			"ModeGiven": userData.modeGiven,
+		}); err != nil {
+			sess.queueOut(ErrUnknownReply(pkt, now))
+			return nil, err
+		}
+		t.perUser[asUid] = userData
+		if !(oldWant & oldGiven).IsReader() {
+			usersUpdateUnread(asUid, t.lastID-userData.readID, true)
+		}
+		t.notifySubChange(asUid, asUid, false,
+			oldWant, oldGiven, userData.modeWant, userData.modeGiven, sess.sid)
+		pluginSubscription(&types.Subscription{
+			User: asUid.String(), Topic: t.name,
+			ModeWant: userData.modeWant, ModeGiven: userData.modeGiven,
+		}, plgActUpd)
+		return &MsgAccessMode{
+			Want:  userData.modeWant.String(),
+			Given: userData.modeGiven.String(),
+			Mode:  (userData.modeGiven & userData.modeWant).String(),
+			Role:  topicRoleFromAccess(userData.modeGiven&userData.modeWant, t.isChan, userData.isChan),
+		}, nil
+	}
+
 	if !existingSub || userData.deleted {
 		if t.cat == types.TopicCatGrp && !asChan && !t.isOfficialLargeGroup() &&
 			t.subsCount() >= globals.maxSubscriberCount {
@@ -104,6 +142,14 @@ func (t *Topic) thisUserSub(sess *Session, pkt *ClientComMessage, asUid types.Ui
 				userData.modeWant = t.accessFor(asLvl)
 			} else {
 				userData.modeWant = modeWant
+			}
+
+			if hasInvite {
+				// 有效邀请代表管理员明确授予成员权限；它不依赖私有群的默认
+				//加入权限，也不会授予管理员或群主权限。
+				memberAccess := types.ModeJoin | types.ModeRead | types.ModeWrite | types.ModePres
+				userData.modeWant = memberAccess
+				userData.modeGiven = memberAccess
 			}
 		}
 

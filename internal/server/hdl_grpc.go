@@ -98,7 +98,7 @@ func (sess *Session) sendMessageGrpc(msg any) bool {
 // writeGrpcLoop 保存gRPCLoop。
 func (sess *Session) writeGrpcLoop() {
 	defer func() {
-		sess.closeGrpc() // exit MessageLoop
+		sess.closeGrpc() //退出MessageLoop
 	}()
 
 	for {

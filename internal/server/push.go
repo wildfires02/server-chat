@@ -54,14 +54,14 @@ func (t *Topic) pushForData(fromUid types.Uid, data *MsgServerData, msgMarkedAsR
 	}
 
 	if t.isChan {
-		// Channel readers should get a push on a Channel name (as an FCM Topic push).
+		//频道读者应该推送频道名称（作为FCM主题推送）。
 		receipt.Channel = types.GrpToChn(t.name)
 	}
 
 	for uid, pud := range t.perUser {
 		online := pud.online
 		if uid == fromUid && online == 0 {
-			// Make sure the sender's devices receive a silent push.
+			//确保发件人的设备收到无声推送。
 			online = 1
 		}
 
@@ -85,9 +85,9 @@ func (t *Topic) pushForData(fromUid types.Uid, data *MsgServerData, msgMarkedAsR
 	return nil
 }
 
-// sendPushForData prevents untranslated P2P text from leaking into a
-// recipient's notification. Sender and recipient receipts are split because
-// their payloads may differ while unread accounting must still happen once.
+//sendPushForData防止未翻译的P2P文本泄露到
+//收件人的通知。 发件人和收件人的收据是分开的，因为
+//他们的有效载荷可能有所不同，但未读会计仍然必须发生一次。
 func (t *Topic) sendPushForData(fromUid types.Uid, data *MsgServerData,
 	msgMarkedAsReadBySender bool) {
 	receipt := t.pushForData(fromUid, data, msgMarkedAsReadBySender)

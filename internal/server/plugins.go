@@ -1,4 +1,4 @@
-// External services contacted through RPC
+// 通过RPC联系的外部服务
 package server
 
 import (
@@ -510,7 +510,7 @@ func pluginFind(user types.Uid, query string) (string, []types.Subscription, err
 			return "", nil, err
 		}
 		respStatus := resp.GetStatus()
-		// CONTINUE means default processing
+		//继续表示默认处理
 		if respStatus == pbx.RespCode_CONTINUE {
 			continue
 		}

@@ -37,7 +37,7 @@ func (a *adapter) CredUpsert(cred *t.Credential) (bool, error) {
 			// 已有人验证了此凭据。
 			return false, t.ErrDuplicate
 		}
-		if err != nil && err != mdb.ErrNoDocuments { // if no result -> continue
+		if err != nil && err != mdb.ErrNoDocuments { //如果没有结果->继续
 			return false, err
 		}
 

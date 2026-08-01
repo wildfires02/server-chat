@@ -14,8 +14,8 @@ var (
 	languagePattern   = regexp.MustCompile(`^(?:\*|[A-Za-z]{2,8}(?:[-_][A-Za-z0-9]{1,8})*)$`)
 )
 
-// Settings is the translation configuration consumed by the chat runtime.
-// It contains secret references only, never credential values.
+// 设置是聊天运行时消耗的翻译配置。
+// 它只包含秘密引用，从不包含凭据值。
 type Settings struct {
 	Enabled          bool               `json:"enabled"`
 	StaffLanguage    string             `json:"staff_language"`
@@ -28,7 +28,7 @@ type Settings struct {
 	Routes           []RouteSettings    `json:"routes"`
 }
 
-// ProviderSettings is the serializable configuration of one backend.
+//提供商设置是一个后端的可序列化配置。
 type ProviderSettings struct {
 	ID                    string `json:"id"`
 	Type                  string `json:"type"`
@@ -45,14 +45,14 @@ type ProviderSettings struct {
 	GlossaryID            string `json:"glossary_id,omitempty"`
 }
 
-// RouteSettings defines ordered fail-over providers for a language pair.
+//RouteSettings为语言定义有序故障转移提供程序。
 type RouteSettings struct {
 	Source    string   `json:"source"`
 	Target    string   `json:"target"`
 	Providers []string `json:"providers"`
 }
 
-// NormalizeSettings fills safe defaults and canonicalizes provider metadata.
+//NormalizeSettings填充安全默认值并规范化提供商元数据。
 func NormalizeSettings(settings *Settings) {
 	if settings.FailurePolicy == "" {
 		settings.FailurePolicy = "hold"
@@ -88,7 +88,7 @@ func NormalizeSettings(settings *Settings) {
 	}
 }
 
-// ValidateSettings validates the complete chat-runtime configuration.
+//ValidateSettings验证完整的聊天运行时配置。
 func ValidateSettings(settings Settings) error {
 	if settings.FailurePolicy != "hold" && settings.FailurePolicy != "original" ||
 		settings.DefaultTimeoutMS < 100 || settings.DefaultTimeoutMS > 30000 ||
@@ -163,7 +163,7 @@ func ValidateSettings(settings Settings) error {
 	return nil
 }
 
-// RouterConfig converts serialized settings into runtime values.
+//RouterConfig将序列化的设置转换为运行时值。
 func (settings Settings) RouterConfig() Config {
 	config := Config{MaxAttempts: settings.MaxAttempts}
 	for _, provider := range settings.Providers {

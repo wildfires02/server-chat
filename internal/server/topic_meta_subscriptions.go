@@ -329,7 +329,7 @@ func (t *Topic) replyGetSub(sess *Session, asUid types.Uid, authLevel auth.Level
 			}
 
 			if t.cat != types.TopicCatFnd {
-				// p2p and grp
+				//P2p和grp
 				if !sub.IsDummy() && (sharer || uid == asUid || subMode.IsAdmin()) {
 					// 如果用户不是 sharer，则无法访问其它普通用户的访问模式。
 					// 仅自己和 admin 权限对非 sharer 可见。
@@ -339,7 +339,7 @@ func (t *Topic) replyGetSub(sess *Session, asUid types.Uid, authLevel auth.Level
 					mts.Acs.Role = topicRoleFromAccess(subMode, t.isChan, types.IsChannel(sub.Topic))
 				}
 			} else {
-				// Topic 'fnd'
+				//主题“fnd”
 				// sub.ModeXXX 可能由插件定义。
 				if sub.ModeGiven.IsDefined() && sub.ModeWant.IsDefined() {
 					mts.Acs.Mode = subMode.String()
@@ -420,7 +420,7 @@ func (t *Topic) replySetSub(sess *Session, pkt *ClientComMessage, asChan bool) e
 			return errors.New("set.sub role requires an explicit target user")
 		}
 		// 请求新订阅或修改自己的订阅
-		modeChanged, err = t.thisUserSub(sess, pkt, asUid, asChan, set.Sub.Mode, nil)
+		modeChanged, err = t.thisUserSub(sess, pkt, asUid, asChan, set.Sub.Mode, nil, "")
 	} else if set.Sub.Role != "" {
 		// 使用安全角色预设批准、禁言、封禁或调整成员。
 		modeChanged, err = t.setAnotherUserRole(sess, asUid, target, asChan, pkt)

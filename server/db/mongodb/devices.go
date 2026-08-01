@@ -20,7 +20,7 @@ func (a *adapter) DeviceUpsert(uid t.Uid, dev *t.DeviceDef) error {
 		"_id":              userId,
 		"devices.deviceid": dev.DeviceId}).Decode(&user)
 
-	if err == nil && user.Id != "" { // current 用户 owns this device
+	if err == nil && user.Id != "" { //当前用户拥有此设备
 		// 使用 ArrayFilter 避免添加重复设备对象，而是更新该设备数据
 		updOpts := mdbopts.UpdateOne().SetArrayFilters(
 			[]any{b.M{"dev.deviceid": dev.DeviceId}},
@@ -33,7 +33,7 @@ func (a *adapter) DeviceUpsert(uid t.Uid, dev *t.DeviceDef) error {
 				"devices.$[dev].lang":     dev.Lang}},
 			updOpts)
 		return err
-	} else if err == mdb.ErrNoDocuments { // device is free or owned by other 用户
+	} else if err == mdb.ErrNoDocuments { //设备是免费的或由其他用户拥有的
 		err = a.deviceInsert(userId, dev)
 
 		if isDuplicateErr(err) {

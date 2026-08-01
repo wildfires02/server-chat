@@ -407,9 +407,9 @@ func (h *Hub) topicsStateForUser(uid types.Uid, suspended bool) {
 	})
 }
 
-// topicUnreg deletes or unregisters the Topic:
+//topicUnreg删除或取消注册主题：
 //
-// Cases:
+//案例：
 // 1. Topic being deleted
 // 1.1 Topic is online
 // 1.1.1 If the requester is the owner or if it's the last sub in a p2p Topic (p2p may be sent internally when the last 用户 unsubscribes):

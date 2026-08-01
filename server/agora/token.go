@@ -1,7 +1,7 @@
 // Package agora 实现 Agora AccessToken2 的服务端子集，用于鉴权 RTC 频道参与者。
 //
 // 二进制格式遵循 Agora 官方开源 Token 生成器：
-// https://github.com/AgoraIO/Tools/tree/master/DynamicKey/AgoraDynamicKey/go/src
+// 网址：https://github.com/AgoraIO/Tools/tree/master/DynamicKey/AgoraDynamicKey/go/src
 package agora
 
 import (

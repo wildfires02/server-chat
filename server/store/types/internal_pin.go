@@ -2,7 +2,7 @@ package types
 
 import "time"
 
-// InternalPinKind identifies one of the three employee-only pin levels.
+//InternalPinKind标识了三个仅限员工的针脚级别之一。
 type InternalPinKind string
 
 const (
@@ -11,7 +11,7 @@ const (
 	InternalPinMessage      InternalPinKind = "message"
 )
 
-// InternalPinState is persisted so deletions can be synchronized to other devices.
+//InternalPinState是持久的，因此可以删除同步到其他设备。
 type InternalPinState string
 
 const (
@@ -19,7 +19,7 @@ const (
 	InternalPinDeleted InternalPinState = "deleted"
 )
 
-// InternalPinMutationOp selects the mutation applied to a private workspace.
+//InternalPinMutationOp选择应用于私有工作区的突变。
 type InternalPinMutationOp string
 
 const (
@@ -27,8 +27,8 @@ const (
 	InternalPinDelete InternalPinMutationOp = "delete"
 )
 
-// InternalPin is a private, per-employee reference. It never contains customer-visible
-// topic metadata or message content.
+//InternalPin是一个私人的、每个员工的参考。 它从未包含客户可见的
+// 主题元数据或消息内容。
 type InternalPin struct {
 	TargetKey   string           `json:"target_key"`
 	Kind        InternalPinKind  `json:"kind"`
@@ -45,7 +45,7 @@ type InternalPin struct {
 	RequestID   string           `json:"request_id,omitempty"`
 }
 
-// InternalPinMutation is an optimistic-concurrency write to an employee workspace.
+//InternalPinMutation是面向员工工作区写入的乐观并发写入。
 type InternalPinMutation struct {
 	Op              InternalPinMutationOp
 	Kind            InternalPinKind
@@ -58,14 +58,14 @@ type InternalPinMutation struct {
 	RequestID       string
 }
 
-// InternalPinQuery asks for all changes after Since. Since=0 returns a full snapshot.
+//InternalPinQuery要求在Since之后进行所有更改。 自=0返回完整的快照。
 type InternalPinQuery struct {
 	Since uint64
 	Limit int
 }
 
-// InternalPinSnapshot is suitable for durable multi-device synchronization. When
-// Reset is true, the client must replace its local workspace with Pins.
+//InternalPinSnapshot适用于持久的多设备同步。 什么时候
+// 重置为真，客户端必须用Pins替换其本地工作区。
 type InternalPinSnapshot struct {
 	Version   uint64        `json:"version"`
 	NextSince uint64        `json:"next_since"`

@@ -191,14 +191,14 @@ func handleAuth(w http.ResponseWriter, r *http.Request) {
 	resp := make(map[string]interface{})
 
 	if user.UID != "" {
-		// Existing user
+		//现有用户
 		resp["rec"] = map[string]interface{}{
 			"uid":      user.UID,
 			"authlvl":  user.AuthLvl,
 			"features": user.Features,
 		}
 	} else {
-		// First login: tell IM to create a new account
+		//首次登录：告诉IM创建一个新帐户
 		resp["rec"] = map[string]interface{}{
 			"authlvl":  user.AuthLvl,
 			"tags":     user.Tags,

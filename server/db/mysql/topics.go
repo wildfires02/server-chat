@@ -205,7 +205,7 @@ func (a *adapter) TopicsForUser(uid t.Uid, keepDeleted bool, opts *t.QueryOpt) (
 
 	// Fetch 订阅. Two queries are needed: 用户 table (p2p) and Topic table (grp).
 	// Prepare a list of separate 订阅 to 用户 vs Topic
-	join := make(map[string]t.Subscription) // Keeping these to make a join with table for .private and .access
+	join := make(map[string]t.Subscription) //保留这些，以便与.private和.access的表格连接
 	topq := make([]any, 0, 16)
 	usrq := make([]any, 0, 16)
 	for rows.Next() {

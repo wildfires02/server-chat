@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// IsMacro checks if the first token is a known macro name.
+// IsMacro检查第一个令牌是否是已知的宏名称。
 func IsMacro(name string) bool {
 	switch name {
 	case "usermod", "useradd", "userdel", "passwd", "chacs", "chcred", "resolve", "thecard":
@@ -17,7 +17,7 @@ func IsMacro(name string) bool {
 	}
 }
 
-// ExpandMacro expands macro commands into basic tn-cli commands.
+// ExpandMacro将宏命令扩展到基本的tn-cli命令中。
 func ExpandMacro(tokens []string) ([]string, error) {
 	if len(tokens) == 0 {
 		return nil, nil
