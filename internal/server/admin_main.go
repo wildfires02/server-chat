@@ -17,8 +17,8 @@ import (
 	"chat/server/store"
 )
 
-//RunAdmin启动管理控制平面，作为一个独立于
-//服务器。
+// RunAdmin启动管理控制平面，作为一个独立于
+// 服务器。
 func RunAdmin() {
 	if err := rejectServiceArguments(os.Args); err != nil {
 		logs.Err.Fatal(err)
@@ -56,6 +56,7 @@ func RunAdmin() {
 		logs.Info.Println("im-admin database connection closed")
 	}()
 	globals.apiKeySalt = config.APIKeySalt
+	initServerAuthAndTags(&config)
 
 	apiPath := normalizeHTTPPath(config.ApiPath, defaultApiPath)
 	mux := http.NewServeMux()
