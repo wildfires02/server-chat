@@ -170,6 +170,8 @@ func (handler *adminHTTPHandler) ServeHTTP(wrt http.ResponseWriter, req *http.Re
 		handler.evaluate(wrt, req, requestID)
 	case resource == "settings" && req.Method == http.MethodPut:
 		handler.updateSettings(wrt, req, requestID)
+	case resource == "identities/session" && req.Method == http.MethodPost:
+		handler.createIdentitySession(wrt, req, requestID)
 	case strings.HasPrefix(resource, "translation/providers/") &&
 		strings.HasSuffix(resource, "/test") && req.Method == http.MethodPost:
 		handler.testTranslationProvider(wrt, req, resource, requestID)

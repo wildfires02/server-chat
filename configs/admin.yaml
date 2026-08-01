@@ -11,6 +11,15 @@ api_path: /
 # 必须与聊天服务使用相同的 API Key 盐值，供内部工作区接口验证请求。
 api_key_salt: T713/rYYgW7g4m3vG6zGRh7+FM1t0T8j13koXScOAj4=
 
+# Token 密钥和序列号必须与 im-server 一致。身份接口会为每次请求签发
+# 有效期更短的令牌，默认有效期为 15 分钟。
+auth_config:
+  logical_names: []
+  token:
+    expire_in: 900
+    serial_num: 1
+    key: wfaY2RgF2S1OQI/ZlK+LSrp1KB2jwAdGAIHQ7JZn+Kc=
+
 admin:
   enabled: true
   # Snowflake worker ID 不得与任何 im-server 节点重复。
