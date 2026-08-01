@@ -108,6 +108,7 @@ func (sess *Session) writeGrpcLoop() {
 				// Channel 已关闭
 				return
 			}
+			sess.releaseOutbound(msg)
 			switch v := msg.(type) {
 			case []*ServerComMessage: // 批量未序列化的消息
 				for _, msg := range v {

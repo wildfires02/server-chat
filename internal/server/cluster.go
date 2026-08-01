@@ -16,11 +16,12 @@ import (
 
 const (
 	// clusterProtocolVersion 是节点间控制面和数据面协议的当前版本。
-	// 版本 2 固化 256 虚拟节点的生产 Ring 映射。
-	clusterProtocolVersion = 2
+	// 版本 3 使用强类型 Protobuf Lane 负载和多请求流水线；版本 2 的
+	// Lane payload 使用 Gob，线格式不兼容，不能混合集群运行。
+	clusterProtocolVersion = 3
 	// clusterMinProtocolVersion 是滚动升级期间仍可协商的最早协议版本。
-	// 版本 1 使用不同 Ring，不能与版本 2 混合持有 Topic Owner。
-	clusterMinProtocolVersion = 2
+	// 当前数据面没有 v2/v3 双栈解码，因此升级时必须先停止旧节点。
+	clusterMinProtocolVersion = 3
 	// 网络连接超时时间。
 	clusterNetworkTimeout = 3 * time.Second
 	// 重连集群节点的默认等待时间。

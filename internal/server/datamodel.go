@@ -13,8 +13,10 @@ import (
 	"encoding/json"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"chat/api/pbx"
 	"chat/server/store/types"
 )
 
@@ -61,6 +63,13 @@ type MsgGetQuery struct {
 	Assets *types.AssetQuery `json:"assets,omitempty"`
 	// "readers" 查询指定群消息的已读参与者。
 	Readers *MsgGetReaders `json:"readers,omitempty"`
+	// "previews" 批量查询当前用户可见会话的最后一条消息，仅允许在 me Topic 使用。
+	Previews *MsgPreviewQuery `json:"previews,omitempty"`
+}
+
+// MsgPreviewQuery 定义会话列表预览的聚合查询。
+type MsgPreviewQuery struct {
+	Topics []string `json:"topics"`
 }
 
 // MsgGetReaders 定义逐消息已读参与者查询参数。
@@ -102,7 +111,7 @@ type MsgSetSub struct {
 	Role string `json:"role,omitempty"`
 }
 
-//MsgSetInvite 请求生成可分享且由服务端签名的群组邀请链接。
+// MsgSetInvite 请求生成可分享且由服务端签名的群组邀请链接。
 // 令牌通过控制响应返回，不会写入 Topic 描述。
 type MsgSetInvite struct {
 	//ExpiresIn以秒为单位的期限有效期；服务端将限制在安全范围内，
@@ -110,7 +119,7 @@ type MsgSetInvite struct {
 	ExpiresIn int64 `json:"expires_in,omitempty"`
 }
 
-//MsgSetDesc 在 set.what == "desc" 时用于更新属性的结构体。
+// MsgSetDesc 在 set.what == "desc" 时用于更新属性的结构体。
 type MsgSetDesc struct {
 	// 默认访问权限模式。
 	DefaultAcs *MsgDefaultAcsMode `json:"defacs,omitempty"`
@@ -184,6 +193,14 @@ type MsgClientHi struct {
 	Background bool `json:"bkg,omitempty"`
 }
 
+// MsgResumeTopic 描述快速恢复订阅的消息和删除游标。
+type MsgResumeTopic struct {
+	Topic  string `json:"topic"`
+	SeqId  int    `json:"seq,omitempty"`
+	DelId  int    `json:"del,omitempty"`
+	Active bool   `json:"active,omitempty"`
+}
+
 // MsgClientAcc 表示用于创建或更新用户账号的 {acc} 消息。
 type MsgClientAcc struct {
 	// 消息 ID
@@ -222,6 +239,13 @@ type MsgClientLogin struct {
 	Secret []byte `json:"secret"`
 	// 待验证凭证列表
 	Cred []MsgCredClient `json:"cred,omitempty"`
+}
+
+// MsgClientResume 表示一次合并的认证、重订阅和消息追赶请求。
+type MsgClientResume struct {
+	Id     string           `json:"id,omitempty"`
+	Token  []byte           `json:"token"`
+	Topics []MsgResumeTopic `json:"topics,omitempty"`
 }
 
 // MsgClientSub 表示订阅请求 {sub} 消息。
@@ -272,6 +296,8 @@ const (
 	constMsgMetaAssets
 	// constMsgMetaReaders 指定逐消息已读参与者。
 	constMsgMetaReaders
+	// constMsgMetaPreviews 指定会话列表最新消息聚合查询。
+	constMsgMetaPreviews
 	//constMsgMetaInvite 指定簽發群組邀請連結。
 	constMsgMetaInvite
 )
@@ -319,6 +345,8 @@ func parseMsgClientMeta(params string) int {
 			bits |= constMsgMetaAssets
 		case "readers":
 			bits |= constMsgMetaReaders
+		case "previews":
+			bits |= constMsgMetaPreviews
 		default:
 			// 忽略未知项
 		}
@@ -486,6 +514,8 @@ type ClientComMessage struct {
 	Acc *MsgClientAcc `json:"acc"`
 	// Login 保存登录。
 	Login *MsgClientLogin `json:"login"`
+	// Resume 保存快速会话恢复请求。
+	Resume *MsgClientResume `json:"resume"`
 	// Sub 保存订阅。
 	Sub *MsgClientSub `json:"sub"`
 	// Leave 保存Leave。
@@ -805,7 +835,7 @@ type MsgReaction struct {
 	Count int `json:"count"`
 }
 
-//MsgTranslation描述了自动的每个收件人视图
+// MsgTranslation描述了自动的每个收件人视图
 // 翻译的消息。
 type MsgTranslation struct {
 	//状态为原始、待定、已完成、失败。
@@ -999,6 +1029,8 @@ type MsgServerMeta struct {
 	Assets *types.AssetCatalog `json:"assets,omitempty"`
 	// Readers 保存指定群消息的已读参与者。
 	Readers *MsgReadParticipants `json:"readers,omitempty"`
+	// Previews 保存会话列表中每个 Topic 的最后一条可见消息。
+	Previews []*MsgServerData `json:"previews,omitempty"`
 }
 
 // MsgReadParticipant 表示一位已经读到指定消息的群成员。
@@ -1150,6 +1182,12 @@ type ServerComMessage struct {
 	SkipSid string `json:"-"`
 	// 受此消息影响的目标用户 ID (uid)
 	uid types.Uid
+
+	// Immutable wire caches are populated after all recipient-specific projection is done.
+	jsonOnce  sync.Once
+	jsonWire  []byte
+	protoOnce sync.Once
+	protoWire *pbx.ServerMsg
 }
 
 // 深/浅拷贝 ServerComMessage。深拷贝服务字段，浅拷贝 Session 和载荷。

@@ -2,6 +2,7 @@
 package media
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -45,6 +46,40 @@ type Handler interface {
 
 	// GetIdFromUrl 从下载 URL 中解析并提取文件 UID。
 	GetIdFromUrl(url string) types.Uid
+}
+
+// MultipartPart 是完成对象存储 Multipart Upload 所需的已上传分块标识。
+type MultipartPart struct {
+	PartNumber int    `json:"part_number"`
+	ETag       string `json:"etag"`
+}
+
+// PresignedPart 描述浏览器可直接 PUT 的对象存储分块地址。
+type PresignedPart struct {
+	PartNumber int               `json:"part_number"`
+	URL        string            `json:"url"`
+	Headers    map[string]string `json:"headers,omitempty"`
+}
+
+// MultipartHandler 是支持浏览器直传对象存储的可选媒体处理器能力。
+type MultipartHandler interface {
+	CreateMultipartUpload(context.Context, *types.FileDef) (string, error)
+	PresignMultipartPart(context.Context, *types.FileDef, string, int) (*PresignedPart, error)
+	CompleteMultipartUpload(context.Context, *types.FileDef, string, []MultipartPart) (string, int64, error)
+	AbortMultipartUpload(context.Context, *types.FileDef, string) error
+}
+
+// StreamingMultipartHandler lets the application server stream a tus chunk directly
+// into one object-storage multipart part without persisting and re-reading it.
+type StreamingMultipartHandler interface {
+	MultipartHandler
+	UploadMultipartPart(context.Context, *types.FileDef, string, int, int64, io.Reader, int64) (MultipartPart, error)
+}
+
+// DirectUploadCapability controls whether presigned browser uploads are exposed.
+// Server-side streaming multipart may remain available when this is false.
+type DirectUploadCapability interface {
+	DirectUploadEnabled() bool
 }
 
 // AllowedOrigin 存储解析后的允许跨域源地址配置结构。

@@ -3,7 +3,9 @@ package server
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -219,6 +221,12 @@ func (runtime *fileProcessingRuntime) process(job fileProcessingJob, attempt int
 	if err != nil {
 		return err
 	}
+	if digest, digestErr := fileSHA256(source); digestErr != nil {
+		return digestErr
+	} else {
+		state.SHA256 = digest
+		_ = store.SetFileProcessingState(job.File.Id, *state)
+	}
 	if runtime.config.ClamAVAddr != "" {
 		state.ScanStatus = "scanning"
 		_ = store.SetFileProcessingState(job.File.Id, *state)
@@ -249,6 +257,19 @@ func (runtime *fileProcessingRuntime) process(job fileProcessingJob, attempt int
 	state.ProcessStatus = "ready"
 	state.Error = ""
 	return store.SetFileProcessingState(job.File.Id, *state)
+}
+
+func fileSHA256(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	hasher := sha256.New()
+	if _, err = io.Copy(hasher, file); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 func (runtime *fileProcessingRuntime) downloadToTemp(job fileProcessingJob, workDir string) (string, error) {

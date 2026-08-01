@@ -132,6 +132,12 @@ func newHub() *Hub {
 
 	statsRegisterInt("IncomingMessagesWebsockTotal")
 	statsRegisterInt("OutgoingMessagesWebsockTotal")
+	statsRegisterInt("IncomingWebsockBatchFramesTotal")
+	statsRegisterInt("IncomingWebsockBatchedMessagesTotal")
+	statsRegisterInt("OutgoingWebsockBatchFramesTotal")
+	statsRegisterInt("OutgoingWebsockBatchedMessagesTotal")
+	statsRegisterInt("SessionResumeSucceeded")
+	statsRegisterInt("SessionResumeFailed")
 
 	statsRegisterInt("IncomingMessagesLongpollTotal")
 	statsRegisterInt("OutgoingMessagesLongpollTotal")

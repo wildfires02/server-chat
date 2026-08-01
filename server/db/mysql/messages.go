@@ -386,6 +386,46 @@ func (a *adapter) MessageGetAll(topic string, forUser t.Uid, opts *t.QueryOpt) (
 	return msgs, err
 }
 
+// MessageGetLatest returns the latest message visible to forUser for each topic in one query.
+func (a *adapter) MessageGetLatest(topics []string, forUser t.Uid) ([]t.Message, error) {
+	if len(topics) == 0 {
+		return nil, nil
+	}
+	query, args, err := sqlx.In(
+		"SELECT createdat,updatedat,deletedat,delid,seqid,topic,`from`,clientid,head,content FROM ("+
+			"SELECT m.createdat,m.updatedat,m.deletedat,m.delid,m.seqid,m.topic,m.`from`,COALESCE(m.clientid,'') AS clientid,m.head,m.content,"+
+			"ROW_NUMBER() OVER (PARTITION BY m.topic ORDER BY m.seqid DESC) AS rownum "+
+			"FROM messages AS m LEFT JOIN dellog AS d "+
+			"ON d.topic=m.topic AND m.seqid BETWEEN d.low AND d.hi-1 AND d.deletedfor=? "+
+			"WHERE m.delid=0 AND m.topic IN (?) AND d.deletedfor IS NULL"+
+			") AS ranked WHERE rownum=1",
+		store.DecodeUid(forUser), topics)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := a.getContext()
+	if cancel != nil {
+		defer cancel()
+	}
+	rows, err := a.db.QueryxContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	msgs := make([]t.Message, 0, len(topics))
+	for rows.Next() {
+		var msg t.Message
+		if err = rows.StructScan(&msg); err != nil {
+			return nil, err
+		}
+		msg.From = common.EncodeUidString(msg.From).String()
+		msg.Content = common.FromJSON(msg.Content)
+		msgs = append(msgs, msg)
+	}
+	return msgs, rows.Err()
+}
+
 // MessageSearch 在单个 Topic 内执行正文子串搜索并应用用户软删除过滤。
 func (a *adapter) MessageSearch(topic string, forUser t.Uid, search *t.MessageSearchQuery) ([]t.Message, error) {
 	if search == nil || search.Query == "" {

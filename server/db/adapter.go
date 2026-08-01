@@ -179,6 +179,8 @@ type Adapter interface {
 	MessageDeleteScheduled(id, topic string, from t.Uid) error
 	// MessageGetAll 返回匹配查询的消息。
 	MessageGetAll(topic string, forUser t.Uid, opts *t.QueryOpt) ([]t.Message, error)
+	// MessageGetLatest 批量返回每个 Topic 对当前用户可见的最后一条消息。
+	MessageGetLatest(topics []string, forUser t.Uid) ([]t.Message, error)
 	// MessageDeleteList 将消息标记为已删除。
 	// 软删除或硬删除由 forUser 值决定：forUser.IsZero == true 为硬删除。
 	MessageDeleteList(topic string, toDel *t.DelMessage) error

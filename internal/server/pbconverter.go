@@ -20,11 +20,12 @@ func pbServCtrlSerializeBasic(ctrl *MsgServerCtrl) *pbx.ServerCtrl {
 	}
 
 	return &pbx.ServerCtrl{
-		Id:     ctrl.Id,
-		Topic:  ctrl.Topic,
-		Code:   int32(ctrl.Code),
-		Text:   ctrl.Text,
-		Params: params,
+		Id:        ctrl.Id,
+		Topic:     ctrl.Topic,
+		Code:      int32(ctrl.Code),
+		Text:      ctrl.Text,
+		Params:    params,
+		Timestamp: timeToInt64(&ctrl.Timestamp),
 	}
 }
 
@@ -83,6 +84,19 @@ func pbServDataSerialize(data *MsgServerData) *pbx.ServerMsg_Data {
 			Translation: translation,
 		},
 	}
+}
+
+func pbServDataSliceSerialize(items []*MsgServerData) []*pbx.ServerData {
+	if len(items) == 0 {
+		return nil
+	}
+	out := make([]*pbx.ServerData, 0, len(items))
+	for _, item := range items {
+		if item != nil {
+			out = append(out, pbServDataSerialize(item).Data)
+		}
+	}
+	return out
 }
 
 // pbServPresSerialize 完成pbServPresSerialize所需的内部处理。
@@ -161,19 +175,21 @@ func pbServInfoSerialize(info *MsgServerInfo) *pbx.ServerMsg_Info {
 func pbServMetaSerialize(meta *MsgServerMeta) *pbx.ServerMsg_Meta {
 	return &pbx.ServerMsg_Meta{
 		Meta: &pbx.ServerMeta{
-			Id:       meta.Id,
-			Topic:    meta.Topic,
-			Desc:     pbTopicDescSerialize(meta.Desc),
-			Sub:      pbTopicSubSliceSerialize(meta.Sub),
-			Next:     meta.Next,
-			Del:      pbDelValuesSerialize(meta.Del),
-			Tags:     meta.Tags,
-			Cred:     pbServerCredsSerialize(meta.Cred),
-			Aux:      interfaceMapToByteMap(meta.Aux),
-			Search:   pbSearchResultSerialize(meta.Search),
-			Contacts: pbContactSnapshotSerialize(meta.Contacts),
-			Assets:   pbAssetCatalogSerialize(meta.Assets),
-			Readers:  pbReadParticipantsSerialize(meta.Readers),
+			Id:        meta.Id,
+			Topic:     meta.Topic,
+			Desc:      pbTopicDescSerialize(meta.Desc),
+			Sub:       pbTopicSubSliceSerialize(meta.Sub),
+			Next:      meta.Next,
+			Del:       pbDelValuesSerialize(meta.Del),
+			Tags:      meta.Tags,
+			Cred:      pbServerCredsSerialize(meta.Cred),
+			Aux:       interfaceMapToByteMap(meta.Aux),
+			Search:    pbSearchResultSerialize(meta.Search),
+			Contacts:  pbContactSnapshotSerialize(meta.Contacts),
+			Assets:    pbAssetCatalogSerialize(meta.Assets),
+			Readers:   pbReadParticipantsSerialize(meta.Readers),
+			Previews:  pbServDataSliceSerialize(meta.Previews),
+			Timestamp: timeToInt64(meta.Timestamp),
 		},
 	}
 }
@@ -281,59 +297,15 @@ func pbServDeserialize(pkt *pbx.ServerMsg) *ServerComMessage {
 			Code:   int(ctrl.GetCode()),
 			Text:   ctrl.GetText(),
 			Params: byteMapToInterfaceMap(ctrl.GetParams()),
+			Timestamp: func() time.Time {
+				if timestamp := int64ToTime(ctrl.GetTimestamp()); timestamp != nil {
+					return *timestamp
+				}
+				return time.Time{}
+			}(),
 		}
 	} else if data := pkt.GetData(); data != nil {
-		tsptr := int64ToTime(data.GetTimestamp())
-		if tsptr == nil {
-			tsptr = &time.Time{}
-		}
-		var forwarded *MsgForwardedMessage
-		if fwd := data.GetForwarded(); fwd != nil {
-			fwdTs := int64ToTime(fwd.GetTimestamp())
-			if fwdTs == nil {
-				fwdTs = &time.Time{}
-			}
-			forwarded = &MsgForwardedMessage{
-				Topic:     fwd.GetTopic(),
-				SeqId:     int(fwd.GetSeqId()),
-				From:      fwd.GetFromUserId(),
-				Timestamp: *fwdTs,
-			}
-		}
-		reactions := make([]MsgReaction, 0, len(data.GetReactions()))
-		for _, reaction := range data.GetReactions() {
-			reactions = append(reactions, MsgReaction{
-				Reaction: reaction.GetReaction(),
-				Count:    int(reaction.GetCount()),
-			})
-		}
-		var translation *MsgTranslation
-		if translated := data.GetTranslation(); translated != nil {
-			translation = &MsgTranslation{
-				Status:         translated.GetStatus(),
-				SourceLanguage: translated.GetSourceLanguage(),
-				TargetLanguage: translated.GetTargetLanguage(),
-				Provider:       translated.GetProvider(),
-				Original:       bytesToInterface(translated.GetOriginal()),
-			}
-		}
-		msg.Data = &MsgServerData{
-			Topic:       data.GetTopic(),
-			From:        data.GetFromUserId(),
-			Timestamp:   *tsptr,
-			EditedAt:    int64ToTime(data.GetEditedAt()),
-			DeletedAt:   int64ToTime(data.GetDeletedAt()),
-			SeqId:       int(data.GetSeqId()),
-			Head:        byteMapToInterfaceMap(data.GetHead()),
-			Content:     bytesToInterface(data.GetContent()),
-			ClientId:    data.GetClientId(),
-			Kind:        data.GetKind(),
-			ReplyTo:     int(data.GetReplyTo()),
-			Forwarded:   forwarded,
-			GroupId:     data.GetGroupId(),
-			Reactions:   reactions,
-			Translation: translation,
-		}
+		msg.Data = pbServDataDeserialize(data)
 	} else if pres := pkt.GetPres(); pres != nil {
 		var what string
 		switch pres.GetWhat() {
@@ -395,21 +367,86 @@ func pbServDeserialize(pkt *pbx.ServerMsg) *ServerComMessage {
 			Remove:   info.GetRemove(),
 		}
 	} else if meta := pkt.GetMeta(); meta != nil {
+		previews := make([]*MsgServerData, 0, len(meta.GetPreviews()))
+		for _, preview := range meta.GetPreviews() {
+			if preview != nil {
+				previews = append(previews, pbServDataDeserialize(preview))
+			}
+		}
 		msg.Meta = &MsgServerMeta{
-			Id:       meta.GetId(),
-			Topic:    meta.GetTopic(),
-			Desc:     pbTopicDescDeserialize(meta.GetDesc()),
-			Sub:      pbTopicSubSliceDeserialize(meta.GetSub()),
-			Next:     meta.GetNext(),
-			Del:      pbDelValuesDeserialize(meta.GetDel()),
-			Tags:     meta.GetTags(),
-			Cred:     pbServerCredsDeserialize(meta.GetCred()),
-			Aux:      byteMapToInterfaceMap(meta.GetAux()),
-			Search:   pbSearchResultDeserialize(meta.GetSearch()),
-			Contacts: pbContactSnapshotDeserialize(meta.GetContacts()),
-			Assets:   pbAssetCatalogDeserialize(meta.GetAssets()),
-			Readers:  pbReadParticipantsDeserialize(meta.GetReaders()),
+			Id:        meta.GetId(),
+			Topic:     meta.GetTopic(),
+			Desc:      pbTopicDescDeserialize(meta.GetDesc()),
+			Sub:       pbTopicSubSliceDeserialize(meta.GetSub()),
+			Next:      meta.GetNext(),
+			Del:       pbDelValuesDeserialize(meta.GetDel()),
+			Tags:      meta.GetTags(),
+			Cred:      pbServerCredsDeserialize(meta.GetCred()),
+			Aux:       byteMapToInterfaceMap(meta.GetAux()),
+			Search:    pbSearchResultDeserialize(meta.GetSearch()),
+			Contacts:  pbContactSnapshotDeserialize(meta.GetContacts()),
+			Assets:    pbAssetCatalogDeserialize(meta.GetAssets()),
+			Readers:   pbReadParticipantsDeserialize(meta.GetReaders()),
+			Previews:  previews,
+			Timestamp: int64ToTime(meta.GetTimestamp()),
 		}
 	}
 	return &msg
+}
+
+func pbServDataDeserialize(data *pbx.ServerData) *MsgServerData {
+	if data == nil {
+		return nil
+	}
+	tsptr := int64ToTime(data.GetTimestamp())
+	if tsptr == nil {
+		tsptr = &time.Time{}
+	}
+	var forwarded *MsgForwardedMessage
+	if fwd := data.GetForwarded(); fwd != nil {
+		fwdTs := int64ToTime(fwd.GetTimestamp())
+		if fwdTs == nil {
+			fwdTs = &time.Time{}
+		}
+		forwarded = &MsgForwardedMessage{
+			Topic:     fwd.GetTopic(),
+			SeqId:     int(fwd.GetSeqId()),
+			From:      fwd.GetFromUserId(),
+			Timestamp: *fwdTs,
+		}
+	}
+	reactions := make([]MsgReaction, 0, len(data.GetReactions()))
+	for _, reaction := range data.GetReactions() {
+		reactions = append(reactions, MsgReaction{
+			Reaction: reaction.GetReaction(),
+			Count:    int(reaction.GetCount()),
+		})
+	}
+	var translation *MsgTranslation
+	if translated := data.GetTranslation(); translated != nil {
+		translation = &MsgTranslation{
+			Status:         translated.GetStatus(),
+			SourceLanguage: translated.GetSourceLanguage(),
+			TargetLanguage: translated.GetTargetLanguage(),
+			Provider:       translated.GetProvider(),
+			Original:       bytesToInterface(translated.GetOriginal()),
+		}
+	}
+	return &MsgServerData{
+		Topic:       data.GetTopic(),
+		From:        data.GetFromUserId(),
+		Timestamp:   *tsptr,
+		EditedAt:    int64ToTime(data.GetEditedAt()),
+		DeletedAt:   int64ToTime(data.GetDeletedAt()),
+		SeqId:       int(data.GetSeqId()),
+		Head:        byteMapToInterfaceMap(data.GetHead()),
+		Content:     bytesToInterface(data.GetContent()),
+		ClientId:    data.GetClientId(),
+		Kind:        data.GetKind(),
+		ReplyTo:     int(data.GetReplyTo()),
+		Forwarded:   forwarded,
+		GroupId:     data.GetGroupId(),
+		Reactions:   reactions,
+		Translation: translation,
+	}
 }

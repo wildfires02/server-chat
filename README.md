@@ -52,7 +52,8 @@ curl --fail http://127.0.0.1:6060/readyz
 
 ## 核心能力
 
-- WebSocket、HTTP 长轮询和 gRPC 双向流。
+- WebSocket（JSON 或协议 0.33 Protobuf 二进制帧）、HTTP 长轮询和 gRPC 双向流。
+- Token + Topic `seq/del` 游标快速恢复，支持固定快照无缺口续页。
 - 单聊、群组、广播频道、多设备同步和细粒度访问控制。
 - 消息编辑、撤回、回复、转发、反应、置顶和定时消息。
 - 100 人以内普通群的逐消息 Seen by 成员与阅读时间查询。

@@ -83,6 +83,7 @@ func registerServerHTTPRoutes(
 		mux.Handle(config.ApiPath+"v0/file/s/", gh.CompressHandler(http.HandlerFunc(largeFileServeHTTP)))
 		mux.Handle(config.ApiPath+"v0/file/meta/", gh.CompressHandler(http.HandlerFunc(largeFileMetaHTTP)))
 		mux.Handle(config.ApiPath+"v0/file/resumable/", gh.CompressHandler(http.HandlerFunc(resumableFileHTTP)))
+		mux.Handle(config.ApiPath+"v0/file/direct/", gh.CompressHandler(http.HandlerFunc(directFileHTTP)))
 		logs.Info.Println("Large media handling enabled", config.Media.UseHandler)
 	}
 	if staticMountPoint != "/" {

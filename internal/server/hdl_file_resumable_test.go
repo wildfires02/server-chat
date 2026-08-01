@@ -1,17 +1,22 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"chat/server/media"
 	"chat/server/store"
+	mockstore "chat/server/store/mock_store"
 	"chat/server/store/types"
+	"go.uber.org/mock/gomock"
 )
 
 type resumableTestCache struct {
@@ -21,6 +26,43 @@ type resumableTestCache struct {
 
 type resumableTestChunkStore struct {
 	data []byte
+}
+
+type resumableTestMultipartHandler struct {
+	data []byte
+}
+
+func (*resumableTestMultipartHandler) Init(string) error { return nil }
+func (*resumableTestMultipartHandler) Headers(string, *url.URL, http.Header, bool) (http.Header, int, error) {
+	return nil, 0, nil
+}
+func (*resumableTestMultipartHandler) Upload(*types.FileDef, io.Reader) (string, int64, error) {
+	return "", 0, types.ErrUnsupported
+}
+func (*resumableTestMultipartHandler) Download(string) (*types.FileDef, media.ReadSeekCloser, error) {
+	return nil, nil, types.ErrUnsupported
+}
+func (*resumableTestMultipartHandler) Delete([]string) error         { return nil }
+func (*resumableTestMultipartHandler) GetIdFromUrl(string) types.Uid { return types.ZeroUid }
+func (*resumableTestMultipartHandler) CreateMultipartUpload(context.Context, *types.FileDef) (string, error) {
+	return "upload-test", nil
+}
+func (*resumableTestMultipartHandler) PresignMultipartPart(context.Context, *types.FileDef, string, int) (*media.PresignedPart, error) {
+	return nil, types.ErrUnsupported
+}
+func (handler *resumableTestMultipartHandler) UploadMultipartPart(_ context.Context, _ *types.FileDef, _ string, number int, _ int64, body io.Reader, size int64) (media.MultipartPart, error) {
+	data, err := io.ReadAll(body)
+	if err != nil || int64(len(data)) != size {
+		return media.MultipartPart{}, io.ErrUnexpectedEOF
+	}
+	handler.data = append(handler.data, data...)
+	return media.MultipartPart{PartNumber: number, ETag: "etag-test"}, nil
+}
+func (*resumableTestMultipartHandler) CompleteMultipartUpload(context.Context, *types.FileDef, string, []media.MultipartPart) (string, int64, error) {
+	return "", 0, types.ErrUnsupported
+}
+func (*resumableTestMultipartHandler) AbortMultipartUpload(context.Context, *types.FileDef, string) error {
+	return nil
 }
 
 func (storage *resumableTestChunkStore) Put(_ string, source io.Reader,
@@ -204,5 +246,40 @@ func TestResumableUploadLeaseIsExclusiveAndRecoverable(t *testing.T) {
 	releaseResumableUploadLease(id, first)
 	if _, err = acquireResumableUploadLease(id, time.Minute); err != nil {
 		t.Fatalf("reacquire released lease: %v", err)
+	}
+}
+
+func TestResumableMultipartStreamsPatchWithoutChunkStore(t *testing.T) {
+	previousCache := store.PCache
+	store.PCache = &resumableTestCache{values: make(map[string]string)}
+	t.Cleanup(func() { store.PCache = previousCache })
+	previousStore := store.Store
+	controller := gomock.NewController(t)
+	handler := &resumableTestMultipartHandler{}
+	mockStorage := mockstore.NewMockPersistentStorageInterface(controller)
+	mockStorage.EXPECT().GetMediaHandler().Return(handler).AnyTimes()
+	store.Store = mockStorage
+	t.Cleanup(func() { store.Store = previousStore })
+	previousChunks := resumableChunks
+	chunks := &resumableTestChunkStore{}
+	resumableChunks = chunks
+	t.Cleanup(func() { resumableChunks = previousChunks })
+
+	state := &resumableUploadState{
+		Id: types.Uid(903).String(), Owner: types.Uid(12).String(), MimeType: "application/octet-stream",
+		Length: 6, CreatedAt: time.Now(), MultipartUploadID: "upload-test",
+		MultipartLocation: "object-test", MultipartPartSize: 3,
+	}
+	if err := saveResumableUpload(state); err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPatch, "/", strings.NewReader("abc"))
+	response := httptest.NewRecorder()
+	appendResumableMultipartPart(response, request, state, time.Now())
+	if response.Code != http.StatusNoContent || state.Offset != 3 || len(state.MultipartParts) != 1 {
+		t.Fatalf("streaming response=%d offset=%d parts=%v", response.Code, state.Offset, state.MultipartParts)
+	}
+	if string(handler.data) != "abc" || len(chunks.data) != 0 {
+		t.Fatalf("multipart data=%q legacy chunk data=%q", handler.data, chunks.data)
 	}
 }

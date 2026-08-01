@@ -32,6 +32,8 @@ type MessagesPersistenceInterface interface {
 	DeleteList(topic string, delID int, forUser types.Uid, msgDelAge time.Duration, ranges []types.Range) error
 	// GetAll 查询并返回All。
 	GetAll(topic string, forUser types.Uid, opt *types.QueryOpt) ([]types.Message, error)
+	// GetLatest 批量查询每个 Topic 对当前用户可见的最后一条消息。
+	GetLatest(topics []string, forUser types.Uid) ([]types.Message, error)
 	// GetDeleted 查询并返回Deleted。
 	GetDeleted(topic string, forUser types.Uid, opt *types.QueryOpt) ([]types.Range, int, error)
 	// Search 在单个 Topic 内执行权限感知的消息全文搜索。
@@ -129,6 +131,14 @@ func (messagesMapper) DeleteList(topic string, delID int, forUser types.Uid, msg
 // GetAll 返回多条消息。
 func (messagesMapper) GetAll(topic string, forUser types.Uid, opt *types.QueryOpt) ([]types.Message, error) {
 	return adp.MessageGetAll(topic, forUser, opt)
+}
+
+// GetLatest 在一次持久化查询中返回各 Topic 的最后一条可见消息。
+func (messagesMapper) GetLatest(topics []string, forUser types.Uid) ([]types.Message, error) {
+	if len(topics) == 0 {
+		return nil, nil
+	}
+	return adp.MessageGetLatest(topics, forUser)
 }
 
 // GetByClientId 按发送方生成的幂等键读取消息。

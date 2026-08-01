@@ -278,6 +278,39 @@ func (a *adapter) MessageGetAll(topic string, forUser t.Uid, opts *t.QueryOpt) (
 	return msgs, nil
 }
 
+// MessageGetLatest returns the latest message visible to forUser for each topic in one aggregation.
+func (a *adapter) MessageGetLatest(topics []string, forUser t.Uid) ([]t.Message, error) {
+	if len(topics) == 0 {
+		return nil, nil
+	}
+	pipeline := mdb.Pipeline{
+		{{Key: "$match", Value: b.M{
+			"topic":           b.M{"$in": topics},
+			"delid":           b.M{"$exists": false},
+			"deletedfor.user": b.M{"$ne": forUser.String()},
+		}}},
+		{{Key: "$sort", Value: b.D{{Key: "topic", Value: 1}, {Key: "seqid", Value: -1}}}},
+		{{Key: "$group", Value: b.M{"_id": "$topic", "message": b.M{"$first": "$$ROOT"}}}},
+		{{Key: "$replaceRoot", Value: b.M{"newRoot": "$message"}}},
+	}
+	cur, err := a.db.Collection("messages").Aggregate(a.ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(a.ctx)
+
+	msgs := make([]t.Message, 0, len(topics))
+	for cur.Next(a.ctx) {
+		var msg t.Message
+		if err = cur.Decode(&msg); err != nil {
+			return nil, err
+		}
+		msg.Content = unmarshalBsonD(msg.Content)
+		msgs = append(msgs, msg)
+	}
+	return msgs, cur.Err()
+}
+
 // MessageSearch 在单个 Topic 内按规范化正文搜索消息，并排除调用者已删除的消息。
 func (a *adapter) MessageSearch(topic string, forUser t.Uid, search *t.MessageSearchQuery) ([]t.Message, error) {
 	if search == nil || search.Query == "" {

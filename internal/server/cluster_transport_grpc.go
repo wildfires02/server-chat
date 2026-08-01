@@ -65,15 +65,13 @@ type clusterGRPCPeer struct {
 	closeOnce sync.Once
 }
 
-// clusterGRPCLane 是单发送协程、单请求在途的有序流。
+// clusterGRPCLane 使用单发送协程和单接收协程维护有界请求流水线。
 // 多个 Lane 提供跨 Topic 并行度，同一 Topic 始终落入同一 Lane。
 type clusterGRPCLane struct {
 	// peer 是 Lane 所属的远端节点连接。
 	peer *clusterGRPCPeer
 	// index 是协议帧中的 Lane 编号。
 	index uint32
-	// queue 是有明确容量上限的可靠请求队列。
-	queue chan *clusterLaneRequest
 	// sequence 仅由 run 协程递增，无需额外互斥锁。
 	sequence uint64
 	// active 表示该 Lane 当前持有可发送的流。
@@ -98,12 +96,16 @@ type clusterLaneRequest struct {
 	requestID string
 	// kind 标识内部业务调用类型。
 	kind pbx.ClusterFrameKind
-	// payload 是当前兼容阶段的 gob 业务负载。
+	// payload 是强类型 Protobuf 业务负载。
 	payload []byte
 	// reliable 表示传输错误时需要有限重试。
 	reliable bool
 	// result 是容量为 1 的完成通知，不阻塞 Lane 退出。
 	result chan clusterLaneResult
+	// attempts 保存已经写入流或尝试写入流的次数。
+	attempts int
+	// started 表示该请求已经计入在途指标。
+	started bool
 }
 
 // clusterLaneResult 保存远端响应负载或传输错误。
@@ -112,6 +114,16 @@ type clusterLaneResult struct {
 	payload []byte
 	// err 是传输、协议或远端业务错误。
 	err error
+}
+
+type clusterLanePending struct {
+	request *clusterLaneRequest
+	frame   *pbx.ClusterFrame
+}
+
+type clusterLaneReceive struct {
+	frame *pbx.ClusterFrame
+	err   error
 }
 
 // clusterLaneServer 实现生成代码要求的双向流服务。

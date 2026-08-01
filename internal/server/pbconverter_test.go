@@ -62,6 +62,9 @@ func TestPbContactsAndAssetsRoundTrip(t *testing.T) {
 				{User: "usrLegacy"},
 			},
 		},
+		Previews: []*MsgServerData{{
+			Topic: "grpPreview", From: "usrPeer", SeqId: 9, Timestamp: now, Content: "preview",
+		}},
 	}}
 	gotServer := pbServDeserialize(pbServSerialize(server))
 	if gotServer.Meta == nil || gotServer.Meta.Contacts == nil ||
@@ -75,7 +78,9 @@ func TestPbContactsAndAssetsRoundTrip(t *testing.T) {
 		len(gotServer.Meta.Readers.Users) != 2 ||
 		gotServer.Meta.Readers.Users[0].Date == nil ||
 		!gotServer.Meta.Readers.Users[0].Date.Equal(now) ||
-		gotServer.Meta.Readers.Users[1].Date != nil {
+		gotServer.Meta.Readers.Users[1].Date != nil ||
+		len(gotServer.Meta.Previews) != 1 || gotServer.Meta.Previews[0].Topic != "grpPreview" ||
+		gotServer.Meta.Previews[0].SeqId != 9 || gotServer.Meta.Previews[0].Content != "preview" {
 		t.Fatalf("contact/asset server round trip mismatch: %#v", gotServer.Meta)
 	}
 }
@@ -88,10 +93,56 @@ func TestPbInternalWorkspacePresenceRoundTrip(t *testing.T) {
 	}
 }
 
+func TestPbResumeAndInviteRoundTrip(t *testing.T) {
+	client := &ClientComMessage{Resume: &MsgClientResume{
+		Id: "resume-1", Token: []byte("signed-token"),
+		Topics: []MsgResumeTopic{
+			{Topic: "me"},
+			{Topic: "grpResume", SeqId: 41, DelId: 6, Active: true},
+		},
+	}}
+	got := pbCliDeserialize(pbCliSerialize(client))
+	if !reflect.DeepEqual(got.Resume, client.Resume) {
+		t.Fatalf("resume protobuf round trip mismatch:\nwant: %#v\ngot:  %#v", client.Resume, got.Resume)
+	}
+
+	invite := &ClientComMessage{Sub: &MsgClientSub{
+		Id: "sub-1", Topic: "grpResume", Invite: "invite-token",
+	}}
+	gotInvite := pbCliDeserialize(pbCliSerialize(invite))
+	if gotInvite.Sub == nil || gotInvite.Sub.Invite != invite.Sub.Invite {
+		t.Fatalf("subscription invite lost in protobuf round trip: %#v", gotInvite.Sub)
+	}
+
+	note := &ClientComMessage{Note: &MsgClientNote{
+		Topic: "grpResume", What: "data", SeqId: 42,
+	}}
+	gotNote := pbCliDeserialize(pbCliSerialize(note))
+	if gotNote.Note == nil || gotNote.Note.What != "data" {
+		t.Fatalf("data note lost in protobuf round trip: %#v", gotNote.Note)
+	}
+}
+
+func TestPbControlAndMetaTimestampsRoundTrip(t *testing.T) {
+	now := time.Now().UTC().Round(time.Millisecond)
+	control := pbServDeserialize(pbServSerialize(&ServerComMessage{
+		Ctrl: &MsgServerCtrl{Id: "ctrl-1", Code: 200, Timestamp: now},
+	}))
+	if control.Ctrl == nil || !control.Ctrl.Timestamp.Equal(now) {
+		t.Fatalf("control timestamp lost in protobuf round trip: %#v", control.Ctrl)
+	}
+	meta := pbServDeserialize(pbServSerialize(&ServerComMessage{
+		Meta: &MsgServerMeta{Id: "meta-1", Topic: "me", Timestamp: &now},
+	}))
+	if meta.Meta == nil || meta.Meta.Timestamp == nil || !meta.Meta.Timestamp.Equal(now) {
+		t.Fatalf("meta timestamp lost in protobuf round trip: %#v", meta.Meta)
+	}
+}
+
 // TestPbGetQueryRoundTripIncludesSyncFields 验证 Pb Get Query Round Trip Includes Sync Fields 相关行为。
 func TestPbGetQueryRoundTripIncludesSyncFields(t *testing.T) {
 	in := &MsgGetQuery{
-		What: "desc sub data del readers",
+		What: "desc sub data del readers previews",
 		Desc: &MsgGetOpts{User: "usrA", Topic: "grpA", Limit: 7},
 		Sub:  &MsgGetOpts{User: "usrB", Topic: "grpB", Limit: 8, Cursor: "usrCursor"},
 		Data: &MsgGetOpts{
@@ -112,7 +163,8 @@ func TestPbGetQueryRoundTripIncludesSyncFields(t *testing.T) {
 			PackId: "official", Kind: "sticker", Since: 9, Limit: 20,
 			AssetIds: []string{"wave", "party"},
 		},
-		Readers: &MsgGetReaders{SeqId: 42},
+		Readers:  &MsgGetReaders{SeqId: 42},
+		Previews: &MsgPreviewQuery{Topics: []string{"usrPeer", "grpPreview"}},
 	}
 
 	got := pbGetQueryDeserialize(pbGetQuerySerialize(in))

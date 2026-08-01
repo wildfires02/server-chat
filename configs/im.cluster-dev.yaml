@@ -107,6 +107,7 @@ push: []
 
 webrtc:
   enabled: false
+  require_turn: false
   call_establishment_timeout: 30
   ice_servers_file: ""
   agora:
@@ -145,6 +146,7 @@ cluster_config:
     listen: 127.0.0.1:12000
     lane_count: 4
     reliable_queue_capacity: 1024
+    pipeline_window: 16
     ephemeral_queue_capacity: 256
     dial_timeout: 2s
     request_timeout: 5s

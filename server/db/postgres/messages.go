@@ -383,6 +383,41 @@ func (a *adapter) MessageGetAll(topic string, forUser t.Uid, opts *t.QueryOpt) (
 	return msgs, err
 }
 
+// MessageGetLatest returns the latest message visible to forUser for each topic in one query.
+func (a *adapter) MessageGetLatest(topics []string, forUser t.Uid) ([]t.Message, error) {
+	if len(topics) == 0 {
+		return nil, nil
+	}
+	query, args := expandQuery(`SELECT DISTINCT ON (m.topic)
+		m.createdat,m.updatedat,m.deletedat,m.delid,m.seqid,m.topic,m."from",COALESCE(m.clientid,''),m.head,m.content
+		FROM messages AS m LEFT JOIN dellog AS d
+		ON d.topic=m.topic AND m.seqid BETWEEN d.low AND d.hi-1 AND d.deletedfor=?
+		WHERE m.delid=0 AND m.topic IN (?) AND d.deletedfor IS NULL
+		ORDER BY m.topic,m.seqid DESC`, store.DecodeUid(forUser), topics)
+	ctx, cancel := a.getContext()
+	if cancel != nil {
+		defer cancel()
+	}
+	rows, err := a.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	msgs := make([]t.Message, 0, len(topics))
+	for rows.Next() {
+		var msg t.Message
+		var from int64
+		if err = rows.Scan(&msg.CreatedAt, &msg.UpdatedAt, &msg.DeletedAt, &msg.DelId, &msg.SeqId,
+			&msg.Topic, &from, &msg.ClientId, &msg.Head, &msg.Content); err != nil {
+			return nil, err
+		}
+		msg.From = store.EncodeUid(from).String()
+		msgs = append(msgs, msg)
+	}
+	return msgs, rows.Err()
+}
+
 // MessageSearch 在单个 Topic 内按规范化正文搜索消息，并排除调用者已删除的消息。
 func (a *adapter) MessageSearch(topic string, forUser t.Uid, search *t.MessageSearchQuery) ([]t.Message, error) {
 	if search == nil || search.Query == "" {

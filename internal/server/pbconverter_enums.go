@@ -25,6 +25,8 @@ func pbInfoNoteWhatSerialize(what string) pbx.InfoNote {
 		out = pbx.InfoNote_REACT
 	case "pin":
 		out = pbx.InfoNote_PIN
+	case "data":
+		out = pbx.InfoNote_DATA
 	default:
 		logs.Info.Println("unknown info-note.what", what)
 	}
@@ -51,6 +53,8 @@ func pbInfoNoteWhatDeserialize(what pbx.InfoNote) string {
 		out = "react"
 	case pbx.InfoNote_PIN:
 		out = "pin"
+	case pbx.InfoNote_DATA:
+		out = "data"
 	default:
 	}
 	return out

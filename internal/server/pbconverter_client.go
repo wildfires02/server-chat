@@ -59,6 +59,19 @@ func pbCliSerialize(msg *ClientComMessage) *pbx.ClientMsg {
 				Cred:   pbClientCredsSerialize(msg.Login.Cred),
 			},
 		}
+	case msg.Resume != nil:
+		resumeTopics := make([]*pbx.ResumeTopic, 0, len(msg.Resume.Topics))
+		for _, topic := range msg.Resume.Topics {
+			resumeTopics = append(resumeTopics, &pbx.ResumeTopic{
+				Topic: topic.Topic, SeqId: int32(topic.SeqId),
+				DelId: int32(topic.DelId), Active: topic.Active,
+			})
+		}
+		pkt.Message = &pbx.ClientMsg_Resume{
+			Resume: &pbx.ClientResume{
+				Id: msg.Resume.Id, Token: msg.Resume.Token, Topics: resumeTopics,
+			},
+		}
 	case msg.Sub != nil:
 		pkt.Message = &pbx.ClientMsg_Sub{
 			Sub: &pbx.ClientSub{
@@ -66,6 +79,7 @@ func pbCliSerialize(msg *ClientComMessage) *pbx.ClientMsg {
 				Topic:    msg.Sub.Topic,
 				SetQuery: pbSetQuerySerialize(msg.Sub.Set),
 				GetQuery: pbGetQuerySerialize(msg.Sub.Get),
+				Invite:   msg.Sub.Invite,
 			},
 		}
 	case msg.Leave != nil:
@@ -210,12 +224,24 @@ func pbCliDeserialize(pkt *pbx.ClientMsg) *ClientComMessage {
 			Secret: login.GetSecret(),
 			Cred:   pbClientCredsDeserialize(login.GetCred()),
 		}
+	} else if resume := pkt.GetResume(); resume != nil {
+		resumeTopics := make([]MsgResumeTopic, 0, len(resume.GetTopics()))
+		for _, topic := range resume.GetTopics() {
+			resumeTopics = append(resumeTopics, MsgResumeTopic{
+				Topic: topic.GetTopic(), SeqId: int(topic.GetSeqId()),
+				DelId: int(topic.GetDelId()), Active: topic.GetActive(),
+			})
+		}
+		msg.Resume = &MsgClientResume{
+			Id: resume.GetId(), Token: resume.GetToken(), Topics: resumeTopics,
+		}
 	} else if sub := pkt.GetSub(); sub != nil {
 		msg.Sub = &MsgClientSub{
-			Id:    sub.GetId(),
-			Topic: sub.GetTopic(),
-			Get:   pbGetQueryDeserialize(sub.GetGetQuery()),
-			Set:   pbSetQueryDeserialize(sub.GetSetQuery()),
+			Id:     sub.GetId(),
+			Topic:  sub.GetTopic(),
+			Get:    pbGetQueryDeserialize(sub.GetGetQuery()),
+			Set:    pbSetQueryDeserialize(sub.GetSetQuery()),
+			Invite: sub.GetInvite(),
 		}
 	} else if leave := pkt.GetLeave(); leave != nil {
 		msg.Leave = &MsgClientLeave{

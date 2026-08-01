@@ -48,6 +48,7 @@ func (sess *Session) writeOnce(wrt http.ResponseWriter, req *http.Request) {
 			if !ok {
 				return
 			}
+			sess.releaseOutbound(msg)
 			switch v := msg.(type) {
 			case *ServerComMessage: // 单个未序列化的消息
 				w := sess.serializeAndUpdateStats(v)

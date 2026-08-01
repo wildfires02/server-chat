@@ -2,7 +2,10 @@
 package fs
 
 import (
+	"context"
+	"crypto/sha256"
 	"encoding/base32"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"hash/fnv"
@@ -12,6 +15,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 
 	"chat/server/logs"
@@ -49,6 +54,9 @@ type fshandler struct {
 	// corsOrigins 解析后的允许跨域源配置切片
 	corsOrigins []media.AllowedOrigin
 }
+
+var _ media.StreamingMultipartHandler = (*fshandler)(nil)
+var _ media.DirectUploadCapability = (*fshandler)(nil)
 
 // Init 初始化本地文件系统媒体处理器。
 func (fh *fshandler) Init(jsconf string) error {
@@ -141,17 +149,168 @@ func (fh *fshandler) Upload(fdef *types.FileDef, file io.Reader) (string, int64,
 		return "", 0, err
 	}
 
+	fdef.Location = location
+	// 使用文件路径哈希作为 ETag
+	fdef.ETag = etagFromPath(fdef.Location)
+
+	return fh.fileURL(fdef), size, nil
+}
+
+func (fh *fshandler) fileURL(fdef *types.FileDef) string {
 	fname := fdef.Id
 	ext, _ := mime.ExtensionsByType(fdef.MimeType)
 	if len(ext) > 0 {
 		fname += ext[0]
 	}
+	return fh.ServeURL + fname
+}
 
-	fdef.Location = location
-	// 使用文件路径哈希作为 ETag
-	fdef.ETag = etagFromPath(fdef.Location)
+func (fh *fshandler) multipartPath(uploadID string) (string, error) {
+	if uploadID == "" || filepath.Base(uploadID) != uploadID ||
+		!strings.HasPrefix(uploadID, ".multipart-") {
+		return "", types.ErrMalformed
+	}
+	return filepath.Join(fh.FileUploadDirectory, uploadID), nil
+}
 
-	return fh.ServeURL + fname, size, nil
+// CreateMultipartUpload creates one sparse temporary file. Every tus PATCH is
+// written directly at its confirmed offset, so completion only needs an atomic rename.
+func (fh *fshandler) CreateMultipartUpload(_ context.Context, fdef *types.FileDef) (string, error) {
+	if fdef == nil || fdef.Uid().IsZero() {
+		return "", types.ErrMalformed
+	}
+	temporary, err := os.CreateTemp(
+		fh.FileUploadDirectory,
+		".multipart-"+fdef.Uid().String32()+"-",
+	)
+	if err != nil {
+		return "", err
+	}
+	uploadID := filepath.Base(temporary.Name())
+	if err = temporary.Close(); err != nil {
+		_ = os.Remove(temporary.Name())
+		return "", err
+	}
+	fdef.Location = filepath.Join(fh.FileUploadDirectory, fdef.Uid().String32())
+	return uploadID, nil
+}
+
+// PresignMultipartPart is intentionally unsupported for local storage: the
+// browser cannot address the server filesystem directly.
+func (*fshandler) PresignMultipartPart(
+	context.Context,
+	*types.FileDef,
+	string,
+	int,
+) (*media.PresignedPart, error) {
+	return nil, types.ErrUnsupported
+}
+
+// DirectUploadEnabled prevents the direct-upload endpoint from exposing the
+// local filesystem while still allowing server-streamed tus multipart writes.
+func (*fshandler) DirectUploadEnabled() bool { return false }
+
+func (fh *fshandler) UploadMultipartPart(
+	_ context.Context,
+	_ *types.FileDef,
+	uploadID string,
+	partNumber int,
+	offset int64,
+	body io.Reader,
+	size int64,
+) (media.MultipartPart, error) {
+	if partNumber <= 0 || offset < 0 || size <= 0 {
+		return media.MultipartPart{}, types.ErrMalformed
+	}
+	temporaryPath, err := fh.multipartPath(uploadID)
+	if err != nil {
+		return media.MultipartPart{}, err
+	}
+	temporary, err := os.OpenFile(temporaryPath, os.O_WRONLY, 0600)
+	if err != nil {
+		return media.MultipartPart{}, err
+	}
+	defer temporary.Close()
+
+	hasher := sha256.New()
+	limited := io.LimitReader(body, size+1)
+	written, err := io.Copy(
+		io.MultiWriter(io.NewOffsetWriter(temporary, offset), hasher),
+		limited,
+	)
+	if err != nil {
+		return media.MultipartPart{}, err
+	}
+	if written != size {
+		return media.MultipartPart{}, types.ErrMalformed
+	}
+	if err = temporary.Sync(); err != nil {
+		return media.MultipartPart{}, err
+	}
+	return media.MultipartPart{
+		PartNumber: partNumber,
+		ETag:       hex.EncodeToString(hasher.Sum(nil)),
+	}, nil
+}
+
+func (fh *fshandler) CompleteMultipartUpload(
+	_ context.Context,
+	fdef *types.FileDef,
+	uploadID string,
+	parts []media.MultipartPart,
+) (string, int64, error) {
+	if fdef == nil || len(parts) == 0 {
+		return "", 0, types.ErrMalformed
+	}
+	sort.Slice(parts, func(i, j int) bool { return parts[i].PartNumber < parts[j].PartNumber })
+	for index, part := range parts {
+		if part.PartNumber != index+1 || part.ETag == "" {
+			return "", 0, types.ErrMalformed
+		}
+	}
+	temporaryPath, err := fh.multipartPath(uploadID)
+	if err != nil {
+		return "", 0, err
+	}
+	finalPath := fdef.Location
+	if finalPath == "" {
+		finalPath = filepath.Join(fh.FileUploadDirectory, fdef.Uid().String32())
+		fdef.Location = finalPath
+	}
+	info, err := os.Stat(temporaryPath)
+	if os.IsNotExist(err) {
+		// Completion can be retried if persisting the upload state failed after rename.
+		if info, finalErr := os.Stat(finalPath); finalErr == nil {
+			fdef.ETag = etagFromPath(finalPath)
+			return fh.fileURL(fdef), info.Size(), nil
+		}
+	}
+	if err != nil {
+		return "", 0, err
+	}
+	if info.Size() <= 0 {
+		return "", 0, types.ErrMalformed
+	}
+	if err = os.Rename(temporaryPath, finalPath); err != nil {
+		return "", 0, err
+	}
+	fdef.ETag = etagFromPath(finalPath) + "-" + strconv.FormatInt(info.Size(), 10)
+	return fh.fileURL(fdef), info.Size(), nil
+}
+
+func (fh *fshandler) AbortMultipartUpload(
+	_ context.Context,
+	_ *types.FileDef,
+	uploadID string,
+) error {
+	temporaryPath, err := fh.multipartPath(uploadID)
+	if err != nil {
+		return err
+	}
+	if err = os.Remove(temporaryPath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 // Download 处理文件下载请求。

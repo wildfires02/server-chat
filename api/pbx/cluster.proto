@@ -2,6 +2,8 @@ syntax = "proto3";
 package pbx;
 option go_package = "chat/api/pbx";
 
+import "chat.proto";
+
 // ClusterTransport 是 IM 节点之间专用的有序数据面服务。
 // 每个逻辑 Lane 使用一条长期双向流；同一 Topic 始终映射到同一 Lane。
 service ClusterTransport {
@@ -55,4 +57,118 @@ message ClusterFrame {
 	string ring_signature = 13;
 	// min_protocol_version 是发送节点仍能兼容的最早数据面协议版本。
 	int32 min_protocol_version = 14;
+}
+
+// ClusterSession 是跨节点路由所需的最小客户端会话快照。
+message ClusterSession {
+	string remote_addr = 1;
+	string user_agent = 2;
+	string uid = 3;
+	int32 auth_level = 4;
+	int32 protocol_version = 5;
+	string language = 6;
+	string country_code = 7;
+	string device_id = 8;
+	string platform = 9;
+	string sid = 10;
+	bool background = 11;
+}
+
+// ClusterClientMessage 在公开 ClientMsg 之外保存节点路由需要的内部字段。
+message ClusterClientMessage {
+	ClientMsg message = 1;
+	string id = 2;
+	string original = 3;
+	string rcpt_to = 4;
+	string as_user = 5;
+	int32 auth_level = 6;
+	int32 meta_what = 7;
+	int64 timestamp_unix_nano = 8;
+}
+
+// ClusterServerMessage 在公开 ServerMsg 之外保存节点路由需要的内部字段。
+message ClusterServerMessage {
+	ServerMsg message = 1;
+	string id = 2;
+	string rcpt_to = 3;
+	string as_user = 4;
+	int64 timestamp_unix_nano = 5;
+	string skip_sid = 6;
+	map<string, int64> control_time_params = 7;
+}
+
+message ClusterPingPayload {
+	string node = 1;
+	int64 fingerprint = 2;
+}
+
+message ClusterRequestPayload {
+	string node = 1;
+	string signature = 2;
+	int64 fingerprint = 3;
+	int32 request_type = 4;
+	ClusterClientMessage client_message = 5;
+	ClusterServerMessage server_message = 6;
+	string rcpt_to = 7;
+	ClusterSession session = 8;
+	bool gone = 9;
+}
+
+message ClusterResponsePayload {
+	ClusterServerMessage server_message = 1;
+	string original_sid = 2;
+	string rcpt_to = 3;
+	int32 original_request_type = 4;
+}
+
+message ClusterRoutePayload {
+	string node = 1;
+	string signature = 2;
+	int64 fingerprint = 3;
+	ClusterServerMessage server_message = 4;
+	ClusterSession session = 5;
+}
+
+message ClusterPushRecipient {
+	string uid = 1;
+	int32 delivered = 2;
+	repeated string devices = 3;
+	int32 unread = 4;
+	bool increment_unread = 5;
+}
+
+message ClusterPushPayload {
+	string what = 1;
+	bool silent = 2;
+	string topic = 3;
+	int64 timestamp_unix_nano = 4;
+	string from = 5;
+	int32 sequence = 6;
+	string content_type = 7;
+	bytes content_json = 8;
+	string webrtc = 9;
+	bool audio_only = 10;
+	string replace = 11;
+	uint32 mode_want = 12;
+	uint32 mode_given = 13;
+}
+
+message ClusterPushReceipt {
+	repeated ClusterPushRecipient recipients = 1;
+	string channel = 2;
+	ClusterPushPayload payload = 3;
+}
+
+message ClusterUserCachePayload {
+	string node = 1;
+	string user_id = 2;
+	repeated string user_ids = 3;
+	int32 unread = 4;
+	bool increment = 5;
+	bool gone = 6;
+	ClusterPushReceipt push_receipt = 7;
+}
+
+message ClusterAck {
+	bool rejected = 1;
 }

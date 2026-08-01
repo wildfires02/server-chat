@@ -3,8 +3,12 @@ package s3
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -64,6 +68,13 @@ type awsconfig struct {
 	PresignTTL int `json:"presign_ttl"`
 	// CacheControl 保存缓存Control。
 	CacheControl string `json:"cache_control"`
+	// DirectUpload 启用浏览器预签名 Multipart 直传。
+	DirectUpload bool `json:"direct_upload"`
+	// CDNBaseURL 是通过文件 ACL 后使用的 CDN 源地址。
+	CDNBaseURL    string `json:"cdn_base_url"`
+	CDNKeyID      string `json:"cdn_key_id"`
+	CDNHMACSecret string `json:"cdn_hmac_secret"`
+	CDNTTL        int    `json:"cdn_ttl"`
 }
 
 // awshandler 保存awshandler的数据和运行状态。
@@ -123,6 +134,10 @@ func (ah *awshandler) Init(jsconf string) error {
 	if ah.conf.ServeURL == "" {
 		ah.conf.ServeURL = defaultServeURL
 	}
+	if ah.conf.CDNTTL <= 0 {
+		ah.conf.CDNTTL = ah.conf.PresignTTL
+	}
+	ah.conf.CDNBaseURL = strings.TrimRight(ah.conf.CDNBaseURL, "/")
 	ah.corsOrigins, err = media.ParseCORSAllow(ah.conf.CorsOrigins)
 	if err != nil {
 		return errors.New("解析 CORS 允许源失败: " + err.Error())
@@ -168,6 +183,9 @@ func (ah *awshandler) Init(jsconf string) error {
 	_, err = ah.svc.HeadBucket(context.Background(), &s3.HeadBucketInput{Bucket: aws.String(ah.conf.BucketName)})
 	if err == nil {
 		// Bucket 已存在
+		if ah.conf.DirectUpload {
+			return ah.configureDirectUploadCORS(context.Background())
+		}
 		return nil
 	}
 
@@ -193,9 +211,10 @@ func (ah *awshandler) Init(jsconf string) error {
 			Bucket: aws.String(ah.conf.BucketName),
 			CORSConfiguration: &s3types.CORSConfiguration{
 				CORSRules: []s3types.CORSRule{{
-					AllowedMethods: []string{http.MethodGet, http.MethodHead},
+					AllowedMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut},
 					AllowedOrigins: origins,
 					AllowedHeaders: []string{"*"},
+					ExposeHeaders:  []string{"ETag"},
 				}},
 			},
 		})
@@ -231,8 +250,14 @@ func (ah *awshandler) Headers(method string, url *url.URL, headers http.Header, 
 
 	ctx := context.Background()
 	var redirURL string
+	if ah.conf.CDNBaseURL != "" {
+		redirURL = ah.cdnURL(fdef.Location)
+	}
 	switch method {
 	case http.MethodGet:
+		if redirURL != "" {
+			break
+		}
 		// 如果查询参数 "asatt" 设为 true，则设置 Content-Disposition 为 attachment（附件强制下载），
 		// 促使浏览器下载文件而非内联展示，防止 HTML 等文件引发的 XSS 漏洞。
 		var contentDisposition *string
@@ -253,6 +278,9 @@ func (ah *awshandler) Headers(method string, url *url.URL, headers http.Header, 
 		}
 		redirURL = presigned.URL
 	case http.MethodHead:
+		if redirURL != "" {
+			break
+		}
 		presigned, err := ah.presign.PresignHeadObject(ctx, &s3.HeadObjectInput{
 			Bucket: aws.String(ah.conf.BucketName),
 			Key:    aws.String(fid.String32()),
@@ -276,6 +304,161 @@ func (ah *awshandler) Headers(method string, url *url.URL, headers http.Header, 
 			http.StatusPermanentRedirect, nil
 	}
 	return nil, 0, nil
+}
+
+func (ah *awshandler) configureDirectUploadCORS(ctx context.Context) error {
+	origins := ah.conf.CorsOrigins
+	if len(origins) == 0 {
+		origins = []string{"*"}
+	}
+	_, err := ah.svc.PutBucketCors(ctx, &s3.PutBucketCorsInput{
+		Bucket: aws.String(ah.conf.BucketName),
+		CORSConfiguration: &s3types.CORSConfiguration{CORSRules: []s3types.CORSRule{{
+			AllowedMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut},
+			AllowedOrigins: origins,
+			AllowedHeaders: []string{"*"},
+			ExposeHeaders:  []string{"ETag"},
+		}}},
+	})
+	return err
+}
+
+func (ah *awshandler) cdnURL(key string) string {
+	resourcePath := "/" + strings.TrimLeft(key, "/")
+	result := ah.conf.CDNBaseURL + resourcePath
+	if ah.conf.CDNHMACSecret == "" {
+		return result
+	}
+	expires := time.Now().Add(time.Duration(ah.conf.CDNTTL) * time.Second).Unix()
+	message := fmt.Sprintf("%s\n%d", resourcePath, expires)
+	mac := hmac.New(sha256.New, []byte(ah.conf.CDNHMACSecret))
+	_, _ = mac.Write([]byte(message))
+	values := url.Values{
+		"expires":   {strconv.FormatInt(expires, 10)},
+		"signature": {base64.RawURLEncoding.EncodeToString(mac.Sum(nil))},
+	}
+	if ah.conf.CDNKeyID != "" {
+		values.Set("key_id", ah.conf.CDNKeyID)
+	}
+	return result + "?" + values.Encode()
+}
+
+// CreateMultipartUpload 创建由浏览器直接写入的 S3 Multipart 会话。
+func (ah *awshandler) CreateMultipartUpload(
+	ctx context.Context,
+	fdef *types.FileDef,
+) (string, error) {
+	key := fdef.Uid().String32()
+	result, err := ah.svc.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+		Bucket: aws.String(ah.conf.BucketName), Key: aws.String(key),
+		ContentType: aws.String(fdef.MimeType), CacheControl: aws.String(ah.conf.CacheControl),
+	})
+	if err != nil {
+		return "", err
+	}
+	fdef.Location = key
+	return aws.ToString(result.UploadId), nil
+}
+
+// DirectUploadEnabled reports whether presigned browser-to-S3 uploads are enabled.
+func (ah *awshandler) DirectUploadEnabled() bool {
+	return ah.conf.DirectUpload
+}
+
+// UploadMultipartPart streams one tus request body directly into S3.
+func (ah *awshandler) UploadMultipartPart(
+	ctx context.Context,
+	fdef *types.FileDef,
+	uploadID string,
+	partNumber int,
+	_ int64,
+	body io.Reader,
+	size int64,
+) (media.MultipartPart, error) {
+	if partNumber <= 0 || size <= 0 {
+		return media.MultipartPart{}, types.ErrMalformed
+	}
+	result, err := ah.svc.UploadPart(ctx, &s3.UploadPartInput{
+		Bucket: aws.String(ah.conf.BucketName), Key: aws.String(fdef.Location),
+		UploadId: aws.String(uploadID), PartNumber: aws.Int32(int32(partNumber)),
+		Body: body, ContentLength: aws.Int64(size),
+	})
+	if err != nil {
+		return media.MultipartPart{}, err
+	}
+	if strings.TrimSpace(aws.ToString(result.ETag)) == "" {
+		return media.MultipartPart{}, errors.New("S3 upload part returned an empty ETag")
+	}
+	return media.MultipartPart{PartNumber: partNumber, ETag: aws.ToString(result.ETag)}, nil
+}
+
+// PresignMultipartPart 为单个浏览器 PUT 分块生成短期签名。
+func (ah *awshandler) PresignMultipartPart(
+	ctx context.Context,
+	fdef *types.FileDef,
+	uploadID string,
+	partNumber int,
+) (*media.PresignedPart, error) {
+	result, err := ah.presign.PresignUploadPart(ctx, &s3.UploadPartInput{
+		Bucket: aws.String(ah.conf.BucketName), Key: aws.String(fdef.Location),
+		UploadId: aws.String(uploadID), PartNumber: aws.Int32(int32(partNumber)),
+	}, func(options *s3.PresignOptions) {
+		options.Expires = time.Duration(ah.conf.PresignTTL) * time.Second
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &media.PresignedPart{PartNumber: partNumber, URL: result.URL}, nil
+}
+
+// CompleteMultipartUpload 合并已确认分块并用 HeadObject 校验最终大小。
+func (ah *awshandler) CompleteMultipartUpload(
+	ctx context.Context,
+	fdef *types.FileDef,
+	uploadID string,
+	parts []media.MultipartPart,
+) (string, int64, error) {
+	completed := make([]s3types.CompletedPart, 0, len(parts))
+	for _, part := range parts {
+		completed = append(completed, s3types.CompletedPart{
+			ETag: aws.String(strings.TrimSpace(part.ETag)), PartNumber: aws.Int32(int32(part.PartNumber)),
+		})
+	}
+	result, err := ah.svc.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
+		Bucket: aws.String(ah.conf.BucketName), Key: aws.String(fdef.Location),
+		UploadId: aws.String(uploadID), MultipartUpload: &s3types.CompletedMultipartUpload{Parts: completed},
+	})
+	if err != nil {
+		return "", 0, err
+	}
+	fdef.ETag = strings.Trim(aws.ToString(result.ETag), "\"")
+	head, err := ah.svc.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(ah.conf.BucketName), Key: aws.String(fdef.Location),
+	})
+	if err != nil {
+		_, _ = ah.svc.DeleteObject(context.Background(), &s3.DeleteObjectInput{
+			Bucket: aws.String(ah.conf.BucketName), Key: aws.String(fdef.Location),
+		})
+		return "", 0, err
+	}
+	fname := fdef.Id
+	if extensions, _ := mime.ExtensionsByType(fdef.MimeType); len(extensions) > 0 {
+		fname += extensions[0]
+	}
+	return ah.conf.ServeURL + fname, aws.ToInt64(head.ContentLength), nil
+}
+
+// AbortMultipartUpload 释放未完成的对象存储分块。
+func (ah *awshandler) AbortMultipartUpload(
+	ctx context.Context,
+	fdef *types.FileDef,
+	uploadID string,
+) error {
+	_, err := ah.svc.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+		Bucket: aws.String(ah.conf.BucketName), Key: aws.String(fdef.Location),
+		UploadId: aws.String(uploadID),
+	})
+	return err
 }
 
 // Upload 处理文件上传请求，将 io.Reader 流数据通过 AWS S3 TransferManager 上传至存储桶。

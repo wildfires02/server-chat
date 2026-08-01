@@ -1,25 +1,22 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"crypto/x509"
-	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"hash/fnv"
-	"sync"
 	"time"
 
 	"chat/api/pbx"
+	"chat/server/auth"
+	"chat/server/push"
+	"chat/server/store/types"
 
 	"google.golang.org/grpc/credentials"
 	grpcpeer "google.golang.org/grpc/peer"
-)
-
-var (
-	// clusterGobTypesOnce 保证兼容载荷的 interface 具体类型只注册一次。
-	clusterGobTypesOnce sync.Once
+	"google.golang.org/protobuf/proto"
 )
 
 // clusterFrameKindForProcedure 将旧调用名映射为稳定的 Protobuf 枚举。
@@ -169,37 +166,321 @@ func clusterLaneIndex(key string, laneCount int) int {
 	return int(hash.Sum32()) & (laneCount - 1)
 }
 
-// encodeClusterPayload 编码迁移期内部负载；外层协议始终是版本化 Protobuf。
+// encodeClusterPayload 把集群内部业务负载编码为对应的强类型 Protobuf 消息。
 func encodeClusterPayload(value any) ([]byte, error) {
-	registerClusterGobTypes()
-	var buffer bytes.Buffer
-	if err := gob.NewEncoder(&buffer).Encode(value); err != nil {
-		return nil, fmt.Errorf("cluster: 编码 Lane payload 失败: %w", err)
+	var message proto.Message
+	switch typed := value.(type) {
+	case *ClusterPing:
+		message = &pbx.ClusterPingPayload{Node: typed.Node, Fingerprint: typed.Fingerprint}
+	case *ClusterReq:
+		message = clusterRequestToProto(typed)
+	case *ClusterResp:
+		message = clusterResponseToProto(typed)
+	case *ClusterRoute:
+		message = clusterRouteToProto(typed)
+	case *UserCacheReq:
+		message = clusterUserCacheToProto(typed)
+	case *MsgServerCtrl:
+		message = clusterServerMessageToProto(&ServerComMessage{Ctrl: typed})
+	case bool:
+		message = &pbx.ClusterAck{Rejected: typed}
+	case *bool:
+		message = &pbx.ClusterAck{Rejected: typed != nil && *typed}
+	default:
+		return nil, fmt.Errorf("cluster: 不支持的 Protobuf Lane payload 类型 %T", value)
 	}
-	return buffer.Bytes(), nil
+	payload, err := proto.Marshal(message)
+	if err != nil {
+		return nil, fmt.Errorf("cluster: 编码 Protobuf Lane payload 失败: %w", err)
+	}
+	return payload, nil
 }
 
-// decodeClusterPayload 解码迁移期内部负载。
+// decodeClusterPayload 解码强类型 Protobuf 业务负载。
 func decodeClusterPayload(payload []byte, destination any) error {
-	registerClusterGobTypes()
 	if len(payload) == 0 {
 		return errors.New("cluster: Lane payload 不能为空")
 	}
-	if err := gob.NewDecoder(bytes.NewReader(payload)).Decode(destination); err != nil {
-		return fmt.Errorf("cluster: 解码 Lane payload 失败: %w", err)
+	var message proto.Message
+	switch destination.(type) {
+	case *ClusterPing:
+		message = &pbx.ClusterPingPayload{}
+	case *ClusterReq:
+		message = &pbx.ClusterRequestPayload{}
+	case *ClusterResp:
+		message = &pbx.ClusterResponsePayload{}
+	case *ClusterRoute:
+		message = &pbx.ClusterRoutePayload{}
+	case *UserCacheReq:
+		message = &pbx.ClusterUserCachePayload{}
+	case *MsgServerCtrl:
+		message = &pbx.ClusterServerMessage{}
+	case *bool:
+		message = &pbx.ClusterAck{}
+	default:
+		return fmt.Errorf("cluster: 不支持的 Protobuf Lane 目标类型 %T", destination)
+	}
+	if err := proto.Unmarshal(payload, message); err != nil {
+		return fmt.Errorf("cluster: 解码 Protobuf Lane payload 失败: %w", err)
+	}
+	switch output := destination.(type) {
+	case *ClusterPing:
+		decoded := message.(*pbx.ClusterPingPayload)
+		*output = ClusterPing{Node: decoded.Node, Fingerprint: decoded.Fingerprint}
+	case *ClusterReq:
+		*output = *clusterRequestFromProto(message.(*pbx.ClusterRequestPayload))
+	case *ClusterResp:
+		*output = *clusterResponseFromProto(message.(*pbx.ClusterResponsePayload))
+	case *ClusterRoute:
+		*output = *clusterRouteFromProto(message.(*pbx.ClusterRoutePayload))
+	case *UserCacheReq:
+		*output = *clusterUserCacheFromProto(message.(*pbx.ClusterUserCachePayload))
+	case *MsgServerCtrl:
+		decoded := clusterServerMessageFromProto(message.(*pbx.ClusterServerMessage))
+		if decoded == nil || decoded.Ctrl == nil {
+			return errors.New("cluster: Protobuf Lane payload 不包含控制响应")
+		}
+		*output = *decoded.Ctrl
+	case *bool:
+		*output = message.(*pbx.ClusterAck).Rejected
 	}
 	return nil
 }
 
-// registerClusterGobTypes 注册可能出现在 interface 字段中的具体类型。
-// 注册靠近编解码器，确保测试、工具和服务进程走完全相同的协议初始化。
-func registerClusterGobTypes() {
-	clusterGobTypesOnce.Do(func() {
-		gob.Register([]any{})
-		gob.Register(map[string]any{})
-		gob.Register(map[string]int{})
-		gob.Register(map[string]string{})
-		gob.Register(MsgAccessMode{})
-		gob.Register(time.Time{})
-	})
+func clusterSessionToProto(session *ClusterSess) *pbx.ClusterSession {
+	if session == nil {
+		return nil
+	}
+	return &pbx.ClusterSession{
+		RemoteAddr: session.RemoteAddr, UserAgent: session.UserAgent,
+		Uid: session.Uid.String(), AuthLevel: int32(session.AuthLvl),
+		ProtocolVersion: int32(session.Ver), Language: session.Lang,
+		CountryCode: session.CountryCode, DeviceId: session.DeviceID,
+		Platform: session.Platform, Sid: session.Sid, Background: session.Background,
+	}
+}
+
+func clusterSessionFromProto(session *pbx.ClusterSession) *ClusterSess {
+	if session == nil {
+		return nil
+	}
+	return &ClusterSess{
+		RemoteAddr: session.RemoteAddr, UserAgent: session.UserAgent,
+		Uid: types.ParseUid(session.Uid), AuthLvl: auth.Level(session.AuthLevel),
+		Ver: int(session.ProtocolVersion), Lang: session.Language,
+		CountryCode: session.CountryCode, DeviceID: session.DeviceId,
+		Platform: session.Platform, Sid: session.Sid, Background: session.Background,
+	}
+}
+
+func clusterClientMessageToProto(message *ClientComMessage) *pbx.ClusterClientMessage {
+	if message == nil {
+		return nil
+	}
+	result := &pbx.ClusterClientMessage{
+		Message: pbCliSerialize(message), Id: message.Id, Original: message.Original,
+		RcptTo: message.RcptTo, AsUser: message.AsUser,
+		AuthLevel: int32(message.AuthLvl), MetaWhat: int32(message.MetaWhat),
+	}
+	if !message.Timestamp.IsZero() {
+		result.TimestampUnixNano = message.Timestamp.UnixNano()
+	}
+	return result
+}
+
+func clusterClientMessageFromProto(message *pbx.ClusterClientMessage) *ClientComMessage {
+	if message == nil {
+		return nil
+	}
+	result := pbCliDeserialize(message.Message)
+	if result == nil {
+		result = &ClientComMessage{}
+	}
+	result.Id, result.Original, result.RcptTo = message.Id, message.Original, message.RcptTo
+	result.AsUser, result.AuthLvl = message.AsUser, int(message.AuthLevel)
+	result.MetaWhat = int(message.MetaWhat)
+	if message.TimestampUnixNano != 0 {
+		result.Timestamp = time.Unix(0, message.TimestampUnixNano).UTC()
+	}
+	return result
+}
+
+func clusterServerMessageToProto(message *ServerComMessage) *pbx.ClusterServerMessage {
+	if message == nil {
+		return nil
+	}
+	result := &pbx.ClusterServerMessage{
+		Message: pbServSerialize(message), Id: message.Id, RcptTo: message.RcptTo,
+		AsUser: message.AsUser, SkipSid: message.SkipSid,
+	}
+	if message.Ctrl != nil {
+		if params, ok := message.Ctrl.Params.(map[string]any); ok {
+			for key, value := range params {
+				if timestamp, ok := value.(time.Time); ok {
+					if result.ControlTimeParams == nil {
+						result.ControlTimeParams = make(map[string]int64)
+					}
+					result.ControlTimeParams[key] = timestamp.UnixNano()
+				}
+			}
+		}
+	}
+	if !message.Timestamp.IsZero() {
+		result.TimestampUnixNano = message.Timestamp.UnixNano()
+	}
+	return result
+}
+
+func clusterServerMessageFromProto(message *pbx.ClusterServerMessage) *ServerComMessage {
+	if message == nil {
+		return nil
+	}
+	result := pbServDeserialize(message.Message)
+	if result == nil {
+		result = &ServerComMessage{}
+	}
+	result.Id, result.RcptTo, result.AsUser = message.Id, message.RcptTo, message.AsUser
+	result.SkipSid = message.SkipSid
+	if message.TimestampUnixNano != 0 {
+		result.Timestamp = time.Unix(0, message.TimestampUnixNano).UTC()
+	}
+	if result.Ctrl != nil && len(message.ControlTimeParams) > 0 {
+		params, _ := result.Ctrl.Params.(map[string]any)
+		if params == nil {
+			params = make(map[string]any)
+		}
+		for key, value := range message.ControlTimeParams {
+			params[key] = time.Unix(0, value).UTC()
+		}
+		result.Ctrl.Params = params
+	}
+	return result
+}
+
+func clusterRequestToProto(request *ClusterReq) *pbx.ClusterRequestPayload {
+	return &pbx.ClusterRequestPayload{
+		Node: request.Node, Signature: request.Signature, Fingerprint: request.Fingerprint,
+		RequestType: int32(request.ReqType), ClientMessage: clusterClientMessageToProto(request.CliMsg),
+		ServerMessage: clusterServerMessageToProto(request.SrvMsg), RcptTo: request.RcptTo,
+		Session: clusterSessionToProto(request.Sess), Gone: request.Gone,
+	}
+}
+
+func clusterRequestFromProto(request *pbx.ClusterRequestPayload) *ClusterReq {
+	return &ClusterReq{
+		Node: request.Node, Signature: request.Signature, Fingerprint: request.Fingerprint,
+		ReqType: ProxyReqType(request.RequestType), CliMsg: clusterClientMessageFromProto(request.ClientMessage),
+		SrvMsg: clusterServerMessageFromProto(request.ServerMessage), RcptTo: request.RcptTo,
+		Sess: clusterSessionFromProto(request.Session), Gone: request.Gone,
+	}
+}
+
+func clusterResponseToProto(response *ClusterResp) *pbx.ClusterResponsePayload {
+	return &pbx.ClusterResponsePayload{
+		ServerMessage: clusterServerMessageToProto(response.SrvMsg), OriginalSid: response.OrigSid,
+		RcptTo: response.RcptTo, OriginalRequestType: int32(response.OrigReqType),
+	}
+}
+
+func clusterResponseFromProto(response *pbx.ClusterResponsePayload) *ClusterResp {
+	return &ClusterResp{
+		SrvMsg: clusterServerMessageFromProto(response.ServerMessage), OrigSid: response.OriginalSid,
+		RcptTo: response.RcptTo, OrigReqType: ProxyReqType(response.OriginalRequestType),
+	}
+}
+
+func clusterRouteToProto(route *ClusterRoute) *pbx.ClusterRoutePayload {
+	return &pbx.ClusterRoutePayload{
+		Node: route.Node, Signature: route.Signature, Fingerprint: route.Fingerprint,
+		ServerMessage: clusterServerMessageToProto(route.SrvMsg), Session: clusterSessionToProto(route.Sess),
+	}
+}
+
+func clusterRouteFromProto(route *pbx.ClusterRoutePayload) *ClusterRoute {
+	return &ClusterRoute{
+		Node: route.Node, Signature: route.Signature, Fingerprint: route.Fingerprint,
+		SrvMsg: clusterServerMessageFromProto(route.ServerMessage), Sess: clusterSessionFromProto(route.Session),
+	}
+}
+
+func clusterPushToProto(receipt *push.Receipt) *pbx.ClusterPushReceipt {
+	if receipt == nil {
+		return nil
+	}
+	result := &pbx.ClusterPushReceipt{Channel: receipt.Channel}
+	for uid, recipient := range receipt.To {
+		result.Recipients = append(result.Recipients, &pbx.ClusterPushRecipient{
+			Uid: uid.String(), Delivered: int32(recipient.Delivered), Devices: recipient.Devices,
+			Unread: int32(recipient.Unread), IncrementUnread: recipient.ShouldIncrementUnreadCountInCache,
+		})
+	}
+	payload := receipt.Payload
+	content, _ := json.Marshal(payload.Content)
+	result.Payload = &pbx.ClusterPushPayload{
+		What: payload.What, Silent: payload.Silent, Topic: payload.Topic,
+		From: payload.From, Sequence: int32(payload.SeqId), ContentType: payload.ContentType,
+		ContentJson: content, Webrtc: payload.Webrtc, AudioOnly: payload.AudioOnly,
+		Replace: payload.Replace, ModeWant: uint32(payload.ModeWant), ModeGiven: uint32(payload.ModeGiven),
+	}
+	if !payload.Timestamp.IsZero() {
+		result.Payload.TimestampUnixNano = payload.Timestamp.UnixNano()
+	}
+	return result
+}
+
+func clusterPushFromProto(receipt *pbx.ClusterPushReceipt) *push.Receipt {
+	if receipt == nil {
+		return nil
+	}
+	result := &push.Receipt{To: make(map[types.Uid]push.Recipient), Channel: receipt.Channel}
+	for _, recipient := range receipt.Recipients {
+		uid := types.ParseUid(recipient.Uid)
+		if uid.IsZero() {
+			continue
+		}
+		result.To[uid] = push.Recipient{
+			Delivered: int(recipient.Delivered), Devices: recipient.Devices, Unread: int(recipient.Unread),
+			ShouldIncrementUnreadCountInCache: recipient.IncrementUnread,
+		}
+	}
+	if payload := receipt.Payload; payload != nil {
+		var content any
+		if len(payload.ContentJson) > 0 && string(payload.ContentJson) != "null" {
+			_ = json.Unmarshal(payload.ContentJson, &content)
+		}
+		result.Payload = push.Payload{
+			What: payload.What, Silent: payload.Silent, Topic: payload.Topic, From: payload.From,
+			SeqId: int(payload.Sequence), ContentType: payload.ContentType, Content: content,
+			Webrtc: payload.Webrtc, AudioOnly: payload.AudioOnly, Replace: payload.Replace,
+			ModeWant: types.AccessMode(payload.ModeWant), ModeGiven: types.AccessMode(payload.ModeGiven),
+		}
+		if payload.TimestampUnixNano != 0 {
+			result.Payload.Timestamp = time.Unix(0, payload.TimestampUnixNano).UTC()
+		}
+	}
+	return result
+}
+
+func clusterUserCacheToProto(request *UserCacheReq) *pbx.ClusterUserCachePayload {
+	result := &pbx.ClusterUserCachePayload{
+		Node: request.Node, UserId: request.UserId.String(), Unread: int32(request.Unread),
+		Increment: request.Inc, Gone: request.Gone, PushReceipt: clusterPushToProto(request.PushRcpt),
+	}
+	for _, uid := range request.UserIdList {
+		result.UserIds = append(result.UserIds, uid.String())
+	}
+	return result
+}
+
+func clusterUserCacheFromProto(request *pbx.ClusterUserCachePayload) *UserCacheReq {
+	result := &UserCacheReq{
+		Node: request.Node, UserId: types.ParseUid(request.UserId), Unread: int(request.Unread),
+		Inc: request.Increment, Gone: request.Gone, PushRcpt: clusterPushFromProto(request.PushReceipt),
+	}
+	for _, value := range request.UserIds {
+		if uid := types.ParseUid(value); !uid.IsZero() {
+			result.UserIdList = append(result.UserIdList, uid)
+		}
+	}
+	return result
 }

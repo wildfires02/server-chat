@@ -265,6 +265,35 @@ func (a *adapter) MessageGetAll(topic string, forUser t.Uid, opts *t.QueryOpt) (
 	return msgs, nil
 }
 
+// MessageGetLatest returns the latest message visible to forUser for each topic in one ReQL request.
+func (a *adapter) MessageGetLatest(topics []string, forUser t.Uid) ([]t.Message, error) {
+	if len(topics) == 0 {
+		return nil, nil
+	}
+	requester := forUser.String()
+	query := rdb.Expr(topics).ConcatMap(func(topic rdb.Term) any {
+		return rdb.DB(a.dbName).Table("messages").
+			Between([]any{topic, rdb.MinVal}, []any{topic, rdb.MaxVal}, rdb.BetweenOpts{Index: "Topic_SeqId"}).
+			OrderBy(rdb.OrderByOpts{Index: rdb.Desc("Topic_SeqId")}).
+			Filter(rdb.Row.HasFields("DelId").Not()).
+			Filter(func(row rdb.Term) any {
+				return rdb.Not(row.Field("DeletedFor").Default([]any{}).Contains(
+					func(df rdb.Term) any { return df.Field("User").Eq(requester) }))
+			}).
+			Limit(1)
+	})
+	cursor, err := query.Run(a.conn)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close()
+	var msgs []t.Message
+	if err = cursor.All(&msgs); err != nil {
+		return nil, err
+	}
+	return msgs, nil
+}
+
 // MessageSearch 在单个 Topic 内按规范化正文搜索消息，并排除调用者已删除的消息。
 func (a *adapter) MessageSearch(topic string, forUser t.Uid, search *t.MessageSearchQuery) ([]t.Message, error) {
 	if search == nil || search.Query == "" {

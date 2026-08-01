@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"sync/atomic"
 	"unicode/utf8"
@@ -11,10 +12,46 @@ import (
 	"chat/server/store/types"
 )
 
+const maxClientBatchMessages = 64
+
+// decodeClientWireMessages 同时解析传统单包与 0.32+ 客户端批量信封。
+// hi 必须仍然单独发送：只有握手完成后 Session 才能确认批量能力。
+func decodeClientWireMessages(raw []byte, allowBatch bool) ([]*ClientComMessage, error) {
+	var wire struct {
+		ClientComMessage
+		Batch json.RawMessage `json:"batch"`
+	}
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return nil, err
+	}
+	if wire.Batch == nil {
+		return []*ClientComMessage{&wire.ClientComMessage}, nil
+	}
+	if !allowBatch {
+		return nil, errors.New("client batch requires protocol 0.32")
+	}
+
+	var batch []json.RawMessage
+	if err := json.Unmarshal(wire.Batch, &batch); err != nil {
+		return nil, err
+	}
+	if len(batch) == 0 || len(batch) > maxClientBatchMessages {
+		return nil, errors.New("invalid client batch size")
+	}
+
+	messages := make([]*ClientComMessage, len(batch))
+	for index := range batch {
+		messages[index] = new(ClientComMessage)
+		if err := json.Unmarshal(batch[index], messages[index]); err != nil {
+			return nil, err
+		}
+	}
+	return messages, nil
+}
+
 // dispatchRaw 收到原始网络数据报，转换为 ClientComMessage 并分发处理。
 func (s *Session) dispatchRaw(raw []byte) {
 	now := types.TimeNow()
-	var msg ClientComMessage
 
 	if atomic.LoadInt32(&s.terminating) > 0 {
 		logs.Warn.Println("s.dispatch: 在正在终止的会话上收到消息", s.sid)
@@ -28,14 +65,21 @@ func (s *Session) dispatchRaw(raw []byte) {
 		return
 	}
 
-	if err := json.Unmarshal(raw, &msg); err != nil {
+	messages, err := decodeClientWireMessages(raw, s.supportsMessageBatching())
+	if err != nil {
 		// 畸形消息
 		logs.Warn.Println("s.dispatch 格式错误:", err, s.sid)
 		s.queueOut(ErrMalformed("", "", now))
 		return
 	}
+	if s.proto == WEBSOCK && len(messages) > 1 {
+		statsInc("IncomingWebsockBatchFramesTotal", 1)
+		statsInc("IncomingWebsockBatchedMessagesTotal", len(messages))
+	}
 
-	s.dispatch(&msg)
+	for _, msg := range messages {
+		s.dispatch(msg)
+	}
 }
 
 // dispatch 处理dispatch消息或事件。
@@ -139,6 +183,10 @@ func (s *Session) dispatch(msg *ClientComMessage) {
 	case msg.Login != nil:
 		handler = checkVers(s.login)
 		msg.Id = msg.Login.Id
+
+	case msg.Resume != nil:
+		handler = checkVers(s.resume)
+		msg.Id = msg.Resume.Id
 
 	case msg.Get != nil:
 		handler = checkVers(checkUser(s.get))

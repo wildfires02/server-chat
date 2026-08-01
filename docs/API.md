@@ -48,7 +48,8 @@ HTTP(S) 服务对外暴露以下接口端点：
 * `/v0/channels/lp`：Long Polling 长轮询端点。
 * `/v0/file/u`：带外大文件上传端点。
 * `/v0/file/s`：带外大文件下载服务端点。
-* `/v0/file/resumable/`：共享分块断点续传端点，支持跨节点继续和偏移查询。
+* `/v0/file/resumable/`：共享 tus 断点续传端点；S3 下每个 PATCH 直接流入原生 Multipart Part。
+* `/v0/file/direct/`：可选的浏览器预签名 S3 Multipart 直传端点。
 * `/v0/file/meta/`：文件摘要、安全扫描、预览/转码及可靠任务状态查询端点。
 
 独立启动的 `im-admin` 提供 `/v0/admin/`（开发默认端口 `6061`），该路由不会挂载到
@@ -204,7 +205,81 @@ Protocol Buffer 协议定义文件参见 [model.proto](../api/pbx/model.proto)�
 
 ### WebSocket 端点
 
-消息在文本帧 (Text Frame) 中传输，一帧包含一条 JSON 消息。
+默认消息在文本帧 (Text Frame) 中传输。协议 `0.31` 及更早版本一帧包含一条 JSON 消息。
+
+协议 `0.32` 起支持双向批量信封。客户端在完成 `{hi}` 握手后可把最多 64 个独立请求
+合并到一个帧中，每个内部请求仍使用独立 `id`、响应和权限检查：
+
+```json
+{"batch":[{"get":{"id":"1","topic":"grpA","what":"desc"}},{"get":{"id":"2","topic":"grpB","what":"desc"}}]}
+```
+
+服务端会把历史记录等连续下行消息编码为 `{"batch":[...]}`，保持原有消息顺序，
+并把批量帧控制在约 256 KiB；单条业务消息超过该值时允许独占一帧。客户端必须按数组
+顺序逐条路由。`0.31` 及更早客户端继续接收传统单包，不会收到未知批量信封。
+可通过 `IncomingWebsockBatchFramesTotal` / `IncomingWebsockBatchedMessagesTotal` 和
+`OutgoingWebsockBatchFramesTotal` / `OutgoingWebsockBatchedMessagesTotal` 观察实际合帧率。
+
+协议 `0.33` 起，浏览器可在 HTTP Upgrade 时声明：
+
+```http
+Sec-WebSocket-Protocol: im.protobuf.v1
+```
+
+服务端选择该子协议后，所有业务数据必须使用 WebSocket Binary Frame；每帧分别是
+[`ClientBatch`](../api/pbx/chat.proto) 或 `ServerBatch`，即使只有一条内部消息也保留批量
+信封。首个二进制帧必须只包含一条 `{hi ver:"0.33"}`，单帧最多 64 条上行请求；服务端
+按实际 Protobuf wire size 把下行帧控制在约 256 KiB。文本帧与二进制帧不能在同一
+Session 混用。服务端未选择该子协议时，客户端必须自动继续使用上述 JSON 文本协议，
+因此升级和旧服务部署可以共存。
+
+二进制模式复用 `api/pbx/chat.proto` 中的强类型业务字段；JSON 对象类型的正文、公开
+资料、消息头和控制参数只在对应 `bytes` 字段内部进行 JSON 编码，不使用“整包 JSON
+塞入 Protobuf bytes”的包装方式。
+
+### 会话列表聚合预览
+
+协议 `0.33` 的已认证 `me` Topic 支持一次查询最多 60 个会话的最后一条可见消息：
+
+```json
+{"get":{"id":"preview-1","topic":"me","what":"previews","previews":{"topics":["usrPeer","grpYiqEXb4QY6s"]}}}
+```
+
+响应使用单个 `{meta previews:[...]}`。服务端先按当前用户未删除且具备读取权限的订阅
+过滤 Topic，再用一次数据库批量查询获取每个内部消息流的最新可见记录；P2P、频道和
+用户软删除会按请求者视角转换。该查询替代会话列表逐 Topic 的 `desc data` 请求。
+
+### 快速会话恢复
+
+协议 `0.33` 增加 `{resume}`。它在一个命令中验证已有 Token、恢复 Session 身份、重新
+加入最多 8 个实时 Topic，并从客户端已落盘的消息/删除游标开始追赶：
+
+```json
+{
+  "resume": {
+    "id": "resume-7",
+    "token": "<base64-token>",
+    "topics": [
+      {"topic": "me"},
+      {"topic": "grpYiqEXb4QY6s", "seq": 481, "del": 9, "active": true}
+    ]
+  }
+}
+```
+
+`active:true` 会恢复 `desc sub data del aux`；非活动 Topic 只恢复 Presence 所需订阅。
+客户端应始终包含 `me`，并在发送 `{resume}` 前绑定新连接的 Topic 监听器。正数游标按
+`seq+1` / `del+1` 升序读取固定高水位快照；`seq=0` 表示本地没有消息基线，只加载最近
+一页。主 `{ctrl id:"resume-7"}` 只会在所有 Topic
+完成加入后返回；`params.restoredTopics` 是实际恢复成功的列表。单页为 100 条，响应的
+`cursor/high/hasMore` 用于继续同一快照，官方 Web SDK 会自动翻页直至没有缺口。
+
+Token 无效返回 `401/403`，客户端应清除登录态；服务端版本低于 `0.33` 时，客户端回退
+到 `{login scheme:"token"}` 加原有订阅恢复流程。
+
+所有 Session 下行队列同时受 128 个队列项和 8 MiB 待发送字节限制。群广播在接收方
+投影完成后复用普通成员/频道读者两种不可变载荷，并分别缓存 JSON 与 Protobuf 编码；
+慢连接超过任一限制时只剥离该 Session。
 
 ### Long Polling 长轮询端点
 
@@ -456,7 +531,7 @@ get --search=release --scope=peers --limit=20 fnd
 |---|---|---|
 | P2P WebRTC 服务端信令 | ✅ 已实现 | 需要部署真实 STUN/TURN 并进行生产网络验证 |
 | Agora 群组通话服务端 | ✅ 已实现 | 已实现 Token、ACL、加入、离开、续期、断线清理和状态持久化 |
-| 正式客户端 Agora SDK | 🟡 待接入 | Web、Android、iOS 客户端需根据下发凭证调用 Agora SDK |
+| 正式客户端 Agora SDK | 🟡 部分完成 | `web-chat` 已接入语音/视频 SDK、续期和通话 UI；Android、iOS 待接入 |
 | Agora 真实项目跨端联调 | 🟡 待验证 | 当前仓库测试不连接外部 Agora 网络 |
 
 服务端 `{hi}` 响应中的 `groupCallProvider: "agora"` 表示已启用群组通话。群组邀请仍使用兼容的 `webrtc` 消息头，服务端会写入可信的 `call-provider: "agora"`：
@@ -557,7 +632,7 @@ webrtc:
 
 ```json
 // {hi} 握手
-{ "hi": { "id": "100", "user_agent": "MyApp/1.0", "ver": "0.31" } }
+{ "hi": { "id": "100", "user_agent": "MyApp/1.0", "ver": "0.33" } }
 
 // {login} 登录
 { "login": { "id": "101", "scheme": "basic", "secret": "dXNlcm5hbWU6cGFzc3dvcmQ=" } }

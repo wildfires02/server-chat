@@ -7,6 +7,7 @@ import (
 
 	"chat/server/auth"
 	"chat/server/logs"
+	"chat/server/media"
 	"chat/server/store"
 	"chat/server/store/types"
 
@@ -32,6 +33,12 @@ func (s *Session) hello(msg *ClientComMessage) {
 			logs.Warn.Println("s.hello:", "不支持的协议版本", s.sid)
 			return
 		}
+		if s.wsBinary && versionCompare(s.ver, minProtobufWebSocketVersionValue) < 0 {
+			s.ver = 0
+			s.queueOut(ErrVersionNotSupported(msg.Id, msg.Timestamp))
+			logs.Warn.Println("s.hello: protobuf websocket requires protocol 0.33", s.sid)
+			return
+		}
 
 		params = map[string]any{
 			"ver":                currentVersion,
@@ -45,6 +52,18 @@ func (s *Session) hello(msg *ClientComMessage) {
 			"reqCred":            globals.validatorClientConfig,
 			"msgDelAge":          globals.msgDeleteAge.Seconds(),
 		}
+		mediaHandler := store.Store.GetMediaHandler()
+		_, streamingUpload := mediaHandler.(media.StreamingMultipartHandler)
+		directUpload := false
+		if _, supported := mediaHandler.(media.MultipartHandler); supported {
+			if capability, configurable := mediaHandler.(media.DirectUploadCapability); configurable {
+				directUpload = capability.DirectUploadEnabled()
+			} else {
+				directUpload = true
+			}
+		}
+		params["fileUploadStreaming"] = streamingUpload
+		params["fileUploadDirect"] = directUpload
 		if len(globals.iceServers) > 0 {
 			params["iceServers"] = globals.iceServers
 		}

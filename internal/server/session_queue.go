@@ -4,8 +4,127 @@ import (
 	"sync/atomic"
 	"time"
 
+	"chat/api/pbx"
 	"chat/server/logs"
+	"google.golang.org/protobuf/proto"
 )
+
+func (s *Session) protobufQueueSize(messages []*ServerComMessage) int64 {
+	if len(messages) == 0 {
+		return 0
+	}
+	if s.proto == GRPC || s.isMultiplex() {
+		var total int64
+		for _, message := range messages {
+			total += int64(proto.Size(message.serializedProto()))
+		}
+		return total
+	}
+	batch := &pbx.ServerBatch{Messages: make([]*pbx.ServerMsg, 0, len(messages))}
+	for _, message := range messages {
+		batch.Messages = append(batch.Messages, message.serializedProto())
+	}
+	return int64(proto.Size(batch))
+}
+
+func jsonBatchQueueSize(messages []*ServerComMessage, batched bool) int64 {
+	if !batched {
+		var total int64
+		for _, message := range messages {
+			total += int64(len(message.serializedJSON()))
+		}
+		return total
+	}
+	const prefixSize = int64(len(`{"batch":[`))
+	const suffixSize = int64(len(`]}`))
+	var total, current int64
+	count := 0
+	for _, message := range messages {
+		size := int64(len(message.serializedJSON()))
+		separator := int64(0)
+		if count > 0 {
+			separator = 1
+		}
+		if count > 0 && prefixSize+current+separator+size+suffixSize > maxJSONBatchFrameSize {
+			total += prefixSize + current + suffixSize
+			current = 0
+			count = 0
+			separator = 0
+		}
+		current += separator + size
+		count++
+	}
+	if count > 0 {
+		total += prefixSize + current + suffixSize
+	}
+	return total
+}
+
+func (s *Session) outboundQueueSize(value any) int64 {
+	switch item := value.(type) {
+	case nil:
+		return 0
+	case []byte:
+		return int64(len(item))
+	case string:
+		return int64(len(item))
+	case *ServerComMessage:
+		if s.supportsProtobufWebSocket() || s.proto == GRPC || s.isMultiplex() {
+			return s.protobufQueueSize([]*ServerComMessage{item})
+		}
+		if s.supportsMessageBatching() {
+			// The writer may merge this item with the following queue entries.
+			// Reserve the one-message envelope as a safe transport-exact upper bound.
+			return jsonBatchQueueSize([]*ServerComMessage{item}, true)
+		}
+		return int64(len(item.serializedJSON()))
+	case []*ServerComMessage:
+		if s.supportsProtobufWebSocket() || s.proto == GRPC || s.isMultiplex() {
+			return s.protobufQueueSize(item)
+		}
+		return jsonBatchQueueSize(item, s.supportsMessageBatching())
+	default:
+		// Raw probe frames are tiny; use a conservative fixed accounting value.
+		return 256
+	}
+}
+
+func (s *Session) reserveOutbound(value any) (int64, bool) {
+	size := s.outboundQueueSize(value)
+	if size <= 0 {
+		size = 1
+	}
+	for {
+		pending := s.sendPendingBytes.Load()
+		if size > sendQueueByteLimit-pending {
+			statsInc("OutgoingQueueByteLimitExceeded", 1)
+			return size, false
+		}
+		if s.sendPendingBytes.CompareAndSwap(pending, pending+size) {
+			return size, true
+		}
+	}
+}
+
+func (s *Session) releaseOutbound(value any) {
+	size := s.outboundQueueSize(value)
+	if size <= 0 {
+		size = 1
+	}
+	for {
+		pending := s.sendPendingBytes.Load()
+		if pending <= 0 {
+			return
+		}
+		next := pending - size
+		if next < 0 {
+			next = 0
+		}
+		if s.sendPendingBytes.CompareAndSwap(pending, next) {
+			return
+		}
+	}
+}
 
 // scheduleClusterWriteLoop 持续运行schedule集群WriteLoop，直到输入通道关闭或收到停止信号。
 func (s *Session) scheduleClusterWriteLoop() {
@@ -20,14 +139,13 @@ func (s *Session) scheduleClusterWriteLoop() {
 
 // supportsMessageBatching 完成supports消息Batching所需的内部处理。
 func (s *Session) supportsMessageBatching() bool {
-	switch s.proto {
-	case WEBSOCK:
-		return true
-	case GRPC:
-		return true
-	default:
-		return false
-	}
+	return s.proto == WEBSOCK && versionCompare(s.ver, minBatchVersionValue) >= 0
+}
+
+// supportsProtobufWebSocket 表示当前连接同时完成了 HTTP 子协议与 hi 版本协商。
+func (s *Session) supportsProtobufWebSocket() bool {
+	return s.proto == WEBSOCK && s.wsBinary &&
+		versionCompare(s.ver, minProtobufWebSocketVersionValue) >= 0
 }
 
 // queueOutBatch 尝试将一批 ServerComMessage 消息发送给 Session 写循环。若发送缓冲区已满则返回 false。
@@ -51,10 +169,18 @@ func (s *Session) queueOutBatch(msgs []*ServerComMessage) bool {
 		return false
 	}
 
-	if s.supportsMessageBatching() {
+	// WebSocket 与 gRPC 都在队列中保存切片，避免大段历史记录占满队列。
+	// 各写循环再根据传输类型和协议版本决定批量编码还是逐条发送。
+	if s.proto == WEBSOCK || s.proto == GRPC {
+		_, reserved := s.reserveOutbound(msgs)
+		if !reserved {
+			logs.Err.Println("s.queueOutBatch: 会话发送字节队列已满", s.sid)
+			return false
+		}
 		select {
 		case s.send <- msgs:
 		default:
+			s.releaseOutbound(msgs)
 			logs.Err.Println("s.queueOut: 会话发送队列已满", s.sid)
 			return false
 		}
@@ -103,9 +229,15 @@ func (s *Session) queueOut(msg *ServerComMessage) bool {
 		}
 	}
 
+	_, reserved := s.reserveOutbound(msg)
+	if !reserved {
+		logs.Err.Println("s.queueOut: 会话发送字节队列已满", s.sid)
+		return false
+	}
 	select {
 	case s.send <- msg:
 	default:
+		s.releaseOutbound(msg)
 		logs.Err.Println("s.queueOut: 会话发送队列已满", s.sid)
 		return false
 	}
@@ -121,9 +253,15 @@ func (s *Session) queueOutBytes(data []byte) bool {
 		return true
 	}
 
+	_, reserved := s.reserveOutbound(data)
+	if !reserved {
+		logs.Err.Println("s.queueOutBytes: 会话发送字节队列已满", s.sid)
+		return false
+	}
 	select {
 	case s.send <- data:
 	default:
+		s.releaseOutbound(data)
 		logs.Err.Println("s.queueOutBytes: 会话发送队列已满", s.sid)
 		return false
 	}
@@ -161,7 +299,8 @@ func (s *Session) stopSession(data any) {
 // purgeChannels 完成purgeChannels所需的内部处理。
 func (s *Session) purgeChannels() {
 	for len(s.send) > 0 {
-		<-s.send
+		msg := <-s.send
+		s.releaseOutbound(msg)
 	}
 	for len(s.stop) > 0 {
 		<-s.stop

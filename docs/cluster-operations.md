@@ -47,6 +47,11 @@ curl --fail --request POST http://127.0.0.1:6060/drainz
 
 ## 3. 滚动升级
 
+集群协议 v3 把 Lane 业务负载从 Gob 切换为强类型 Protobuf，并启用同一双向流上的
+多请求流水线。v2 与 v3 的 payload 线格式不兼容，服务端会在握手阶段拒绝混合版本；
+因此本次 v2→v3 必须先 Drain 并停止全部 v2 节点，再统一启动 v3。进入 v3 后，只有
+发布说明明确声明协议兼容窗口的版本才允许按下面流程滚动升级。
+
 ```bash
 kubectl -n im-system rollout status statefulset/im
 kubectl -n im-system get pods -l app.kubernetes.io/name=im-server

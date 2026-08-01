@@ -61,6 +61,14 @@ func TestDispatchHello(t *testing.T) {
 		}
 		if resp.Ctrl.Params == nil {
 			t.Error("Response is expected to contain params dict.")
+		} else {
+			params := resp.Ctrl.Params.(map[string]any)
+			if _, ok := params["fileUploadStreaming"].(bool); !ok {
+				t.Error("hello params must advertise streaming upload capability")
+			}
+			if _, ok := params["fileUploadDirect"].(bool); !ok {
+				t.Error("hello params must advertise direct upload capability")
+			}
 		}
 	} else {
 		t.Error("Response must contain a ctrl message.")

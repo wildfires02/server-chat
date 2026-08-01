@@ -23,7 +23,7 @@ import (
 
 const (
 	// currentVersion 是当前 API/协议版本
-	currentVersion = "0.31"
+	currentVersion = "0.33"
 	// minSupportedVersion 是支持的最小 API 版本
 	minSupportedVersion = "0.20"
 

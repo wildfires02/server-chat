@@ -15,9 +15,11 @@ import (
 	"net/http"
 	"time"
 
+	"chat/api/pbx"
 	"chat/server/logs"
 	"chat/server/store/types"
 	"github.com/gorilla/websocket"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -54,7 +56,7 @@ func (sess *Session) readLoop() {
 
 	for {
 		// 读取 ClientComMessage
-		_, raw, err := sess.ws.ReadMessage()
+		messageType, raw, err := sess.ws.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure,
 				websocket.CloseNormalClosure) {
@@ -63,7 +65,36 @@ func (sess *Session) readLoop() {
 			return
 		}
 		statsInc("IncomingMessagesWebsockTotal", 1)
-		sess.dispatchRaw(raw)
+		if sess.wsBinary {
+			if messageType != websocket.BinaryMessage {
+				logs.Warn.Println("ws: protobuf session received non-binary frame", sess.sid)
+				return
+			}
+			var batch pbx.ClientBatch
+			if err = proto.Unmarshal(raw, &batch); err != nil ||
+				len(batch.Messages) == 0 || len(batch.Messages) > maxClientBatchMessages {
+				logs.Warn.Println("ws: malformed protobuf batch", sess.sid, err)
+				sess.queueOut(ErrMalformed("", "", types.TimeNow()))
+				continue
+			}
+			if sess.ver == 0 && (len(batch.Messages) != 1 || batch.Messages[0].GetHi() == nil) {
+				sess.queueOut(ErrCommandOutOfSequence("", "", types.TimeNow()))
+				continue
+			}
+			if len(batch.Messages) > 1 {
+				statsInc("IncomingWebsockBatchFramesTotal", 1)
+				statsInc("IncomingWebsockBatchedMessagesTotal", len(batch.Messages))
+			}
+			for _, packet := range batch.Messages {
+				sess.dispatch(pbCliDeserialize(packet))
+			}
+		} else {
+			if messageType != websocket.TextMessage {
+				logs.Warn.Println("ws: json session received non-text frame", sess.sid)
+				return
+			}
+			sess.dispatchRaw(raw)
+		}
 	}
 }
 
@@ -75,7 +106,7 @@ func (sess *Session) sendMessage(msg any) bool {
 	}
 
 	statsInc("OutgoingMessagesWebsockTotal", 1)
-	if err := wsWrite(sess.ws, websocket.TextMessage, msg); err != nil {
+	if err := wsWrite(sess.ws, sess.wsDataMessageType(), msg); err != nil {
 		if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure,
 			websocket.CloseNormalClosure) {
 			logs.Err.Println("ws: writeLoop", sess.sid, err)
@@ -83,6 +114,54 @@ func (sess *Session) sendMessage(msg any) bool {
 		return false
 	}
 	return true
+}
+
+func (sess *Session) wsDataMessageType() int {
+	if sess.wsBinary {
+		return websocket.BinaryMessage
+	}
+	return websocket.TextMessage
+}
+
+// sendQueuedBatch 把当前已经排队的连续服务端消息合并发送。它不等待新消息，
+// 因此空闲连接的实时消息不会增加人为延迟；突发查询的 data/meta/ctrl 可以共享帧。
+func (sess *Session) sendQueuedBatch(initial []*ServerComMessage) bool {
+	messages := initial
+	flush := func() bool {
+		if len(messages) == 0 {
+			return true
+		}
+		frames := sess.serializeBatchAndUpdateStats(messages)
+		statsInc("OutgoingWebsockBatchFramesTotal", len(frames))
+		statsInc("OutgoingWebsockBatchedMessagesTotal", len(messages))
+		for _, frame := range frames {
+			if !sess.sendMessage(frame) {
+				return false
+			}
+		}
+		messages = nil
+		return true
+	}
+
+	for len(sess.send) > 0 {
+		next, ok := <-sess.send
+		if !ok {
+			return flush()
+		}
+		sess.releaseOutbound(next)
+		switch value := next.(type) {
+		case *ServerComMessage:
+			messages = append(messages, value)
+		case []*ServerComMessage:
+			messages = append(messages, value...)
+		default:
+			// 保持网络探针等原始帧与业务消息的严格队列顺序。
+			if !flush() || !sess.sendMessage(value) {
+				return false
+			}
+		}
+	}
+	return flush()
 }
 
 // writeLoop 保存Loop。
@@ -102,18 +181,31 @@ func (sess *Session) writeLoop() {
 				// Channel 已关闭。
 				return
 			}
+			sess.releaseOutbound(msg)
 			switch v := msg.(type) {
 			case []*ServerComMessage: // 批量未序列化的消息
-				for _, msg := range v {
-					w := sess.serializeAndUpdateStats(msg)
-					if !sess.sendMessage(w) {
+				if sess.supportsMessageBatching() {
+					if !sess.sendQueuedBatch(v) {
 						return
+					}
+				} else {
+					for _, msg := range v {
+						w := sess.serializeAndUpdateStats(msg)
+						if !sess.sendMessage(w) {
+							return
+						}
 					}
 				}
 			case *ServerComMessage: // 单个未序列化的消息
-				w := sess.serializeAndUpdateStats(v)
-				if !sess.sendMessage(w) {
-					return
+				if sess.supportsMessageBatching() && len(sess.send) > 0 {
+					if !sess.sendQueuedBatch([]*ServerComMessage{v}) {
+						return
+					}
+				} else {
+					w := sess.serializeAndUpdateStats(v)
+					if !sess.sendMessage(w) {
+						return
+					}
 				}
 			default: // 已序列化的消息
 				if !sess.sendMessage(v) {
@@ -130,7 +222,7 @@ func (sess *Session) writeLoop() {
 		case msg := <-sess.stop:
 			// 请求关闭，不关心消息是否已送达
 			if msg != nil {
-				wsWrite(sess.ws, websocket.TextMessage, msg)
+				wsWrite(sess.ws, sess.wsDataMessageType(), msg)
 			}
 			return
 
@@ -166,6 +258,7 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:    1024,
 	WriteBufferSize:   1024,
 	EnableCompression: globals.wsCompression,
+	Subprotocols:      []string{"im.protobuf.v1"},
 	// 允许来自任何 Origin 的连接
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
@@ -207,6 +300,7 @@ func serveWebSocket(wrt http.ResponseWriter, req *http.Request) {
 	}
 
 	sess, count := globals.sessionStore.NewSession(ws, "")
+	sess.wsBinary = ws.Subprotocol() == "im.protobuf.v1"
 	sess.countryCode = getCountryCodeFromHeader(req)
 	if globals.useXForwardedFor {
 		sess.remoteAddr = req.Header.Get("X-Forwarded-For")

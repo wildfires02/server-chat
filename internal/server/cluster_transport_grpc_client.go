@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -166,52 +165,295 @@ func (peer *clusterGRPCPeer) Call(proc string, request, response any) error {
 	}
 }
 
-// run 串行发送当前 Lane 的请求；gRPC 流和此单协程共同保证顺序。
+// run 在当前 Lane 上维护有界流水线；发送仍严格有序，响应通过 request_id 关联。
 func (lane *clusterGRPCLane) run() {
 	defer lane.peer.waitGroup.Done()
 	defer lane.closeStream()
+	var carry []*clusterLaneRequest
 	for {
-		select {
-		case <-lane.peer.context.Done():
+		if lane.peer.context.Err() != nil {
+			lane.finishRequests(carry, errClusterLaneClosed)
 			lane.failQueued(errClusterLaneClosed)
 			return
-		default:
 		}
-		// 可靠请求优先，避免瞬态事件持续涌入时挤压消息写入。
-		select {
-		case request := <-lane.reliableQueue:
-			lane.handleQueuedRequest(request, true)
+		if len(carry) == 0 {
+			request := lane.waitForQueuedRequest()
+			if request == nil {
+				lane.failQueued(errClusterLaneClosed)
+				return
+			}
+			carry = append(carry, request)
+		}
+		if err := lane.ensureStream(); err != nil {
+			carry = lane.retryRequests(carry, err)
+			lane.waitRetryBackoff(carry)
 			continue
-		default:
 		}
-		select {
-		case <-lane.peer.context.Done():
-			lane.failQueued(errClusterLaneClosed)
-			return
-		case request := <-lane.reliableQueue:
-			lane.handleQueuedRequest(request, true)
-		case request := <-lane.ephemeralQueue:
-			lane.handleQueuedRequest(request, false)
+		var streamErr error
+		carry, streamErr = lane.runPipeline(carry)
+		lane.closeStream()
+		if streamErr != nil {
+			carry = lane.retryRequests(carry, streamErr)
+			lane.waitRetryBackoff(carry)
 		}
 	}
 }
 
-// handleQueuedRequest 更新队列指标并执行一个已出队请求。
-func (lane *clusterGRPCLane) handleQueuedRequest(request *clusterLaneRequest, reliable bool) {
+func (lane *clusterGRPCLane) waitForQueuedRequest() *clusterLaneRequest {
+	select {
+	case request := <-lane.reliableQueue:
+		statsInc("ClusterLaneQueued", -1)
+		return request
+	default:
+	}
+	select {
+	case <-lane.peer.context.Done():
+		return nil
+	case request := <-lane.reliableQueue:
+		statsInc("ClusterLaneQueued", -1)
+		return request
+	case request := <-lane.ephemeralQueue:
+		statsInc("ClusterEphemeralQueued", -1)
+		return request
+	}
+}
+
+func (lane *clusterGRPCLane) takeQueuedRequest() *clusterLaneRequest {
+	select {
+	case request := <-lane.reliableQueue:
+		statsInc("ClusterLaneQueued", -1)
+		return request
+	default:
+	}
+	select {
+	case request := <-lane.reliableQueue:
+		statsInc("ClusterLaneQueued", -1)
+		return request
+	case request := <-lane.ephemeralQueue:
+		statsInc("ClusterEphemeralQueued", -1)
+		return request
+	default:
+		return nil
+	}
+}
+
+func (lane *clusterGRPCLane) pipelineWindow() int {
+	if lane.peer.config.PipelineWindow > 0 {
+		return lane.peer.config.PipelineWindow
+	}
+	return defaultClusterPipelineWindow
+}
+
+func (lane *clusterGRPCLane) runPipeline(
+	ready []*clusterLaneRequest,
+) ([]*clusterLaneRequest, error) {
+	stream := lane.stream
+	receive := make(chan clusterLaneReceive, 1)
+	go func() {
+		for {
+			frame, err := stream.Recv()
+			result := clusterLaneReceive{frame: frame, err: err}
+			if err != nil {
+				select {
+				case receive <- result:
+				case <-lane.peer.context.Done():
+				}
+				return
+			}
+			select {
+			case receive <- result:
+			case <-stream.Context().Done():
+				return
+			case <-lane.peer.context.Done():
+				return
+			}
+		}
+	}()
+
+	pending := make([]clusterLanePending, 0, lane.pipelineWindow())
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		for len(pending) < lane.pipelineWindow() {
+			var request *clusterLaneRequest
+			if len(ready) > 0 {
+				request, ready = ready[0], ready[1:]
+			} else {
+				request = lane.takeQueuedRequest()
+			}
+			if request == nil {
+				break
+			}
+			if err := request.context.Err(); err != nil {
+				lane.finishRequest(request, err)
+				continue
+			}
+			frame := lane.newRequestFrame(request)
+			if !request.started {
+				request.started = true
+				lane.inFlight.Add(1)
+			}
+			request.attempts++
+			pending = append(pending, clusterLanePending{request: request, frame: frame})
+			if err := stream.Send(frame); err != nil {
+				return append(lane.pendingRequests(pending), ready...),
+					fmt.Errorf("cluster: Lane 发送失败: %w", err)
+			}
+			lane.markActive(true)
+		}
+
+		if len(pending) == 0 {
+			request := lane.waitForQueuedRequest()
+			if request == nil {
+				return ready, errClusterLaneClosed
+			}
+			ready = append(ready, request)
+			continue
+		}
+
+		select {
+		case <-lane.peer.context.Done():
+			return append(lane.pendingRequests(pending), ready...), errClusterLaneClosed
+		case result := <-receive:
+			if result.err != nil {
+				statsInc("ClusterLaneFailures", 1)
+				return append(lane.pendingRequests(pending), ready...),
+					fmt.Errorf("cluster: Lane 接收失败: %w", result.err)
+			}
+			index := -1
+			for i := range pending {
+				if pending[i].request.requestID == result.frame.GetRequestId() {
+					index = i
+					break
+				}
+			}
+			if index < 0 {
+				return append(lane.pendingRequests(pending), ready...),
+					&clusterProtocolError{message: "cluster: 收到未知 request_id 的 Lane 响应"}
+			}
+			current := pending[index]
+			if err := lane.validateResponse(result.frame, current.frame); err != nil {
+				lane.finishRequest(current.request, err)
+				pending = append(pending[:index], pending[index+1:]...)
+				return append(lane.pendingRequests(pending), ready...), err
+			}
+			var responseErr error
+			if result.frame.Error != "" {
+				responseErr = &clusterRemoteCallError{message: result.frame.Error}
+			}
+			lane.finishRequest(current.request, responseErr, result.frame.Payload...)
+			pending = append(pending[:index], pending[index+1:]...)
+			statsInc("ClusterLaneRequests", 1)
+		case <-ticker.C:
+			for _, current := range pending {
+				if current.request.context.Err() != nil {
+					return append(lane.pendingRequests(pending), ready...), current.request.context.Err()
+				}
+			}
+		}
+	}
+}
+
+func (lane *clusterGRPCLane) newRequestFrame(request *clusterLaneRequest) *pbx.ClusterFrame {
+	lane.sequence++
+	return &pbx.ClusterFrame{
+		ClusterId: lane.peer.cluster.clusterID, SourceNode: lane.peer.cluster.thisNodeName,
+		SourceInstance: lane.peer.cluster.fingerprint, ProtocolVersion: clusterProtocolVersion,
+		MinProtocolVersion: clusterMinProtocolVersion, Lane: lane.index, Sequence: lane.sequence,
+		RequestId: request.requestID, Kind: request.kind, Payload: request.payload,
+		ClusterEpoch: lane.peer.cluster.viewEpoch.Load(), RingSignature: lane.peer.cluster.ringSignature(),
+	}
+}
+
+func (lane *clusterGRPCLane) pendingRequests(pending []clusterLanePending) []*clusterLaneRequest {
+	requests := make([]*clusterLaneRequest, 0, len(pending))
+	for _, current := range pending {
+		requests = append(requests, current.request)
+	}
+	return requests
+}
+
+func (lane *clusterGRPCLane) retryRequests(
+	requests []*clusterLaneRequest,
+	cause error,
+) []*clusterLaneRequest {
+	retry := make([]*clusterLaneRequest, 0, len(requests))
+	for _, request := range requests {
+		if request == nil {
+			continue
+		}
+		if err := request.context.Err(); err != nil {
+			lane.finishRequest(request, err)
+			continue
+		}
+		if !request.started {
+			retry = append(retry, request)
+			continue
+		}
+		if request.reliable && request.attempts <= lane.peer.config.MaxRetries &&
+			isRetryableClusterTransportError(cause) {
+			statsInc("ClusterLaneRetries", 1)
+			retry = append(retry, request)
+			continue
+		}
+		if !request.reliable {
+			statsInc("ClusterEphemeralDropped", 1)
+			lane.finishRequest(request, nil)
+			continue
+		}
+		lane.finishRequest(request, cause)
+	}
+	return retry
+}
+
+func (lane *clusterGRPCLane) waitRetryBackoff(requests []*clusterLaneRequest) {
+	if len(requests) == 0 || lane.peer.config.RetryBackoff <= 0 {
+		return
+	}
+	maximumAttempt := 1
+	for _, request := range requests {
+		if request != nil && request.attempts > maximumAttempt {
+			maximumAttempt = request.attempts
+		}
+	}
+	exponent := maximumAttempt - 1
+	if exponent > lane.peer.config.MaxRetries {
+		exponent = lane.peer.config.MaxRetries
+	}
+	timer := time.NewTimer(lane.peer.config.RetryBackoff * time.Duration(1<<exponent))
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+	case <-lane.peer.context.Done():
+	}
+}
+
+func (lane *clusterGRPCLane) finishRequest(
+	request *clusterLaneRequest,
+	err error,
+	payload ...byte,
+) {
 	if request == nil {
 		return
 	}
-	if reliable {
-		statsInc("ClusterLaneQueued", -1)
-	} else {
-		statsInc("ClusterEphemeralQueued", -1)
+	if request.started {
+		request.started = false
+		lane.inFlight.Add(-1)
 	}
-	lane.inFlight.Add(1)
-	defer lane.inFlight.Add(-1)
-	result := lane.executeWithRetry(request)
+	result := clusterLaneResult{err: err}
+	if len(payload) > 0 {
+		result.payload = append([]byte(nil), payload...)
+	}
 	select {
 	case request.result <- result:
 	default:
+	}
+}
+
+func (lane *clusterGRPCLane) finishRequests(requests []*clusterLaneRequest, err error) {
+	for _, request := range requests {
+		lane.finishRequest(request, err)
 	}
 }
 
@@ -248,113 +490,6 @@ func (transport *clusterGRPCTransport) maxReliableQueueUtilization() float64 {
 		}
 	}
 	return maximum
-}
-
-// executeWithRetry 对可靠请求执行有限指数退避重试，并保持 Request ID 不变。
-func (lane *clusterGRPCLane) executeWithRetry(request *clusterLaneRequest) clusterLaneResult {
-	for attempt := 0; ; attempt++ {
-		result := lane.execute(request)
-		if result.err == nil ||
-			!request.reliable ||
-			attempt >= lane.peer.config.MaxRetries ||
-			!isRetryableClusterTransportError(result.err) {
-			return result
-		}
-		statsInc("ClusterLaneRetries", 1)
-		delay := lane.peer.config.RetryBackoff * time.Duration(1<<attempt)
-		timer := time.NewTimer(delay)
-		select {
-		case <-timer.C:
-		case <-request.context.Done():
-			if !timer.Stop() {
-				<-timer.C
-			}
-			return clusterLaneResult{err: request.context.Err()}
-		}
-	}
-}
-
-// execute 在当前流中发送一个请求并读取其对应响应。
-func (lane *clusterGRPCLane) execute(request *clusterLaneRequest) clusterLaneResult {
-	if err := request.context.Err(); err != nil {
-		return clusterLaneResult{err: err}
-	}
-	if err := lane.ensureStream(); err != nil {
-		return clusterLaneResult{err: err}
-	}
-
-	lane.sequence++
-	frame := &pbx.ClusterFrame{
-		ClusterId:          lane.peer.cluster.clusterID,
-		SourceNode:         lane.peer.cluster.thisNodeName,
-		SourceInstance:     lane.peer.cluster.fingerprint,
-		ProtocolVersion:    clusterProtocolVersion,
-		MinProtocolVersion: clusterMinProtocolVersion,
-		Lane:               lane.index,
-		Sequence:           lane.sequence,
-		RequestId:          request.requestID,
-		Kind:               request.kind,
-		Payload:            request.payload,
-		ClusterEpoch:       lane.peer.cluster.viewEpoch.Load(),
-		RingSignature:      lane.peer.cluster.ringSignature(),
-	}
-	stream := lane.stream
-	sendResult := make(chan error, 1)
-	go func() {
-		sendResult <- stream.Send(frame)
-	}()
-	select {
-	case err := <-sendResult:
-		if err != nil {
-			lane.closeStream()
-			statsInc("ClusterLaneFailures", 1)
-			return clusterLaneResult{err: fmt.Errorf("cluster: Lane 发送失败: %w", err)}
-		}
-		lane.markActive(true)
-	case <-request.context.Done():
-		lane.closeStream()
-		statsInc("ClusterLaneFailures", 1)
-		return clusterLaneResult{err: request.context.Err()}
-	}
-
-	receiveResult := make(chan clusterLaneResult, 1)
-	go func() {
-		response, err := stream.Recv()
-		if err != nil {
-			receiveResult <- clusterLaneResult{err: err}
-			return
-		}
-		if validationErr := lane.validateResponse(response, frame); validationErr != nil {
-			receiveResult <- clusterLaneResult{err: validationErr}
-			return
-		}
-		if response.Error != "" {
-			receiveResult <- clusterLaneResult{
-				err: &clusterRemoteCallError{message: response.Error},
-			}
-			return
-		}
-		receiveResult <- clusterLaneResult{payload: response.Payload}
-	}()
-	select {
-	case result := <-receiveResult:
-		if result.err != nil {
-			var remoteError *clusterRemoteCallError
-			if errors.As(result.err, &remoteError) {
-				statsInc("ClusterLaneRequests", 1)
-				return result
-			}
-			lane.closeStream()
-			statsInc("ClusterLaneFailures", 1)
-			return clusterLaneResult{err: fmt.Errorf("cluster: Lane 接收失败: %w", result.err)}
-		}
-		statsInc("ClusterLaneRequests", 1)
-		return result
-	case <-request.context.Done():
-		lane.closeStream()
-		statsInc("ClusterLaneFailures", 1)
-		return clusterLaneResult{err: request.context.Err()}
-	}
 }
 
 // validateResponse 校验远端响应的身份、版本、Cluster View 和请求关联字段。

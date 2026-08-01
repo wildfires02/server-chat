@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"chat/internal/configutil"
 	"chat/server/logs"
@@ -25,6 +26,8 @@ type callConfig struct {
 	ICEServers []iceServer `json:"ice_servers"`
 	// ICEServersFile 是外部 ICE 配置文件路径。
 	ICEServersFile string `json:"ice_servers_file"`
+	// RequireTURN 在生产环境拒绝仅配置 STUN 的 P2P 通话。
+	RequireTURN bool `json:"require_turn"`
 	// Agora 是群组语音和视频通话的鉴权配置。
 	Agora agoraConfig `json:"agora"`
 }
@@ -65,6 +68,13 @@ func initVideoCalls(rawConfig json.RawMessage) error {
 	if err := configureICEServers(config); err != nil {
 		return err
 	}
+	if hasTURN, err := validateICEServers(globals.iceServers); err != nil {
+		return err
+	} else if config.RequireTURN && !hasTURN {
+		return errors.New("生产 WebRTC 配置要求至少一个 TURN/TURNS 地址")
+	} else if len(globals.iceServers) > 0 && !hasTURN {
+		logs.Warn.Println("WebRTC 仅配置 STUN；对称 NAT 或受限网络下 P2P 通话可能失败")
+	}
 	if config.Agora.Enabled {
 		provider, err := newAgoraProvider(config.Agora)
 		if err != nil {
@@ -83,6 +93,29 @@ func initVideoCalls(rawConfig json.RawMessage) error {
 	logs.Info.Printf("音视频通话功能已启用：ICE 服务器 %d 个，Agora 群组通话 %t",
 		len(globals.iceServers), globals.agora != nil)
 	return nil
+}
+
+func validateICEServers(servers []iceServer) (bool, error) {
+	hasTURN := false
+	for index, server := range servers {
+		if len(server.Urls) == 0 {
+			return false, fmt.Errorf("ICE 服务器 %d 缺少 urls", index)
+		}
+		for _, rawURL := range server.Urls {
+			value := strings.ToLower(strings.TrimSpace(rawURL))
+			switch {
+			case strings.HasPrefix(value, "stun:"):
+			case strings.HasPrefix(value, "turn:"), strings.HasPrefix(value, "turns:"):
+				hasTURN = true
+				if strings.TrimSpace(server.Username) == "" || strings.TrimSpace(server.Credential) == "" {
+					return false, fmt.Errorf("TURN 服务器 %d 缺少 username 或 credential", index)
+				}
+			default:
+				return false, fmt.Errorf("ICE 服务器 %d 使用不支持的 URL %q", index, rawURL)
+			}
+		}
+	}
+	return hasTURN, nil
 }
 
 // configureICEServers 从内嵌配置或外部文件加载 WebRTC ICE 服务。

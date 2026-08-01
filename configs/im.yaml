@@ -84,6 +84,11 @@ media:
       force_path_style: false
       endpoint: ""
       presign_ttl: 3600
+      direct_upload: false
+      cdn_base_url: ""
+      cdn_key_id: ""
+      cdn_hmac_secret: ""
+      cdn_ttl: 3600
       cache_control: max-age=86400
       cors_origins:
         - "*"
@@ -276,6 +281,7 @@ push:
 # 点对点 WebRTC 与 Agora 群组通话。
 webrtc:
   enabled: true
+  require_turn: true
   call_establishment_timeout: 30
   ice_servers:
     - urls:

@@ -249,11 +249,1047 @@ func (x *ClusterFrame) GetMinProtocolVersion() int32 {
 	return 0
 }
 
+// ClusterSession 是跨节点路由所需的最小客户端会话快照。
+type ClusterSession struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	RemoteAddr      string                 `protobuf:"bytes,1,opt,name=remote_addr,json=remoteAddr,proto3" json:"remote_addr,omitempty"`
+	UserAgent       string                 `protobuf:"bytes,2,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
+	Uid             string                 `protobuf:"bytes,3,opt,name=uid,proto3" json:"uid,omitempty"`
+	AuthLevel       int32                  `protobuf:"varint,4,opt,name=auth_level,json=authLevel,proto3" json:"auth_level,omitempty"`
+	ProtocolVersion int32                  `protobuf:"varint,5,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
+	Language        string                 `protobuf:"bytes,6,opt,name=language,proto3" json:"language,omitempty"`
+	CountryCode     string                 `protobuf:"bytes,7,opt,name=country_code,json=countryCode,proto3" json:"country_code,omitempty"`
+	DeviceId        string                 `protobuf:"bytes,8,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
+	Platform        string                 `protobuf:"bytes,9,opt,name=platform,proto3" json:"platform,omitempty"`
+	Sid             string                 `protobuf:"bytes,10,opt,name=sid,proto3" json:"sid,omitempty"`
+	Background      bool                   `protobuf:"varint,11,opt,name=background,proto3" json:"background,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ClusterSession) Reset() {
+	*x = ClusterSession{}
+	mi := &file_cluster_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClusterSession) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterSession) ProtoMessage() {}
+
+func (x *ClusterSession) ProtoReflect() protoreflect.Message {
+	mi := &file_cluster_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterSession.ProtoReflect.Descriptor instead.
+func (*ClusterSession) Descriptor() ([]byte, []int) {
+	return file_cluster_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ClusterSession) GetRemoteAddr() string {
+	if x != nil {
+		return x.RemoteAddr
+	}
+	return ""
+}
+
+func (x *ClusterSession) GetUserAgent() string {
+	if x != nil {
+		return x.UserAgent
+	}
+	return ""
+}
+
+func (x *ClusterSession) GetUid() string {
+	if x != nil {
+		return x.Uid
+	}
+	return ""
+}
+
+func (x *ClusterSession) GetAuthLevel() int32 {
+	if x != nil {
+		return x.AuthLevel
+	}
+	return 0
+}
+
+func (x *ClusterSession) GetProtocolVersion() int32 {
+	if x != nil {
+		return x.ProtocolVersion
+	}
+	return 0
+}
+
+func (x *ClusterSession) GetLanguage() string {
+	if x != nil {
+		return x.Language
+	}
+	return ""
+}
+
+func (x *ClusterSession) GetCountryCode() string {
+	if x != nil {
+		return x.CountryCode
+	}
+	return ""
+}
+
+func (x *ClusterSession) GetDeviceId() string {
+	if x != nil {
+		return x.DeviceId
+	}
+	return ""
+}
+
+func (x *ClusterSession) GetPlatform() string {
+	if x != nil {
+		return x.Platform
+	}
+	return ""
+}
+
+func (x *ClusterSession) GetSid() string {
+	if x != nil {
+		return x.Sid
+	}
+	return ""
+}
+
+func (x *ClusterSession) GetBackground() bool {
+	if x != nil {
+		return x.Background
+	}
+	return false
+}
+
+// ClusterClientMessage 在公开 ClientMsg 之外保存节点路由需要的内部字段。
+type ClusterClientMessage struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Message           *ClientMsg             `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Id                string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	Original          string                 `protobuf:"bytes,3,opt,name=original,proto3" json:"original,omitempty"`
+	RcptTo            string                 `protobuf:"bytes,4,opt,name=rcpt_to,json=rcptTo,proto3" json:"rcpt_to,omitempty"`
+	AsUser            string                 `protobuf:"bytes,5,opt,name=as_user,json=asUser,proto3" json:"as_user,omitempty"`
+	AuthLevel         int32                  `protobuf:"varint,6,opt,name=auth_level,json=authLevel,proto3" json:"auth_level,omitempty"`
+	MetaWhat          int32                  `protobuf:"varint,7,opt,name=meta_what,json=metaWhat,proto3" json:"meta_what,omitempty"`
+	TimestampUnixNano int64                  `protobuf:"varint,8,opt,name=timestamp_unix_nano,json=timestampUnixNano,proto3" json:"timestamp_unix_nano,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *ClusterClientMessage) Reset() {
+	*x = ClusterClientMessage{}
+	mi := &file_cluster_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClusterClientMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterClientMessage) ProtoMessage() {}
+
+func (x *ClusterClientMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_cluster_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterClientMessage.ProtoReflect.Descriptor instead.
+func (*ClusterClientMessage) Descriptor() ([]byte, []int) {
+	return file_cluster_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ClusterClientMessage) GetMessage() *ClientMsg {
+	if x != nil {
+		return x.Message
+	}
+	return nil
+}
+
+func (x *ClusterClientMessage) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ClusterClientMessage) GetOriginal() string {
+	if x != nil {
+		return x.Original
+	}
+	return ""
+}
+
+func (x *ClusterClientMessage) GetRcptTo() string {
+	if x != nil {
+		return x.RcptTo
+	}
+	return ""
+}
+
+func (x *ClusterClientMessage) GetAsUser() string {
+	if x != nil {
+		return x.AsUser
+	}
+	return ""
+}
+
+func (x *ClusterClientMessage) GetAuthLevel() int32 {
+	if x != nil {
+		return x.AuthLevel
+	}
+	return 0
+}
+
+func (x *ClusterClientMessage) GetMetaWhat() int32 {
+	if x != nil {
+		return x.MetaWhat
+	}
+	return 0
+}
+
+func (x *ClusterClientMessage) GetTimestampUnixNano() int64 {
+	if x != nil {
+		return x.TimestampUnixNano
+	}
+	return 0
+}
+
+// ClusterServerMessage 在公开 ServerMsg 之外保存节点路由需要的内部字段。
+type ClusterServerMessage struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Message           *ServerMsg             `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Id                string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	RcptTo            string                 `protobuf:"bytes,3,opt,name=rcpt_to,json=rcptTo,proto3" json:"rcpt_to,omitempty"`
+	AsUser            string                 `protobuf:"bytes,4,opt,name=as_user,json=asUser,proto3" json:"as_user,omitempty"`
+	TimestampUnixNano int64                  `protobuf:"varint,5,opt,name=timestamp_unix_nano,json=timestampUnixNano,proto3" json:"timestamp_unix_nano,omitempty"`
+	SkipSid           string                 `protobuf:"bytes,6,opt,name=skip_sid,json=skipSid,proto3" json:"skip_sid,omitempty"`
+	ControlTimeParams map[string]int64       `protobuf:"bytes,7,rep,name=control_time_params,json=controlTimeParams,proto3" json:"control_time_params,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *ClusterServerMessage) Reset() {
+	*x = ClusterServerMessage{}
+	mi := &file_cluster_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClusterServerMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterServerMessage) ProtoMessage() {}
+
+func (x *ClusterServerMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_cluster_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterServerMessage.ProtoReflect.Descriptor instead.
+func (*ClusterServerMessage) Descriptor() ([]byte, []int) {
+	return file_cluster_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ClusterServerMessage) GetMessage() *ServerMsg {
+	if x != nil {
+		return x.Message
+	}
+	return nil
+}
+
+func (x *ClusterServerMessage) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ClusterServerMessage) GetRcptTo() string {
+	if x != nil {
+		return x.RcptTo
+	}
+	return ""
+}
+
+func (x *ClusterServerMessage) GetAsUser() string {
+	if x != nil {
+		return x.AsUser
+	}
+	return ""
+}
+
+func (x *ClusterServerMessage) GetTimestampUnixNano() int64 {
+	if x != nil {
+		return x.TimestampUnixNano
+	}
+	return 0
+}
+
+func (x *ClusterServerMessage) GetSkipSid() string {
+	if x != nil {
+		return x.SkipSid
+	}
+	return ""
+}
+
+func (x *ClusterServerMessage) GetControlTimeParams() map[string]int64 {
+	if x != nil {
+		return x.ControlTimeParams
+	}
+	return nil
+}
+
+type ClusterPingPayload struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Node          string                 `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
+	Fingerprint   int64                  `protobuf:"varint,2,opt,name=fingerprint,proto3" json:"fingerprint,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClusterPingPayload) Reset() {
+	*x = ClusterPingPayload{}
+	mi := &file_cluster_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClusterPingPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterPingPayload) ProtoMessage() {}
+
+func (x *ClusterPingPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_cluster_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterPingPayload.ProtoReflect.Descriptor instead.
+func (*ClusterPingPayload) Descriptor() ([]byte, []int) {
+	return file_cluster_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ClusterPingPayload) GetNode() string {
+	if x != nil {
+		return x.Node
+	}
+	return ""
+}
+
+func (x *ClusterPingPayload) GetFingerprint() int64 {
+	if x != nil {
+		return x.Fingerprint
+	}
+	return 0
+}
+
+type ClusterRequestPayload struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Node          string                 `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
+	Signature     string                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+	Fingerprint   int64                  `protobuf:"varint,3,opt,name=fingerprint,proto3" json:"fingerprint,omitempty"`
+	RequestType   int32                  `protobuf:"varint,4,opt,name=request_type,json=requestType,proto3" json:"request_type,omitempty"`
+	ClientMessage *ClusterClientMessage  `protobuf:"bytes,5,opt,name=client_message,json=clientMessage,proto3" json:"client_message,omitempty"`
+	ServerMessage *ClusterServerMessage  `protobuf:"bytes,6,opt,name=server_message,json=serverMessage,proto3" json:"server_message,omitempty"`
+	RcptTo        string                 `protobuf:"bytes,7,opt,name=rcpt_to,json=rcptTo,proto3" json:"rcpt_to,omitempty"`
+	Session       *ClusterSession        `protobuf:"bytes,8,opt,name=session,proto3" json:"session,omitempty"`
+	Gone          bool                   `protobuf:"varint,9,opt,name=gone,proto3" json:"gone,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClusterRequestPayload) Reset() {
+	*x = ClusterRequestPayload{}
+	mi := &file_cluster_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClusterRequestPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterRequestPayload) ProtoMessage() {}
+
+func (x *ClusterRequestPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_cluster_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterRequestPayload.ProtoReflect.Descriptor instead.
+func (*ClusterRequestPayload) Descriptor() ([]byte, []int) {
+	return file_cluster_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ClusterRequestPayload) GetNode() string {
+	if x != nil {
+		return x.Node
+	}
+	return ""
+}
+
+func (x *ClusterRequestPayload) GetSignature() string {
+	if x != nil {
+		return x.Signature
+	}
+	return ""
+}
+
+func (x *ClusterRequestPayload) GetFingerprint() int64 {
+	if x != nil {
+		return x.Fingerprint
+	}
+	return 0
+}
+
+func (x *ClusterRequestPayload) GetRequestType() int32 {
+	if x != nil {
+		return x.RequestType
+	}
+	return 0
+}
+
+func (x *ClusterRequestPayload) GetClientMessage() *ClusterClientMessage {
+	if x != nil {
+		return x.ClientMessage
+	}
+	return nil
+}
+
+func (x *ClusterRequestPayload) GetServerMessage() *ClusterServerMessage {
+	if x != nil {
+		return x.ServerMessage
+	}
+	return nil
+}
+
+func (x *ClusterRequestPayload) GetRcptTo() string {
+	if x != nil {
+		return x.RcptTo
+	}
+	return ""
+}
+
+func (x *ClusterRequestPayload) GetSession() *ClusterSession {
+	if x != nil {
+		return x.Session
+	}
+	return nil
+}
+
+func (x *ClusterRequestPayload) GetGone() bool {
+	if x != nil {
+		return x.Gone
+	}
+	return false
+}
+
+type ClusterResponsePayload struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	ServerMessage       *ClusterServerMessage  `protobuf:"bytes,1,opt,name=server_message,json=serverMessage,proto3" json:"server_message,omitempty"`
+	OriginalSid         string                 `protobuf:"bytes,2,opt,name=original_sid,json=originalSid,proto3" json:"original_sid,omitempty"`
+	RcptTo              string                 `protobuf:"bytes,3,opt,name=rcpt_to,json=rcptTo,proto3" json:"rcpt_to,omitempty"`
+	OriginalRequestType int32                  `protobuf:"varint,4,opt,name=original_request_type,json=originalRequestType,proto3" json:"original_request_type,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *ClusterResponsePayload) Reset() {
+	*x = ClusterResponsePayload{}
+	mi := &file_cluster_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClusterResponsePayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterResponsePayload) ProtoMessage() {}
+
+func (x *ClusterResponsePayload) ProtoReflect() protoreflect.Message {
+	mi := &file_cluster_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterResponsePayload.ProtoReflect.Descriptor instead.
+func (*ClusterResponsePayload) Descriptor() ([]byte, []int) {
+	return file_cluster_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ClusterResponsePayload) GetServerMessage() *ClusterServerMessage {
+	if x != nil {
+		return x.ServerMessage
+	}
+	return nil
+}
+
+func (x *ClusterResponsePayload) GetOriginalSid() string {
+	if x != nil {
+		return x.OriginalSid
+	}
+	return ""
+}
+
+func (x *ClusterResponsePayload) GetRcptTo() string {
+	if x != nil {
+		return x.RcptTo
+	}
+	return ""
+}
+
+func (x *ClusterResponsePayload) GetOriginalRequestType() int32 {
+	if x != nil {
+		return x.OriginalRequestType
+	}
+	return 0
+}
+
+type ClusterRoutePayload struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Node          string                 `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
+	Signature     string                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+	Fingerprint   int64                  `protobuf:"varint,3,opt,name=fingerprint,proto3" json:"fingerprint,omitempty"`
+	ServerMessage *ClusterServerMessage  `protobuf:"bytes,4,opt,name=server_message,json=serverMessage,proto3" json:"server_message,omitempty"`
+	Session       *ClusterSession        `protobuf:"bytes,5,opt,name=session,proto3" json:"session,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClusterRoutePayload) Reset() {
+	*x = ClusterRoutePayload{}
+	mi := &file_cluster_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClusterRoutePayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterRoutePayload) ProtoMessage() {}
+
+func (x *ClusterRoutePayload) ProtoReflect() protoreflect.Message {
+	mi := &file_cluster_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterRoutePayload.ProtoReflect.Descriptor instead.
+func (*ClusterRoutePayload) Descriptor() ([]byte, []int) {
+	return file_cluster_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ClusterRoutePayload) GetNode() string {
+	if x != nil {
+		return x.Node
+	}
+	return ""
+}
+
+func (x *ClusterRoutePayload) GetSignature() string {
+	if x != nil {
+		return x.Signature
+	}
+	return ""
+}
+
+func (x *ClusterRoutePayload) GetFingerprint() int64 {
+	if x != nil {
+		return x.Fingerprint
+	}
+	return 0
+}
+
+func (x *ClusterRoutePayload) GetServerMessage() *ClusterServerMessage {
+	if x != nil {
+		return x.ServerMessage
+	}
+	return nil
+}
+
+func (x *ClusterRoutePayload) GetSession() *ClusterSession {
+	if x != nil {
+		return x.Session
+	}
+	return nil
+}
+
+type ClusterPushRecipient struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Uid             string                 `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
+	Delivered       int32                  `protobuf:"varint,2,opt,name=delivered,proto3" json:"delivered,omitempty"`
+	Devices         []string               `protobuf:"bytes,3,rep,name=devices,proto3" json:"devices,omitempty"`
+	Unread          int32                  `protobuf:"varint,4,opt,name=unread,proto3" json:"unread,omitempty"`
+	IncrementUnread bool                   `protobuf:"varint,5,opt,name=increment_unread,json=incrementUnread,proto3" json:"increment_unread,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ClusterPushRecipient) Reset() {
+	*x = ClusterPushRecipient{}
+	mi := &file_cluster_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClusterPushRecipient) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterPushRecipient) ProtoMessage() {}
+
+func (x *ClusterPushRecipient) ProtoReflect() protoreflect.Message {
+	mi := &file_cluster_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterPushRecipient.ProtoReflect.Descriptor instead.
+func (*ClusterPushRecipient) Descriptor() ([]byte, []int) {
+	return file_cluster_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ClusterPushRecipient) GetUid() string {
+	if x != nil {
+		return x.Uid
+	}
+	return ""
+}
+
+func (x *ClusterPushRecipient) GetDelivered() int32 {
+	if x != nil {
+		return x.Delivered
+	}
+	return 0
+}
+
+func (x *ClusterPushRecipient) GetDevices() []string {
+	if x != nil {
+		return x.Devices
+	}
+	return nil
+}
+
+func (x *ClusterPushRecipient) GetUnread() int32 {
+	if x != nil {
+		return x.Unread
+	}
+	return 0
+}
+
+func (x *ClusterPushRecipient) GetIncrementUnread() bool {
+	if x != nil {
+		return x.IncrementUnread
+	}
+	return false
+}
+
+type ClusterPushPayload struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	What              string                 `protobuf:"bytes,1,opt,name=what,proto3" json:"what,omitempty"`
+	Silent            bool                   `protobuf:"varint,2,opt,name=silent,proto3" json:"silent,omitempty"`
+	Topic             string                 `protobuf:"bytes,3,opt,name=topic,proto3" json:"topic,omitempty"`
+	TimestampUnixNano int64                  `protobuf:"varint,4,opt,name=timestamp_unix_nano,json=timestampUnixNano,proto3" json:"timestamp_unix_nano,omitempty"`
+	From              string                 `protobuf:"bytes,5,opt,name=from,proto3" json:"from,omitempty"`
+	Sequence          int32                  `protobuf:"varint,6,opt,name=sequence,proto3" json:"sequence,omitempty"`
+	ContentType       string                 `protobuf:"bytes,7,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	ContentJson       []byte                 `protobuf:"bytes,8,opt,name=content_json,json=contentJson,proto3" json:"content_json,omitempty"`
+	Webrtc            string                 `protobuf:"bytes,9,opt,name=webrtc,proto3" json:"webrtc,omitempty"`
+	AudioOnly         bool                   `protobuf:"varint,10,opt,name=audio_only,json=audioOnly,proto3" json:"audio_only,omitempty"`
+	Replace           string                 `protobuf:"bytes,11,opt,name=replace,proto3" json:"replace,omitempty"`
+	ModeWant          uint32                 `protobuf:"varint,12,opt,name=mode_want,json=modeWant,proto3" json:"mode_want,omitempty"`
+	ModeGiven         uint32                 `protobuf:"varint,13,opt,name=mode_given,json=modeGiven,proto3" json:"mode_given,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *ClusterPushPayload) Reset() {
+	*x = ClusterPushPayload{}
+	mi := &file_cluster_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClusterPushPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterPushPayload) ProtoMessage() {}
+
+func (x *ClusterPushPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_cluster_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterPushPayload.ProtoReflect.Descriptor instead.
+func (*ClusterPushPayload) Descriptor() ([]byte, []int) {
+	return file_cluster_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ClusterPushPayload) GetWhat() string {
+	if x != nil {
+		return x.What
+	}
+	return ""
+}
+
+func (x *ClusterPushPayload) GetSilent() bool {
+	if x != nil {
+		return x.Silent
+	}
+	return false
+}
+
+func (x *ClusterPushPayload) GetTopic() string {
+	if x != nil {
+		return x.Topic
+	}
+	return ""
+}
+
+func (x *ClusterPushPayload) GetTimestampUnixNano() int64 {
+	if x != nil {
+		return x.TimestampUnixNano
+	}
+	return 0
+}
+
+func (x *ClusterPushPayload) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *ClusterPushPayload) GetSequence() int32 {
+	if x != nil {
+		return x.Sequence
+	}
+	return 0
+}
+
+func (x *ClusterPushPayload) GetContentType() string {
+	if x != nil {
+		return x.ContentType
+	}
+	return ""
+}
+
+func (x *ClusterPushPayload) GetContentJson() []byte {
+	if x != nil {
+		return x.ContentJson
+	}
+	return nil
+}
+
+func (x *ClusterPushPayload) GetWebrtc() string {
+	if x != nil {
+		return x.Webrtc
+	}
+	return ""
+}
+
+func (x *ClusterPushPayload) GetAudioOnly() bool {
+	if x != nil {
+		return x.AudioOnly
+	}
+	return false
+}
+
+func (x *ClusterPushPayload) GetReplace() string {
+	if x != nil {
+		return x.Replace
+	}
+	return ""
+}
+
+func (x *ClusterPushPayload) GetModeWant() uint32 {
+	if x != nil {
+		return x.ModeWant
+	}
+	return 0
+}
+
+func (x *ClusterPushPayload) GetModeGiven() uint32 {
+	if x != nil {
+		return x.ModeGiven
+	}
+	return 0
+}
+
+type ClusterPushReceipt struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Recipients    []*ClusterPushRecipient `protobuf:"bytes,1,rep,name=recipients,proto3" json:"recipients,omitempty"`
+	Channel       string                  `protobuf:"bytes,2,opt,name=channel,proto3" json:"channel,omitempty"`
+	Payload       *ClusterPushPayload     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClusterPushReceipt) Reset() {
+	*x = ClusterPushReceipt{}
+	mi := &file_cluster_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClusterPushReceipt) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterPushReceipt) ProtoMessage() {}
+
+func (x *ClusterPushReceipt) ProtoReflect() protoreflect.Message {
+	mi := &file_cluster_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterPushReceipt.ProtoReflect.Descriptor instead.
+func (*ClusterPushReceipt) Descriptor() ([]byte, []int) {
+	return file_cluster_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ClusterPushReceipt) GetRecipients() []*ClusterPushRecipient {
+	if x != nil {
+		return x.Recipients
+	}
+	return nil
+}
+
+func (x *ClusterPushReceipt) GetChannel() string {
+	if x != nil {
+		return x.Channel
+	}
+	return ""
+}
+
+func (x *ClusterPushReceipt) GetPayload() *ClusterPushPayload {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+type ClusterUserCachePayload struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Node          string                 `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	UserIds       []string               `protobuf:"bytes,3,rep,name=user_ids,json=userIds,proto3" json:"user_ids,omitempty"`
+	Unread        int32                  `protobuf:"varint,4,opt,name=unread,proto3" json:"unread,omitempty"`
+	Increment     bool                   `protobuf:"varint,5,opt,name=increment,proto3" json:"increment,omitempty"`
+	Gone          bool                   `protobuf:"varint,6,opt,name=gone,proto3" json:"gone,omitempty"`
+	PushReceipt   *ClusterPushReceipt    `protobuf:"bytes,7,opt,name=push_receipt,json=pushReceipt,proto3" json:"push_receipt,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClusterUserCachePayload) Reset() {
+	*x = ClusterUserCachePayload{}
+	mi := &file_cluster_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClusterUserCachePayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterUserCachePayload) ProtoMessage() {}
+
+func (x *ClusterUserCachePayload) ProtoReflect() protoreflect.Message {
+	mi := &file_cluster_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterUserCachePayload.ProtoReflect.Descriptor instead.
+func (*ClusterUserCachePayload) Descriptor() ([]byte, []int) {
+	return file_cluster_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ClusterUserCachePayload) GetNode() string {
+	if x != nil {
+		return x.Node
+	}
+	return ""
+}
+
+func (x *ClusterUserCachePayload) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *ClusterUserCachePayload) GetUserIds() []string {
+	if x != nil {
+		return x.UserIds
+	}
+	return nil
+}
+
+func (x *ClusterUserCachePayload) GetUnread() int32 {
+	if x != nil {
+		return x.Unread
+	}
+	return 0
+}
+
+func (x *ClusterUserCachePayload) GetIncrement() bool {
+	if x != nil {
+		return x.Increment
+	}
+	return false
+}
+
+func (x *ClusterUserCachePayload) GetGone() bool {
+	if x != nil {
+		return x.Gone
+	}
+	return false
+}
+
+func (x *ClusterUserCachePayload) GetPushReceipt() *ClusterPushReceipt {
+	if x != nil {
+		return x.PushReceipt
+	}
+	return nil
+}
+
+type ClusterAck struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rejected      bool                   `protobuf:"varint,1,opt,name=rejected,proto3" json:"rejected,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClusterAck) Reset() {
+	*x = ClusterAck{}
+	mi := &file_cluster_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClusterAck) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterAck) ProtoMessage() {}
+
+func (x *ClusterAck) ProtoReflect() protoreflect.Message {
+	mi := &file_cluster_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterAck.ProtoReflect.Descriptor instead.
+func (*ClusterAck) Descriptor() ([]byte, []int) {
+	return file_cluster_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *ClusterAck) GetRejected() bool {
+	if x != nil {
+		return x.Rejected
+	}
+	return false
+}
+
 var File_cluster_proto protoreflect.FileDescriptor
 
 const file_cluster_proto_rawDesc = "" +
 	"\n" +
-	"\rcluster.proto\x12\x03pbx\"\xe6\x03\n" +
+	"\rcluster.proto\x12\x03pbx\x1a\n" +
+	"chat.proto\"\xe6\x03\n" +
 	"\fClusterFrame\x12\x1d\n" +
 	"\n" +
 	"cluster_id\x18\x01 \x01(\tR\tclusterId\x12\x1f\n" +
@@ -272,7 +1308,110 @@ const file_cluster_proto_rawDesc = "" +
 	"\x05error\x18\v \x01(\tR\x05error\x12#\n" +
 	"\rcluster_epoch\x18\f \x01(\x03R\fclusterEpoch\x12%\n" +
 	"\x0ering_signature\x18\r \x01(\tR\rringSignature\x120\n" +
-	"\x14min_protocol_version\x18\x0e \x01(\x05R\x12minProtocolVersion*\xbf\x01\n" +
+	"\x14min_protocol_version\x18\x0e \x01(\x05R\x12minProtocolVersion\"\xd6\x02\n" +
+	"\x0eClusterSession\x12\x1f\n" +
+	"\vremote_addr\x18\x01 \x01(\tR\n" +
+	"remoteAddr\x12\x1d\n" +
+	"\n" +
+	"user_agent\x18\x02 \x01(\tR\tuserAgent\x12\x10\n" +
+	"\x03uid\x18\x03 \x01(\tR\x03uid\x12\x1d\n" +
+	"\n" +
+	"auth_level\x18\x04 \x01(\x05R\tauthLevel\x12)\n" +
+	"\x10protocol_version\x18\x05 \x01(\x05R\x0fprotocolVersion\x12\x1a\n" +
+	"\blanguage\x18\x06 \x01(\tR\blanguage\x12!\n" +
+	"\fcountry_code\x18\a \x01(\tR\vcountryCode\x12\x1b\n" +
+	"\tdevice_id\x18\b \x01(\tR\bdeviceId\x12\x1a\n" +
+	"\bplatform\x18\t \x01(\tR\bplatform\x12\x10\n" +
+	"\x03sid\x18\n" +
+	" \x01(\tR\x03sid\x12\x1e\n" +
+	"\n" +
+	"background\x18\v \x01(\bR\n" +
+	"background\"\x8a\x02\n" +
+	"\x14ClusterClientMessage\x12(\n" +
+	"\amessage\x18\x01 \x01(\v2\x0e.pbx.ClientMsgR\amessage\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\x12\x1a\n" +
+	"\boriginal\x18\x03 \x01(\tR\boriginal\x12\x17\n" +
+	"\arcpt_to\x18\x04 \x01(\tR\x06rcptTo\x12\x17\n" +
+	"\aas_user\x18\x05 \x01(\tR\x06asUser\x12\x1d\n" +
+	"\n" +
+	"auth_level\x18\x06 \x01(\x05R\tauthLevel\x12\x1b\n" +
+	"\tmeta_what\x18\a \x01(\x05R\bmetaWhat\x12.\n" +
+	"\x13timestamp_unix_nano\x18\b \x01(\x03R\x11timestampUnixNano\"\xf5\x02\n" +
+	"\x14ClusterServerMessage\x12(\n" +
+	"\amessage\x18\x01 \x01(\v2\x0e.pbx.ServerMsgR\amessage\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\x12\x17\n" +
+	"\arcpt_to\x18\x03 \x01(\tR\x06rcptTo\x12\x17\n" +
+	"\aas_user\x18\x04 \x01(\tR\x06asUser\x12.\n" +
+	"\x13timestamp_unix_nano\x18\x05 \x01(\x03R\x11timestampUnixNano\x12\x19\n" +
+	"\bskip_sid\x18\x06 \x01(\tR\askipSid\x12`\n" +
+	"\x13control_time_params\x18\a \x03(\v20.pbx.ClusterServerMessage.ControlTimeParamsEntryR\x11controlTimeParams\x1aD\n" +
+	"\x16ControlTimeParamsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\"J\n" +
+	"\x12ClusterPingPayload\x12\x12\n" +
+	"\x04node\x18\x01 \x01(\tR\x04node\x12 \n" +
+	"\vfingerprint\x18\x02 \x01(\x03R\vfingerprint\"\xee\x02\n" +
+	"\x15ClusterRequestPayload\x12\x12\n" +
+	"\x04node\x18\x01 \x01(\tR\x04node\x12\x1c\n" +
+	"\tsignature\x18\x02 \x01(\tR\tsignature\x12 \n" +
+	"\vfingerprint\x18\x03 \x01(\x03R\vfingerprint\x12!\n" +
+	"\frequest_type\x18\x04 \x01(\x05R\vrequestType\x12@\n" +
+	"\x0eclient_message\x18\x05 \x01(\v2\x19.pbx.ClusterClientMessageR\rclientMessage\x12@\n" +
+	"\x0eserver_message\x18\x06 \x01(\v2\x19.pbx.ClusterServerMessageR\rserverMessage\x12\x17\n" +
+	"\arcpt_to\x18\a \x01(\tR\x06rcptTo\x12-\n" +
+	"\asession\x18\b \x01(\v2\x13.pbx.ClusterSessionR\asession\x12\x12\n" +
+	"\x04gone\x18\t \x01(\bR\x04gone\"\xca\x01\n" +
+	"\x16ClusterResponsePayload\x12@\n" +
+	"\x0eserver_message\x18\x01 \x01(\v2\x19.pbx.ClusterServerMessageR\rserverMessage\x12!\n" +
+	"\foriginal_sid\x18\x02 \x01(\tR\voriginalSid\x12\x17\n" +
+	"\arcpt_to\x18\x03 \x01(\tR\x06rcptTo\x122\n" +
+	"\x15original_request_type\x18\x04 \x01(\x05R\x13originalRequestType\"\xda\x01\n" +
+	"\x13ClusterRoutePayload\x12\x12\n" +
+	"\x04node\x18\x01 \x01(\tR\x04node\x12\x1c\n" +
+	"\tsignature\x18\x02 \x01(\tR\tsignature\x12 \n" +
+	"\vfingerprint\x18\x03 \x01(\x03R\vfingerprint\x12@\n" +
+	"\x0eserver_message\x18\x04 \x01(\v2\x19.pbx.ClusterServerMessageR\rserverMessage\x12-\n" +
+	"\asession\x18\x05 \x01(\v2\x13.pbx.ClusterSessionR\asession\"\xa3\x01\n" +
+	"\x14ClusterPushRecipient\x12\x10\n" +
+	"\x03uid\x18\x01 \x01(\tR\x03uid\x12\x1c\n" +
+	"\tdelivered\x18\x02 \x01(\x05R\tdelivered\x12\x18\n" +
+	"\adevices\x18\x03 \x03(\tR\adevices\x12\x16\n" +
+	"\x06unread\x18\x04 \x01(\x05R\x06unread\x12)\n" +
+	"\x10increment_unread\x18\x05 \x01(\bR\x0fincrementUnread\"\x89\x03\n" +
+	"\x12ClusterPushPayload\x12\x12\n" +
+	"\x04what\x18\x01 \x01(\tR\x04what\x12\x16\n" +
+	"\x06silent\x18\x02 \x01(\bR\x06silent\x12\x14\n" +
+	"\x05topic\x18\x03 \x01(\tR\x05topic\x12.\n" +
+	"\x13timestamp_unix_nano\x18\x04 \x01(\x03R\x11timestampUnixNano\x12\x12\n" +
+	"\x04from\x18\x05 \x01(\tR\x04from\x12\x1a\n" +
+	"\bsequence\x18\x06 \x01(\x05R\bsequence\x12!\n" +
+	"\fcontent_type\x18\a \x01(\tR\vcontentType\x12!\n" +
+	"\fcontent_json\x18\b \x01(\fR\vcontentJson\x12\x16\n" +
+	"\x06webrtc\x18\t \x01(\tR\x06webrtc\x12\x1d\n" +
+	"\n" +
+	"audio_only\x18\n" +
+	" \x01(\bR\taudioOnly\x12\x18\n" +
+	"\areplace\x18\v \x01(\tR\areplace\x12\x1b\n" +
+	"\tmode_want\x18\f \x01(\rR\bmodeWant\x12\x1d\n" +
+	"\n" +
+	"mode_given\x18\r \x01(\rR\tmodeGiven\"\x9c\x01\n" +
+	"\x12ClusterPushReceipt\x129\n" +
+	"\n" +
+	"recipients\x18\x01 \x03(\v2\x19.pbx.ClusterPushRecipientR\n" +
+	"recipients\x12\x18\n" +
+	"\achannel\x18\x02 \x01(\tR\achannel\x121\n" +
+	"\apayload\x18\x03 \x01(\v2\x17.pbx.ClusterPushPayloadR\apayload\"\xe7\x01\n" +
+	"\x17ClusterUserCachePayload\x12\x12\n" +
+	"\x04node\x18\x01 \x01(\tR\x04node\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x19\n" +
+	"\buser_ids\x18\x03 \x03(\tR\auserIds\x12\x16\n" +
+	"\x06unread\x18\x04 \x01(\x05R\x06unread\x12\x1c\n" +
+	"\tincrement\x18\x05 \x01(\bR\tincrement\x12\x12\n" +
+	"\x04gone\x18\x06 \x01(\bR\x04gone\x12:\n" +
+	"\fpush_receipt\x18\a \x01(\v2\x17.pbx.ClusterPushReceiptR\vpushReceipt\"(\n" +
+	"\n" +
+	"ClusterAck\x12\x1a\n" +
+	"\brejected\x18\x01 \x01(\bR\brejected*\xbf\x01\n" +
 	"\x10ClusterFrameKind\x12\x1d\n" +
 	"\x19CLUSTER_FRAME_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12CLUSTER_FRAME_PING\x10\x01\x12\x1e\n" +
@@ -296,20 +1435,47 @@ func file_cluster_proto_rawDescGZIP() []byte {
 }
 
 var file_cluster_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_cluster_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_cluster_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_cluster_proto_goTypes = []any{
-	(ClusterFrameKind)(0), // 0: pbx.ClusterFrameKind
-	(*ClusterFrame)(nil),  // 1: pbx.ClusterFrame
+	(ClusterFrameKind)(0),           // 0: pbx.ClusterFrameKind
+	(*ClusterFrame)(nil),            // 1: pbx.ClusterFrame
+	(*ClusterSession)(nil),          // 2: pbx.ClusterSession
+	(*ClusterClientMessage)(nil),    // 3: pbx.ClusterClientMessage
+	(*ClusterServerMessage)(nil),    // 4: pbx.ClusterServerMessage
+	(*ClusterPingPayload)(nil),      // 5: pbx.ClusterPingPayload
+	(*ClusterRequestPayload)(nil),   // 6: pbx.ClusterRequestPayload
+	(*ClusterResponsePayload)(nil),  // 7: pbx.ClusterResponsePayload
+	(*ClusterRoutePayload)(nil),     // 8: pbx.ClusterRoutePayload
+	(*ClusterPushRecipient)(nil),    // 9: pbx.ClusterPushRecipient
+	(*ClusterPushPayload)(nil),      // 10: pbx.ClusterPushPayload
+	(*ClusterPushReceipt)(nil),      // 11: pbx.ClusterPushReceipt
+	(*ClusterUserCachePayload)(nil), // 12: pbx.ClusterUserCachePayload
+	(*ClusterAck)(nil),              // 13: pbx.ClusterAck
+	nil,                             // 14: pbx.ClusterServerMessage.ControlTimeParamsEntry
+	(*ClientMsg)(nil),               // 15: pbx.ClientMsg
+	(*ServerMsg)(nil),               // 16: pbx.ServerMsg
 }
 var file_cluster_proto_depIdxs = []int32{
-	0, // 0: pbx.ClusterFrame.kind:type_name -> pbx.ClusterFrameKind
-	1, // 1: pbx.ClusterTransport.Lane:input_type -> pbx.ClusterFrame
-	1, // 2: pbx.ClusterTransport.Lane:output_type -> pbx.ClusterFrame
-	2, // [2:3] is the sub-list for method output_type
-	1, // [1:2] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	0,  // 0: pbx.ClusterFrame.kind:type_name -> pbx.ClusterFrameKind
+	15, // 1: pbx.ClusterClientMessage.message:type_name -> pbx.ClientMsg
+	16, // 2: pbx.ClusterServerMessage.message:type_name -> pbx.ServerMsg
+	14, // 3: pbx.ClusterServerMessage.control_time_params:type_name -> pbx.ClusterServerMessage.ControlTimeParamsEntry
+	3,  // 4: pbx.ClusterRequestPayload.client_message:type_name -> pbx.ClusterClientMessage
+	4,  // 5: pbx.ClusterRequestPayload.server_message:type_name -> pbx.ClusterServerMessage
+	2,  // 6: pbx.ClusterRequestPayload.session:type_name -> pbx.ClusterSession
+	4,  // 7: pbx.ClusterResponsePayload.server_message:type_name -> pbx.ClusterServerMessage
+	4,  // 8: pbx.ClusterRoutePayload.server_message:type_name -> pbx.ClusterServerMessage
+	2,  // 9: pbx.ClusterRoutePayload.session:type_name -> pbx.ClusterSession
+	9,  // 10: pbx.ClusterPushReceipt.recipients:type_name -> pbx.ClusterPushRecipient
+	10, // 11: pbx.ClusterPushReceipt.payload:type_name -> pbx.ClusterPushPayload
+	11, // 12: pbx.ClusterUserCachePayload.push_receipt:type_name -> pbx.ClusterPushReceipt
+	1,  // 13: pbx.ClusterTransport.Lane:input_type -> pbx.ClusterFrame
+	1,  // 14: pbx.ClusterTransport.Lane:output_type -> pbx.ClusterFrame
+	14, // [14:15] is the sub-list for method output_type
+	13, // [13:14] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_cluster_proto_init() }
@@ -317,13 +1483,14 @@ func file_cluster_proto_init() {
 	if File_cluster_proto != nil {
 		return
 	}
+	file_chat_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_cluster_proto_rawDesc), len(file_cluster_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   1,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

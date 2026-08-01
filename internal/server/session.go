@@ -24,7 +24,10 @@ import (
 )
 
 // 发送队列最大积压数，超过后 Session 将被判定为死连接并移除
-const sendQueueLimit = 128
+const (
+	sendQueueLimit     = 128
+	sendQueueByteLimit = int64(8 << 20)
+)
 
 // HTTP 响应状态码分类的统计变量名称预计算数组。
 // 按状态码/100 索引，有效范围 [2..5]。
@@ -41,6 +44,13 @@ const deferredNotificationsTimeout = time.Second * 5
 
 // minSupportedVersionValue 保存minSupported版本值的共享实例或运行状态。
 var minSupportedVersionValue = parseVersion(minSupportedVersion)
+
+// minBatchVersionValue 是支持服务端批量 JSON 帧的最早客户端协议版本。
+// 旧客户端仍按单条消息投递，避免把未知的 {batch} 信封静默丢弃。
+var minBatchVersionValue = parseVersion("0.32")
+
+// minProtobufWebSocketVersionValue 是浏览器 Protobuf Binary Frame 的最早协议版本。
+var minProtobufWebSocketVersionValue = parseVersion("0.33")
 
 // SessionProto 表示底层网络传输协议类型。
 type SessionProto int
@@ -71,6 +81,8 @@ type Session struct {
 
 	// Websocket 连接句柄，仅对于 WebSocket 会话设置。
 	ws *websocket.Conn
+	// wsBinary 表示该连接协商了 im.protobuf.v1 WebSocket 子协议。
+	wsBinary bool
 
 	// sessionStore 中长轮询记录的指针，仅对于长轮询会话设置。
 	lpTracker *list.Element
@@ -137,6 +149,8 @@ type Session struct {
 	// 待发送的下行消息缓冲管道。
 	// 内容必须序列化为适合当前 Session 格式的数据。
 	send chan any
+	// sendPendingBytes bounds the queue by memory footprint in addition to item count.
+	sendPendingBytes atomic.Int64
 
 	// 用于关闭终止 Session 的管道，缓冲大小为 1。
 	stop chan any

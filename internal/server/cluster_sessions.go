@@ -121,9 +121,12 @@ func (sess *Session) clusterWriteLoop(forTopic string) {
 	for {
 		select {
 		case msg, ok := <-sess.send:
-			if !ok ||
-				(sess.clnode.grpcPeer == nil && sess.clnode.endpoint == nil) {
+			if !ok {
 				// Channel 已关闭
+				return
+			}
+			sess.releaseOutbound(msg)
+			if sess.clnode.grpcPeer == nil && sess.clnode.endpoint == nil {
 				return
 			}
 			srvMsg := msg.(*ServerComMessage)

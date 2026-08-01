@@ -592,6 +592,9 @@ func (t *Topic) handleNoteBroadcast(msg *ClientComMessage) {
 func (t *Topic) broadcastToSessions(msg *ServerComMessage) {
 	// 待断开/丢弃的 Session 列表
 	var dropSessions []*Session
+	// Group payloads only differ between normal members and anonymous channel readers.
+	// Reuse one immutable projected message per variant so all local writers share encoding.
+	var groupVariants [2]*ServerComMessage
 	// 广播消息。仅 {data}, {pres}, {info} 允许广播
 	for sess, pssd := range t.sessions {
 		// 将所有消息发送到多路复用 Session
@@ -651,10 +654,24 @@ func (t *Topic) broadcastToSessions(msg *ServerComMessage) {
 			}
 		}
 
-		// 复制一份消息（不同 Session 接收到的消息格式可能不同）
-		msgCopy := msg.copy()
-		// 根据 Session 所属用户准备广播消息
-		t.prepareBroadcastableMessage(msgCopy, pssd.uid, pssd.isChanSub)
+		// Multiplex routing mutates internal routing fields, so only local group sessions
+		// can safely share the same immutable projected object.
+		var msgCopy *ServerComMessage
+		if t.cat == types.TopicCatGrp && sess.multi == nil && !sess.isMultiplex() {
+			variant := 0
+			if pssd.isChanSub {
+				variant = 1
+			}
+			msgCopy = groupVariants[variant]
+			if msgCopy == nil {
+				msgCopy = msg.copy()
+				t.prepareBroadcastableMessage(msgCopy, pssd.uid, pssd.isChanSub)
+				groupVariants[variant] = msgCopy
+			}
+		} else {
+			msgCopy = msg.copy()
+			t.prepareBroadcastableMessage(msgCopy, pssd.uid, pssd.isChanSub)
+		}
 		var startTranslation func()
 		if t.cat == types.TopicCatP2P && msgCopy.Data != nil && globals.translation != nil {
 			msgCopy.Data, startTranslation = globals.translation.project(

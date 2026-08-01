@@ -59,6 +59,7 @@
 | 主题 | 文档 |
 | --- | --- |
 | 代码职责与维护边界 | [code-architecture.md](code-architecture.md) |
+| 权限模型与规模化演进 | [authorization-evolution.md](authorization-evolution.md) |
 | 集群隔离栅栏 | [cluster-owner-fencing.md](cluster-owner-fencing.md) |
 | 单机容量基线 | [standalone-capacity-baseline.md](standalone-capacity-baseline.md) |
 | 集群容量基线 | [cluster-capacity-baseline.md](cluster-capacity-baseline.md) |

@@ -100,6 +100,8 @@ const (
 	InfoNote_REACT InfoNote = 7
 	// PIN 表示该枚举对应的协议状态。
 	InfoNote_PIN InfoNote = 8
+	// DATA 表示服务端合并后的 data 批量通知。
+	InfoNote_DATA InfoNote = 9
 )
 
 // Enum value maps for InfoNote.
@@ -114,6 +116,7 @@ var (
 		6: "KPV",
 		7: "REACT",
 		8: "PIN",
+		9: "DATA",
 	}
 	InfoNote_value = map[string]int32{
 		"X1":    0,
@@ -125,6 +128,7 @@ var (
 		"KPV":   6,
 		"REACT": 7,
 		"PIN":   8,
+		"DATA":  9,
 	}
 )
 
@@ -306,7 +310,7 @@ func (x ClientDel_What) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ClientDel_What.Descriptor instead.
 func (ClientDel_What) EnumDescriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{33, 0}
+	return file_chat_proto_rawDescGZIP(), []int{36, 0}
 }
 
 // What 定义 What 的 Protobuf 枚举值集合。
@@ -415,7 +419,7 @@ func (x ServerPres_What) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ServerPres_What.Descriptor instead.
 func (ServerPres_What) EnumDescriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{47, 0}
+	return file_chat_proto_rawDescGZIP(), []int{51, 0}
 }
 
 // 主题默认访问权限模式
@@ -1074,6 +1078,51 @@ func (x *ReadParticipantsQuery) GetSeqId() int32 {
 	return 0
 }
 
+// PreviewQuery requests one latest visible message for each listed conversation.
+type PreviewQuery struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Topics        []string               `protobuf:"bytes,1,rep,name=topics,proto3" json:"topics,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PreviewQuery) Reset() {
+	*x = PreviewQuery{}
+	mi := &file_chat_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PreviewQuery) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PreviewQuery) ProtoMessage() {}
+
+func (x *PreviewQuery) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PreviewQuery.ProtoReflect.Descriptor instead.
+func (*PreviewQuery) Descriptor() ([]byte, []int) {
+	return file_chat_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *PreviewQuery) GetTopics() []string {
+	if x != nil {
+		return x.Topics
+	}
+	return nil
+}
+
 // ContactQuery 定义联系人全量/增量同步参数。
 type ContactQuery struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
@@ -1086,7 +1135,7 @@ type ContactQuery struct {
 
 func (x *ContactQuery) Reset() {
 	*x = ContactQuery{}
-	mi := &file_chat_proto_msgTypes[9]
+	mi := &file_chat_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1098,7 +1147,7 @@ func (x *ContactQuery) String() string {
 func (*ContactQuery) ProtoMessage() {}
 
 func (x *ContactQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[9]
+	mi := &file_chat_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1111,7 +1160,7 @@ func (x *ContactQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContactQuery.ProtoReflect.Descriptor instead.
 func (*ContactQuery) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{9}
+	return file_chat_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ContactQuery) GetSince() uint64 {
@@ -1153,7 +1202,7 @@ type Contact struct {
 
 func (x *Contact) Reset() {
 	*x = Contact{}
-	mi := &file_chat_proto_msgTypes[10]
+	mi := &file_chat_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1165,7 +1214,7 @@ func (x *Contact) String() string {
 func (*Contact) ProtoMessage() {}
 
 func (x *Contact) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[10]
+	mi := &file_chat_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1178,7 +1227,7 @@ func (x *Contact) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Contact.ProtoReflect.Descriptor instead.
 func (*Contact) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{10}
+	return file_chat_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *Contact) GetUserId() string {
@@ -1251,7 +1300,7 @@ type ContactGroup struct {
 
 func (x *ContactGroup) Reset() {
 	*x = ContactGroup{}
-	mi := &file_chat_proto_msgTypes[11]
+	mi := &file_chat_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1263,7 +1312,7 @@ func (x *ContactGroup) String() string {
 func (*ContactGroup) ProtoMessage() {}
 
 func (x *ContactGroup) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[11]
+	mi := &file_chat_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1276,7 +1325,7 @@ func (x *ContactGroup) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContactGroup.ProtoReflect.Descriptor instead.
 func (*ContactGroup) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{11}
+	return file_chat_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ContactGroup) GetId() string {
@@ -1328,7 +1377,7 @@ type ContactMutation struct {
 
 func (x *ContactMutation) Reset() {
 	*x = ContactMutation{}
-	mi := &file_chat_proto_msgTypes[12]
+	mi := &file_chat_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1340,7 +1389,7 @@ func (x *ContactMutation) String() string {
 func (*ContactMutation) ProtoMessage() {}
 
 func (x *ContactMutation) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[12]
+	mi := &file_chat_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1353,7 +1402,7 @@ func (x *ContactMutation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContactMutation.ProtoReflect.Descriptor instead.
 func (*ContactMutation) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{12}
+	return file_chat_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ContactMutation) GetOp() string {
@@ -1403,7 +1452,7 @@ type ContactEvent struct {
 
 func (x *ContactEvent) Reset() {
 	*x = ContactEvent{}
-	mi := &file_chat_proto_msgTypes[13]
+	mi := &file_chat_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1415,7 +1464,7 @@ func (x *ContactEvent) String() string {
 func (*ContactEvent) ProtoMessage() {}
 
 func (x *ContactEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[13]
+	mi := &file_chat_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1428,7 +1477,7 @@ func (x *ContactEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContactEvent.ProtoReflect.Descriptor instead.
 func (*ContactEvent) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{13}
+	return file_chat_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ContactEvent) GetVersion() uint64 {
@@ -1469,7 +1518,7 @@ type ContactRecommendation struct {
 
 func (x *ContactRecommendation) Reset() {
 	*x = ContactRecommendation{}
-	mi := &file_chat_proto_msgTypes[14]
+	mi := &file_chat_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1481,7 +1530,7 @@ func (x *ContactRecommendation) String() string {
 func (*ContactRecommendation) ProtoMessage() {}
 
 func (x *ContactRecommendation) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[14]
+	mi := &file_chat_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1494,7 +1543,7 @@ func (x *ContactRecommendation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContactRecommendation.ProtoReflect.Descriptor instead.
 func (*ContactRecommendation) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{14}
+	return file_chat_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ContactRecommendation) GetUserId() string {
@@ -1526,7 +1575,7 @@ type ContactSnapshot struct {
 
 func (x *ContactSnapshot) Reset() {
 	*x = ContactSnapshot{}
-	mi := &file_chat_proto_msgTypes[15]
+	mi := &file_chat_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1538,7 +1587,7 @@ func (x *ContactSnapshot) String() string {
 func (*ContactSnapshot) ProtoMessage() {}
 
 func (x *ContactSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[15]
+	mi := &file_chat_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1551,7 +1600,7 @@ func (x *ContactSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContactSnapshot.ProtoReflect.Descriptor instead.
 func (*ContactSnapshot) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{15}
+	return file_chat_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ContactSnapshot) GetVersion() uint64 {
@@ -1610,7 +1659,7 @@ type AssetQuery struct {
 
 func (x *AssetQuery) Reset() {
 	*x = AssetQuery{}
-	mi := &file_chat_proto_msgTypes[16]
+	mi := &file_chat_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1622,7 +1671,7 @@ func (x *AssetQuery) String() string {
 func (*AssetQuery) ProtoMessage() {}
 
 func (x *AssetQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[16]
+	mi := &file_chat_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1635,7 +1684,7 @@ func (x *AssetQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssetQuery.ProtoReflect.Descriptor instead.
 func (*AssetQuery) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{16}
+	return file_chat_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *AssetQuery) GetPackId() string {
@@ -1696,7 +1745,7 @@ type AssetPack struct {
 
 func (x *AssetPack) Reset() {
 	*x = AssetPack{}
-	mi := &file_chat_proto_msgTypes[17]
+	mi := &file_chat_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1708,7 +1757,7 @@ func (x *AssetPack) String() string {
 func (*AssetPack) ProtoMessage() {}
 
 func (x *AssetPack) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[17]
+	mi := &file_chat_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1721,7 +1770,7 @@ func (x *AssetPack) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssetPack.ProtoReflect.Descriptor instead.
 func (*AssetPack) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{17}
+	return file_chat_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *AssetPack) GetId() string {
@@ -1807,7 +1856,7 @@ type MediaAsset struct {
 
 func (x *MediaAsset) Reset() {
 	*x = MediaAsset{}
-	mi := &file_chat_proto_msgTypes[18]
+	mi := &file_chat_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1819,7 +1868,7 @@ func (x *MediaAsset) String() string {
 func (*MediaAsset) ProtoMessage() {}
 
 func (x *MediaAsset) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[18]
+	mi := &file_chat_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1832,7 +1881,7 @@ func (x *MediaAsset) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MediaAsset.ProtoReflect.Descriptor instead.
 func (*MediaAsset) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{18}
+	return file_chat_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *MediaAsset) GetId() string {
@@ -1983,7 +2032,7 @@ type AssetVariant struct {
 
 func (x *AssetVariant) Reset() {
 	*x = AssetVariant{}
-	mi := &file_chat_proto_msgTypes[19]
+	mi := &file_chat_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1995,7 +2044,7 @@ func (x *AssetVariant) String() string {
 func (*AssetVariant) ProtoMessage() {}
 
 func (x *AssetVariant) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[19]
+	mi := &file_chat_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2008,7 +2057,7 @@ func (x *AssetVariant) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssetVariant.ProtoReflect.Descriptor instead.
 func (*AssetVariant) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{19}
+	return file_chat_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *AssetVariant) GetName() string {
@@ -2073,7 +2122,7 @@ type AssetMutation struct {
 
 func (x *AssetMutation) Reset() {
 	*x = AssetMutation{}
-	mi := &file_chat_proto_msgTypes[20]
+	mi := &file_chat_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2085,7 +2134,7 @@ func (x *AssetMutation) String() string {
 func (*AssetMutation) ProtoMessage() {}
 
 func (x *AssetMutation) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[20]
+	mi := &file_chat_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2098,7 +2147,7 @@ func (x *AssetMutation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssetMutation.ProtoReflect.Descriptor instead.
 func (*AssetMutation) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{20}
+	return file_chat_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *AssetMutation) GetOp() string {
@@ -2147,7 +2196,7 @@ type AssetCatalog struct {
 
 func (x *AssetCatalog) Reset() {
 	*x = AssetCatalog{}
-	mi := &file_chat_proto_msgTypes[21]
+	mi := &file_chat_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2159,7 +2208,7 @@ func (x *AssetCatalog) String() string {
 func (*AssetCatalog) ProtoMessage() {}
 
 func (x *AssetCatalog) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[21]
+	mi := &file_chat_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2172,7 +2221,7 @@ func (x *AssetCatalog) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssetCatalog.ProtoReflect.Descriptor instead.
 func (*AssetCatalog) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{21}
+	return file_chat_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *AssetCatalog) GetVersion() uint64 {
@@ -2216,14 +2265,16 @@ type GetQuery struct {
 	// "assets" 素材目录查询参数
 	Assets *AssetQuery `protobuf:"bytes,8,opt,name=assets,proto3" json:"assets,omitempty"`
 	// "readers" 指定群消息的已读参与者查询参数
-	Readers       *ReadParticipantsQuery `protobuf:"bytes,9,opt,name=readers,proto3" json:"readers,omitempty"`
+	Readers *ReadParticipantsQuery `protobuf:"bytes,9,opt,name=readers,proto3" json:"readers,omitempty"`
+	// "previews" 会话列表最后一条消息聚合查询
+	Previews      *PreviewQuery `protobuf:"bytes,10,opt,name=previews,proto3" json:"previews,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetQuery) Reset() {
 	*x = GetQuery{}
-	mi := &file_chat_proto_msgTypes[22]
+	mi := &file_chat_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2235,7 +2286,7 @@ func (x *GetQuery) String() string {
 func (*GetQuery) ProtoMessage() {}
 
 func (x *GetQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[22]
+	mi := &file_chat_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2248,7 +2299,7 @@ func (x *GetQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetQuery.ProtoReflect.Descriptor instead.
 func (*GetQuery) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{22}
+	return file_chat_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *GetQuery) GetWhat() string {
@@ -2314,6 +2365,13 @@ func (x *GetQuery) GetReaders() *ReadParticipantsQuery {
 	return nil
 }
 
+func (x *GetQuery) GetPreviews() *PreviewQuery {
+	if x != nil {
+		return x.Previews
+	}
+	return nil
+}
+
 // SetQuery 定义 SetQuery 的 Protobuf 消息结构。
 type SetQuery struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2337,7 +2395,7 @@ type SetQuery struct {
 
 func (x *SetQuery) Reset() {
 	*x = SetQuery{}
-	mi := &file_chat_proto_msgTypes[23]
+	mi := &file_chat_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2349,7 +2407,7 @@ func (x *SetQuery) String() string {
 func (*SetQuery) ProtoMessage() {}
 
 func (x *SetQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[23]
+	mi := &file_chat_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2362,7 +2420,7 @@ func (x *SetQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetQuery.ProtoReflect.Descriptor instead.
 func (*SetQuery) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{23}
+	return file_chat_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *SetQuery) GetDesc() *SetDesc {
@@ -2414,6 +2472,76 @@ func (x *SetQuery) GetAsset() *AssetMutation {
 	return nil
 }
 
+// ResumeTopic 是快速恢复时需要重新订阅的 Topic 及客户端已落盘游标。
+type ResumeTopic struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Topic string                 `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
+	SeqId int32                  `protobuf:"varint,2,opt,name=seq_id,json=seqId,proto3" json:"seq_id,omitempty"`
+	DelId int32                  `protobuf:"varint,3,opt,name=del_id,json=delId,proto3" json:"del_id,omitempty"`
+	// active 表示恢复完整元数据与消息；false 仅恢复列表所需状态。
+	Active        bool `protobuf:"varint,4,opt,name=active,proto3" json:"active,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResumeTopic) Reset() {
+	*x = ResumeTopic{}
+	mi := &file_chat_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResumeTopic) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResumeTopic) ProtoMessage() {}
+
+func (x *ResumeTopic) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResumeTopic.ProtoReflect.Descriptor instead.
+func (*ResumeTopic) Descriptor() ([]byte, []int) {
+	return file_chat_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *ResumeTopic) GetTopic() string {
+	if x != nil {
+		return x.Topic
+	}
+	return ""
+}
+
+func (x *ResumeTopic) GetSeqId() int32 {
+	if x != nil {
+		return x.SeqId
+	}
+	return 0
+}
+
+func (x *ResumeTopic) GetDelId() int32 {
+	if x != nil {
+		return x.DelId
+	}
+	return 0
+}
+
+func (x *ResumeTopic) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
 // 客户端握手消息
 type ClientHi struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2437,7 +2565,7 @@ type ClientHi struct {
 
 func (x *ClientHi) Reset() {
 	*x = ClientHi{}
-	mi := &file_chat_proto_msgTypes[24]
+	mi := &file_chat_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2449,7 +2577,7 @@ func (x *ClientHi) String() string {
 func (*ClientHi) ProtoMessage() {}
 
 func (x *ClientHi) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[24]
+	mi := &file_chat_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2462,7 +2590,7 @@ func (x *ClientHi) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientHi.ProtoReflect.Descriptor instead.
 func (*ClientHi) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{24}
+	return file_chat_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ClientHi) GetId() string {
@@ -2549,7 +2677,7 @@ type ClientAcc struct {
 
 func (x *ClientAcc) Reset() {
 	*x = ClientAcc{}
-	mi := &file_chat_proto_msgTypes[25]
+	mi := &file_chat_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2561,7 +2689,7 @@ func (x *ClientAcc) String() string {
 func (*ClientAcc) ProtoMessage() {}
 
 func (x *ClientAcc) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[25]
+	mi := &file_chat_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2574,7 +2702,7 @@ func (x *ClientAcc) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientAcc.ProtoReflect.Descriptor instead.
 func (*ClientAcc) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{25}
+	return file_chat_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ClientAcc) GetId() string {
@@ -2685,7 +2813,7 @@ type ClientLogin struct {
 
 func (x *ClientLogin) Reset() {
 	*x = ClientLogin{}
-	mi := &file_chat_proto_msgTypes[26]
+	mi := &file_chat_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2697,7 +2825,7 @@ func (x *ClientLogin) String() string {
 func (*ClientLogin) ProtoMessage() {}
 
 func (x *ClientLogin) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[26]
+	mi := &file_chat_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2710,7 +2838,7 @@ func (x *ClientLogin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientLogin.ProtoReflect.Descriptor instead.
 func (*ClientLogin) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{26}
+	return file_chat_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ClientLogin) GetId() string {
@@ -2741,6 +2869,67 @@ func (x *ClientLogin) GetCred() []*ClientCred {
 	return nil
 }
 
+// ClientResume 在 hi 后用一个请求恢复认证和最多 8 个实时订阅。
+type ClientResume struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Token         []byte                 `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`
+	Topics        []*ResumeTopic         `protobuf:"bytes,3,rep,name=topics,proto3" json:"topics,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientResume) Reset() {
+	*x = ClientResume{}
+	mi := &file_chat_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientResume) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientResume) ProtoMessage() {}
+
+func (x *ClientResume) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientResume.ProtoReflect.Descriptor instead.
+func (*ClientResume) Descriptor() ([]byte, []int) {
+	return file_chat_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *ClientResume) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ClientResume) GetToken() []byte {
+	if x != nil {
+		return x.Token
+	}
+	return nil
+}
+
+func (x *ClientResume) GetTopics() []*ResumeTopic {
+	if x != nil {
+		return x.Topics
+	}
+	return nil
+}
+
 // 订阅请求消息 {sub}
 type ClientSub struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2751,14 +2940,16 @@ type ClientSub struct {
 	// 镜像 {set} 参数
 	SetQuery *SetQuery `protobuf:"bytes,3,opt,name=set_query,json=setQuery,proto3" json:"set_query,omitempty"`
 	// 镜像 {get} 参数
-	GetQuery      *GetQuery `protobuf:"bytes,4,opt,name=get_query,json=getQuery,proto3" json:"get_query,omitempty"`
+	GetQuery *GetQuery `protobuf:"bytes,4,opt,name=get_query,json=getQuery,proto3" json:"get_query,omitempty"`
+	// invite 是服务端签名的群组邀请令牌。
+	Invite        string `protobuf:"bytes,5,opt,name=invite,proto3" json:"invite,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ClientSub) Reset() {
 	*x = ClientSub{}
-	mi := &file_chat_proto_msgTypes[27]
+	mi := &file_chat_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2770,7 +2961,7 @@ func (x *ClientSub) String() string {
 func (*ClientSub) ProtoMessage() {}
 
 func (x *ClientSub) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[27]
+	mi := &file_chat_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2783,7 +2974,7 @@ func (x *ClientSub) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientSub.ProtoReflect.Descriptor instead.
 func (*ClientSub) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{27}
+	return file_chat_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ClientSub) GetId() string {
@@ -2814,6 +3005,13 @@ func (x *ClientSub) GetGetQuery() *GetQuery {
 	return nil
 }
 
+func (x *ClientSub) GetInvite() string {
+	if x != nil {
+		return x.Invite
+	}
+	return ""
+}
+
 // 取消订阅/离开请求消息 {leave}
 type ClientLeave struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2829,7 +3027,7 @@ type ClientLeave struct {
 
 func (x *ClientLeave) Reset() {
 	*x = ClientLeave{}
-	mi := &file_chat_proto_msgTypes[28]
+	mi := &file_chat_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2841,7 +3039,7 @@ func (x *ClientLeave) String() string {
 func (*ClientLeave) ProtoMessage() {}
 
 func (x *ClientLeave) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[28]
+	mi := &file_chat_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2854,7 +3052,7 @@ func (x *ClientLeave) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientLeave.ProtoReflect.Descriptor instead.
 func (*ClientLeave) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{28}
+	return file_chat_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ClientLeave) GetId() string {
@@ -2891,7 +3089,7 @@ type MessageRef struct {
 
 func (x *MessageRef) Reset() {
 	*x = MessageRef{}
-	mi := &file_chat_proto_msgTypes[29]
+	mi := &file_chat_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2903,7 +3101,7 @@ func (x *MessageRef) String() string {
 func (*MessageRef) ProtoMessage() {}
 
 func (x *MessageRef) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[29]
+	mi := &file_chat_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2916,7 +3114,7 @@ func (x *MessageRef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MessageRef.ProtoReflect.Descriptor instead.
 func (*MessageRef) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{29}
+	return file_chat_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *MessageRef) GetTopic() string {
@@ -2966,7 +3164,7 @@ type ClientPub struct {
 
 func (x *ClientPub) Reset() {
 	*x = ClientPub{}
-	mi := &file_chat_proto_msgTypes[30]
+	mi := &file_chat_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2978,7 +3176,7 @@ func (x *ClientPub) String() string {
 func (*ClientPub) ProtoMessage() {}
 
 func (x *ClientPub) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[30]
+	mi := &file_chat_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2991,7 +3189,7 @@ func (x *ClientPub) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientPub.ProtoReflect.Descriptor instead.
 func (*ClientPub) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{30}
+	return file_chat_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ClientPub) GetId() string {
@@ -3093,7 +3291,7 @@ type ClientGet struct {
 
 func (x *ClientGet) Reset() {
 	*x = ClientGet{}
-	mi := &file_chat_proto_msgTypes[31]
+	mi := &file_chat_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3105,7 +3303,7 @@ func (x *ClientGet) String() string {
 func (*ClientGet) ProtoMessage() {}
 
 func (x *ClientGet) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[31]
+	mi := &file_chat_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3118,7 +3316,7 @@ func (x *ClientGet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientGet.ProtoReflect.Descriptor instead.
 func (*ClientGet) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{31}
+	return file_chat_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ClientGet) GetId() string {
@@ -3157,7 +3355,7 @@ type ClientSet struct {
 
 func (x *ClientSet) Reset() {
 	*x = ClientSet{}
-	mi := &file_chat_proto_msgTypes[32]
+	mi := &file_chat_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3169,7 +3367,7 @@ func (x *ClientSet) String() string {
 func (*ClientSet) ProtoMessage() {}
 
 func (x *ClientSet) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[32]
+	mi := &file_chat_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3182,7 +3380,7 @@ func (x *ClientSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientSet.ProtoReflect.Descriptor instead.
 func (*ClientSet) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{32}
+	return file_chat_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ClientSet) GetId() string {
@@ -3231,7 +3429,7 @@ type ClientDel struct {
 
 func (x *ClientDel) Reset() {
 	*x = ClientDel{}
-	mi := &file_chat_proto_msgTypes[33]
+	mi := &file_chat_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3243,7 +3441,7 @@ func (x *ClientDel) String() string {
 func (*ClientDel) ProtoMessage() {}
 
 func (x *ClientDel) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[33]
+	mi := &file_chat_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3256,7 +3454,7 @@ func (x *ClientDel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientDel.ProtoReflect.Descriptor instead.
 func (*ClientDel) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{33}
+	return file_chat_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ClientDel) GetId() string {
@@ -3342,7 +3540,7 @@ type ClientNote struct {
 
 func (x *ClientNote) Reset() {
 	*x = ClientNote{}
-	mi := &file_chat_proto_msgTypes[34]
+	mi := &file_chat_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3354,7 +3552,7 @@ func (x *ClientNote) String() string {
 func (*ClientNote) ProtoMessage() {}
 
 func (x *ClientNote) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[34]
+	mi := &file_chat_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3367,7 +3565,7 @@ func (x *ClientNote) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientNote.ProtoReflect.Descriptor instead.
 func (*ClientNote) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{34}
+	return file_chat_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ClientNote) GetTopic() string {
@@ -3448,7 +3646,7 @@ type ClientExtra struct {
 
 func (x *ClientExtra) Reset() {
 	*x = ClientExtra{}
-	mi := &file_chat_proto_msgTypes[35]
+	mi := &file_chat_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3460,7 +3658,7 @@ func (x *ClientExtra) String() string {
 func (*ClientExtra) ProtoMessage() {}
 
 func (x *ClientExtra) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[35]
+	mi := &file_chat_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3473,7 +3671,7 @@ func (x *ClientExtra) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientExtra.ProtoReflect.Descriptor instead.
 func (*ClientExtra) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{35}
+	return file_chat_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ClientExtra) GetAttachments() []string {
@@ -3514,6 +3712,7 @@ type ClientMsg struct {
 	//	*ClientMsg_Set
 	//	*ClientMsg_Del
 	//	*ClientMsg_Note
+	//	*ClientMsg_Resume
 	Message isClientMsg_Message `protobuf_oneof:"Message"`
 	// 消息附加扩展参数
 	Extra         *ClientExtra `protobuf:"bytes,13,opt,name=extra,proto3" json:"extra,omitempty"`
@@ -3523,7 +3722,7 @@ type ClientMsg struct {
 
 func (x *ClientMsg) Reset() {
 	*x = ClientMsg{}
-	mi := &file_chat_proto_msgTypes[36]
+	mi := &file_chat_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3535,7 +3734,7 @@ func (x *ClientMsg) String() string {
 func (*ClientMsg) ProtoMessage() {}
 
 func (x *ClientMsg) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[36]
+	mi := &file_chat_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3548,7 +3747,7 @@ func (x *ClientMsg) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientMsg.ProtoReflect.Descriptor instead.
 func (*ClientMsg) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{36}
+	return file_chat_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ClientMsg) GetMessage() isClientMsg_Message {
@@ -3648,6 +3847,15 @@ func (x *ClientMsg) GetNote() *ClientNote {
 	return nil
 }
 
+func (x *ClientMsg) GetResume() *ClientResume {
+	if x != nil {
+		if x, ok := x.Message.(*ClientMsg_Resume); ok {
+			return x.Resume
+		}
+	}
+	return nil
+}
+
 func (x *ClientMsg) GetExtra() *ClientExtra {
 	if x != nil {
 		return x.Extra
@@ -3709,6 +3917,11 @@ type ClientMsg_Note struct {
 	Note *ClientNote `protobuf:"bytes,10,opt,name=note,proto3,oneof"`
 }
 
+type ClientMsg_Resume struct {
+	// resume 使用已有 Token 与持久化游标恢复会话。
+	Resume *ClientResume `protobuf:"bytes,11,opt,name=resume,proto3,oneof"`
+}
+
 func (*ClientMsg_Hi) isClientMsg_Message() {}
 
 func (*ClientMsg_Acc) isClientMsg_Message() {}
@@ -3729,6 +3942,53 @@ func (*ClientMsg_Del) isClientMsg_Message() {}
 
 func (*ClientMsg_Note) isClientMsg_Message() {}
 
+func (*ClientMsg_Resume) isClientMsg_Message() {}
+
+// ClientBatch 是 WebSocket Binary Frame 的顶层信封。
+type ClientBatch struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Messages      []*ClientMsg           `protobuf:"bytes,1,rep,name=messages,proto3" json:"messages,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientBatch) Reset() {
+	*x = ClientBatch{}
+	mi := &file_chat_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientBatch) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientBatch) ProtoMessage() {}
+
+func (x *ClientBatch) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientBatch.ProtoReflect.Descriptor instead.
+func (*ClientBatch) Descriptor() ([]byte, []int) {
+	return file_chat_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *ClientBatch) GetMessages() []*ClientMsg {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
+}
+
 // 身份凭据
 type ServerCred struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -3744,7 +4004,7 @@ type ServerCred struct {
 
 func (x *ServerCred) Reset() {
 	*x = ServerCred{}
-	mi := &file_chat_proto_msgTypes[37]
+	mi := &file_chat_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3756,7 +4016,7 @@ func (x *ServerCred) String() string {
 func (*ServerCred) ProtoMessage() {}
 
 func (x *ServerCred) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[37]
+	mi := &file_chat_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3769,7 +4029,7 @@ func (x *ServerCred) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerCred.ProtoReflect.Descriptor instead.
 func (*ServerCred) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{37}
+	return file_chat_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ServerCred) GetMethod() string {
@@ -3840,7 +4100,7 @@ type TopicDesc struct {
 
 func (x *TopicDesc) Reset() {
 	*x = TopicDesc{}
-	mi := &file_chat_proto_msgTypes[38]
+	mi := &file_chat_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3852,7 +4112,7 @@ func (x *TopicDesc) String() string {
 func (*TopicDesc) ProtoMessage() {}
 
 func (x *TopicDesc) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[38]
+	mi := &file_chat_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3865,7 +4125,7 @@ func (x *TopicDesc) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TopicDesc.ProtoReflect.Descriptor instead.
 func (*TopicDesc) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{38}
+	return file_chat_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *TopicDesc) GetCreatedAt() int64 {
@@ -4044,7 +4304,7 @@ type TopicSub struct {
 
 func (x *TopicSub) Reset() {
 	*x = TopicSub{}
-	mi := &file_chat_proto_msgTypes[39]
+	mi := &file_chat_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4056,7 +4316,7 @@ func (x *TopicSub) String() string {
 func (*TopicSub) ProtoMessage() {}
 
 func (x *TopicSub) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[39]
+	mi := &file_chat_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4069,7 +4329,7 @@ func (x *TopicSub) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TopicSub.ProtoReflect.Descriptor instead.
 func (*TopicSub) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{39}
+	return file_chat_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *TopicSub) GetUpdatedAt() int64 {
@@ -4204,7 +4464,7 @@ type DelValues struct {
 
 func (x *DelValues) Reset() {
 	*x = DelValues{}
-	mi := &file_chat_proto_msgTypes[40]
+	mi := &file_chat_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4216,7 +4476,7 @@ func (x *DelValues) String() string {
 func (*DelValues) ProtoMessage() {}
 
 func (x *DelValues) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[40]
+	mi := &file_chat_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4229,7 +4489,7 @@ func (x *DelValues) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DelValues.ProtoReflect.Descriptor instead.
 func (*DelValues) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{40}
+	return file_chat_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *DelValues) GetDelId() int32 {
@@ -4263,7 +4523,7 @@ type SearchResult struct {
 
 func (x *SearchResult) Reset() {
 	*x = SearchResult{}
-	mi := &file_chat_proto_msgTypes[41]
+	mi := &file_chat_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4275,7 +4535,7 @@ func (x *SearchResult) String() string {
 func (*SearchResult) ProtoMessage() {}
 
 func (x *SearchResult) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[41]
+	mi := &file_chat_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4288,7 +4548,7 @@ func (x *SearchResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchResult.ProtoReflect.Descriptor instead.
 func (*SearchResult) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{41}
+	return file_chat_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *SearchResult) GetScope() string {
@@ -4331,14 +4591,16 @@ type ServerCtrl struct {
 	// text 保存该消息字段对应的协议值。
 	Text string `protobuf:"bytes,4,opt,name=text,proto3" json:"text,omitempty"`
 	// params 保存该消息字段对应的协议值。
-	Params        map[string][]byte `protobuf:"bytes,5,rep,name=params,proto3" json:"params,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Params map[string][]byte `protobuf:"bytes,5,rep,name=params,proto3" json:"params,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// timestamp 与 JSON ctrl.ts 一致，使用 Epoch 毫秒。
+	Timestamp     int64 `protobuf:"varint,6,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServerCtrl) Reset() {
 	*x = ServerCtrl{}
-	mi := &file_chat_proto_msgTypes[42]
+	mi := &file_chat_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4350,7 +4612,7 @@ func (x *ServerCtrl) String() string {
 func (*ServerCtrl) ProtoMessage() {}
 
 func (x *ServerCtrl) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[42]
+	mi := &file_chat_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4363,7 +4625,7 @@ func (x *ServerCtrl) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerCtrl.ProtoReflect.Descriptor instead.
 func (*ServerCtrl) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{42}
+	return file_chat_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ServerCtrl) GetId() string {
@@ -4399,6 +4661,13 @@ func (x *ServerCtrl) GetParams() map[string][]byte {
 		return x.Params
 	}
 	return nil
+}
+
+func (x *ServerCtrl) GetTimestamp() int64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
 }
 
 // {data} 聊天数据消息
@@ -4440,7 +4709,7 @@ type ServerData struct {
 
 func (x *ServerData) Reset() {
 	*x = ServerData{}
-	mi := &file_chat_proto_msgTypes[43]
+	mi := &file_chat_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4452,7 +4721,7 @@ func (x *ServerData) String() string {
 func (*ServerData) ProtoMessage() {}
 
 func (x *ServerData) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[43]
+	mi := &file_chat_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4465,7 +4734,7 @@ func (x *ServerData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerData.ProtoReflect.Descriptor instead.
 func (*ServerData) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{43}
+	return file_chat_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ServerData) GetTopic() string {
@@ -4589,7 +4858,7 @@ type Translation struct {
 
 func (x *Translation) Reset() {
 	*x = Translation{}
-	mi := &file_chat_proto_msgTypes[44]
+	mi := &file_chat_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4601,7 +4870,7 @@ func (x *Translation) String() string {
 func (*Translation) ProtoMessage() {}
 
 func (x *Translation) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[44]
+	mi := &file_chat_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4614,7 +4883,7 @@ func (x *Translation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Translation.ProtoReflect.Descriptor instead.
 func (*Translation) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{44}
+	return file_chat_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *Translation) GetStatus() string {
@@ -4669,7 +4938,7 @@ type ForwardedMessage struct {
 
 func (x *ForwardedMessage) Reset() {
 	*x = ForwardedMessage{}
-	mi := &file_chat_proto_msgTypes[45]
+	mi := &file_chat_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4681,7 +4950,7 @@ func (x *ForwardedMessage) String() string {
 func (*ForwardedMessage) ProtoMessage() {}
 
 func (x *ForwardedMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[45]
+	mi := &file_chat_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4694,7 +4963,7 @@ func (x *ForwardedMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForwardedMessage.ProtoReflect.Descriptor instead.
 func (*ForwardedMessage) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{45}
+	return file_chat_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *ForwardedMessage) GetTopic() string {
@@ -4738,7 +5007,7 @@ type Reaction struct {
 
 func (x *Reaction) Reset() {
 	*x = Reaction{}
-	mi := &file_chat_proto_msgTypes[46]
+	mi := &file_chat_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4750,7 +5019,7 @@ func (x *Reaction) String() string {
 func (*Reaction) ProtoMessage() {}
 
 func (x *Reaction) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[46]
+	mi := &file_chat_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4763,7 +5032,7 @@ func (x *Reaction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Reaction.ProtoReflect.Descriptor instead.
 func (*Reaction) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{46}
+	return file_chat_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *Reaction) GetReaction() string {
@@ -4809,7 +5078,7 @@ type ServerPres struct {
 
 func (x *ServerPres) Reset() {
 	*x = ServerPres{}
-	mi := &file_chat_proto_msgTypes[47]
+	mi := &file_chat_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4821,7 +5090,7 @@ func (x *ServerPres) String() string {
 func (*ServerPres) ProtoMessage() {}
 
 func (x *ServerPres) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[47]
+	mi := &file_chat_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4834,7 +5103,7 @@ func (x *ServerPres) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPres.ProtoReflect.Descriptor instead.
 func (*ServerPres) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{47}
+	return file_chat_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *ServerPres) GetTopic() string {
@@ -4935,14 +5204,18 @@ type ServerMeta struct {
 	// next 是成员列表下一页使用的稳定游标。
 	Next string `protobuf:"bytes,12,opt,name=next,proto3" json:"next,omitempty"`
 	// readers 保存指定群消息的已读参与者。
-	Readers       *ReadParticipants `protobuf:"bytes,13,opt,name=readers,proto3" json:"readers,omitempty"`
+	Readers *ReadParticipants `protobuf:"bytes,13,opt,name=readers,proto3" json:"readers,omitempty"`
+	// timestamp 与 JSON meta.ts 一致，使用 Epoch 毫秒。
+	Timestamp int64 `protobuf:"varint,14,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	// previews 保存每个请求会话的最后一条可见消息。
+	Previews      []*ServerData `protobuf:"bytes,15,rep,name=previews,proto3" json:"previews,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServerMeta) Reset() {
 	*x = ServerMeta{}
-	mi := &file_chat_proto_msgTypes[48]
+	mi := &file_chat_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4954,7 +5227,7 @@ func (x *ServerMeta) String() string {
 func (*ServerMeta) ProtoMessage() {}
 
 func (x *ServerMeta) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[48]
+	mi := &file_chat_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4967,7 +5240,7 @@ func (x *ServerMeta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerMeta.ProtoReflect.Descriptor instead.
 func (*ServerMeta) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{48}
+	return file_chat_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *ServerMeta) GetId() string {
@@ -5061,6 +5334,20 @@ func (x *ServerMeta) GetReaders() *ReadParticipants {
 	return nil
 }
 
+func (x *ServerMeta) GetTimestamp() int64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
+}
+
+func (x *ServerMeta) GetPreviews() []*ServerData {
+	if x != nil {
+		return x.Previews
+	}
+	return nil
+}
+
 // ReadParticipant is a member who has read the requested group message.
 type ReadParticipant struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
@@ -5073,7 +5360,7 @@ type ReadParticipant struct {
 
 func (x *ReadParticipant) Reset() {
 	*x = ReadParticipant{}
-	mi := &file_chat_proto_msgTypes[49]
+	mi := &file_chat_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5085,7 +5372,7 @@ func (x *ReadParticipant) String() string {
 func (*ReadParticipant) ProtoMessage() {}
 
 func (x *ReadParticipant) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[49]
+	mi := &file_chat_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5098,7 +5385,7 @@ func (x *ReadParticipant) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadParticipant.ProtoReflect.Descriptor instead.
 func (*ReadParticipant) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{49}
+	return file_chat_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *ReadParticipant) GetUserId() string {
@@ -5126,7 +5413,7 @@ type ReadParticipants struct {
 
 func (x *ReadParticipants) Reset() {
 	*x = ReadParticipants{}
-	mi := &file_chat_proto_msgTypes[50]
+	mi := &file_chat_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5138,7 +5425,7 @@ func (x *ReadParticipants) String() string {
 func (*ReadParticipants) ProtoMessage() {}
 
 func (x *ReadParticipants) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[50]
+	mi := &file_chat_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5151,7 +5438,7 @@ func (x *ReadParticipants) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadParticipants.ProtoReflect.Descriptor instead.
 func (*ReadParticipants) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{50}
+	return file_chat_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *ReadParticipants) GetSeqId() int32 {
@@ -5195,7 +5482,7 @@ type ServerInfo struct {
 
 func (x *ServerInfo) Reset() {
 	*x = ServerInfo{}
-	mi := &file_chat_proto_msgTypes[51]
+	mi := &file_chat_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5207,7 +5494,7 @@ func (x *ServerInfo) String() string {
 func (*ServerInfo) ProtoMessage() {}
 
 func (x *ServerInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[51]
+	mi := &file_chat_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5220,7 +5507,7 @@ func (x *ServerInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerInfo.ProtoReflect.Descriptor instead.
 func (*ServerInfo) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{51}
+	return file_chat_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *ServerInfo) GetTopic() string {
@@ -5309,7 +5596,7 @@ type ServerMsg struct {
 
 func (x *ServerMsg) Reset() {
 	*x = ServerMsg{}
-	mi := &file_chat_proto_msgTypes[52]
+	mi := &file_chat_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5321,7 +5608,7 @@ func (x *ServerMsg) String() string {
 func (*ServerMsg) ProtoMessage() {}
 
 func (x *ServerMsg) ProtoReflect() protoreflect.Message {
-	mi := &file_chat_proto_msgTypes[52]
+	mi := &file_chat_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5334,7 +5621,7 @@ func (x *ServerMsg) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerMsg.ProtoReflect.Descriptor instead.
 func (*ServerMsg) Descriptor() ([]byte, []int) {
-	return file_chat_proto_rawDescGZIP(), []int{52}
+	return file_chat_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *ServerMsg) GetMessage() isServerMsg_Message {
@@ -5436,6 +5723,51 @@ func (*ServerMsg_Meta) isServerMsg_Message() {}
 
 func (*ServerMsg_Info) isServerMsg_Message() {}
 
+// ServerBatch 是 WebSocket Binary Frame 的顶层信封。
+type ServerBatch struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Messages      []*ServerMsg           `protobuf:"bytes,1,rep,name=messages,proto3" json:"messages,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerBatch) Reset() {
+	*x = ServerBatch{}
+	mi := &file_chat_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerBatch) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerBatch) ProtoMessage() {}
+
+func (x *ServerBatch) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerBatch.ProtoReflect.Descriptor instead.
+func (*ServerBatch) Descriptor() ([]byte, []int) {
+	return file_chat_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *ServerBatch) GetMessages() []*ServerMsg {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
+}
+
 var File_chat_proto protoreflect.FileDescriptor
 
 const file_chat_proto_rawDesc = "" +
@@ -5494,7 +5826,9 @@ const file_chat_proto_rawDesc = "" +
 	"\x06cursor\x18\a \x01(\tR\x06cursor\x12\x14\n" +
 	"\x05limit\x18\b \x01(\x05R\x05limit\".\n" +
 	"\x15ReadParticipantsQuery\x12\x15\n" +
-	"\x06seq_id\x18\x01 \x01(\x05R\x05seqId\"d\n" +
+	"\x06seq_id\x18\x01 \x01(\x05R\x05seqId\"&\n" +
+	"\fPreviewQuery\x12\x16\n" +
+	"\x06topics\x18\x01 \x03(\tR\x06topics\"d\n" +
 	"\fContactQuery\x12\x14\n" +
 	"\x05since\x18\x01 \x01(\x04R\x05since\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12(\n" +
@@ -5599,7 +5933,7 @@ const file_chat_proto_rawDesc = "" +
 	"\fAssetCatalog\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x04R\aversion\x12$\n" +
 	"\x05packs\x18\x02 \x03(\v2\x0e.pbx.AssetPackR\x05packs\x12'\n" +
-	"\x06assets\x18\x03 \x03(\v2\x0f.pbx.MediaAssetR\x06assets\"\xd9\x02\n" +
+	"\x06assets\x18\x03 \x03(\v2\x0f.pbx.MediaAssetR\x06assets\"\x88\x03\n" +
 	"\bGetQuery\x12\x12\n" +
 	"\x04what\x18\x01 \x01(\tR\x04what\x12 \n" +
 	"\x04desc\x18\x02 \x01(\v2\f.pbx.GetOptsR\x04desc\x12\x1e\n" +
@@ -5609,7 +5943,9 @@ const file_chat_proto_rawDesc = "" +
 	"\x06search\x18\x06 \x01(\v2\x0f.pbx.SearchOptsR\x06search\x12-\n" +
 	"\bcontacts\x18\a \x01(\v2\x11.pbx.ContactQueryR\bcontacts\x12'\n" +
 	"\x06assets\x18\b \x01(\v2\x0f.pbx.AssetQueryR\x06assets\x124\n" +
-	"\areaders\x18\t \x01(\v2\x1a.pbx.ReadParticipantsQueryR\areaders\"\xc0\x02\n" +
+	"\areaders\x18\t \x01(\v2\x1a.pbx.ReadParticipantsQueryR\areaders\x12-\n" +
+	"\bpreviews\x18\n" +
+	" \x01(\v2\x11.pbx.PreviewQueryR\bpreviews\"\xc0\x02\n" +
 	"\bSetQuery\x12 \n" +
 	"\x04desc\x18\x01 \x01(\v2\f.pbx.SetDescR\x04desc\x12\x1d\n" +
 	"\x03sub\x18\x02 \x01(\v2\v.pbx.SetSubR\x03sub\x12\x12\n" +
@@ -5620,7 +5956,12 @@ const file_chat_proto_rawDesc = "" +
 	"\x05asset\x18\a \x01(\v2\x12.pbx.AssetMutationR\x05asset\x1a6\n" +
 	"\bAuxEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\fR\x05value:\x028\x01\"\xb8\x01\n" +
+	"\x05value\x18\x02 \x01(\fR\x05value:\x028\x01\"i\n" +
+	"\vResumeTopic\x12\x14\n" +
+	"\x05topic\x18\x01 \x01(\tR\x05topic\x12\x15\n" +
+	"\x06seq_id\x18\x02 \x01(\x05R\x05seqId\x12\x15\n" +
+	"\x06del_id\x18\x03 \x01(\x05R\x05delId\x12\x16\n" +
+	"\x06active\x18\x04 \x01(\bR\x06active\"\xb8\x01\n" +
 	"\bClientHi\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -5654,12 +5995,17 @@ const file_chat_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06scheme\x18\x02 \x01(\tR\x06scheme\x12\x16\n" +
 	"\x06secret\x18\x03 \x01(\fR\x06secret\x12#\n" +
-	"\x04cred\x18\x04 \x03(\v2\x0f.pbx.ClientCredR\x04cred\"\x89\x01\n" +
+	"\x04cred\x18\x04 \x03(\v2\x0f.pbx.ClientCredR\x04cred\"^\n" +
+	"\fClientResume\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
+	"\x05token\x18\x02 \x01(\fR\x05token\x12(\n" +
+	"\x06topics\x18\x03 \x03(\v2\x10.pbx.ResumeTopicR\x06topics\"\xa1\x01\n" +
 	"\tClientSub\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05topic\x18\x02 \x01(\tR\x05topic\x12*\n" +
 	"\tset_query\x18\x03 \x01(\v2\r.pbx.SetQueryR\bsetQuery\x12*\n" +
-	"\tget_query\x18\x04 \x01(\v2\r.pbx.GetQueryR\bgetQuery\"I\n" +
+	"\tget_query\x18\x04 \x01(\v2\r.pbx.GetQueryR\bgetQuery\x12\x16\n" +
+	"\x06invite\x18\x05 \x01(\tR\x06invite\"I\n" +
 	"\vClientLeave\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05topic\x18\x02 \x01(\tR\x05topic\x12\x14\n" +
@@ -5728,7 +6074,7 @@ const file_chat_proto_rawDesc = "" +
 	"\fon_behalf_of\x18\x02 \x01(\tR\n" +
 	"onBehalfOf\x12-\n" +
 	"\n" +
-	"auth_level\x18\x03 \x01(\x0e2\x0e.pbx.AuthLevelR\tauthLevel\"\xb2\x03\n" +
+	"auth_level\x18\x03 \x01(\x0e2\x0e.pbx.AuthLevelR\tauthLevel\"\xdf\x03\n" +
 	"\tClientMsg\x12\x1f\n" +
 	"\x02hi\x18\x01 \x01(\v2\r.pbx.ClientHiH\x00R\x02hi\x12\"\n" +
 	"\x03acc\x18\x02 \x01(\v2\x0e.pbx.ClientAccH\x00R\x03acc\x12(\n" +
@@ -5740,9 +6086,12 @@ const file_chat_proto_rawDesc = "" +
 	"\x03set\x18\b \x01(\v2\x0e.pbx.ClientSetH\x00R\x03set\x12\"\n" +
 	"\x03del\x18\t \x01(\v2\x0e.pbx.ClientDelH\x00R\x03del\x12%\n" +
 	"\x04note\x18\n" +
-	" \x01(\v2\x0f.pbx.ClientNoteH\x00R\x04note\x12&\n" +
+	" \x01(\v2\x0f.pbx.ClientNoteH\x00R\x04note\x12+\n" +
+	"\x06resume\x18\v \x01(\v2\x11.pbx.ClientResumeH\x00R\x06resume\x12&\n" +
 	"\x05extra\x18\r \x01(\v2\x10.pbx.ClientExtraR\x05extraB\t\n" +
-	"\aMessage\"N\n" +
+	"\aMessage\"9\n" +
+	"\vClientBatch\x12*\n" +
+	"\bmessages\x18\x01 \x03(\v2\x0e.pbx.ClientMsgR\bmessages\"N\n" +
 	"\n" +
 	"ServerCred\x12\x16\n" +
 	"\x06method\x18\x01 \x01(\tR\x06method\x12\x14\n" +
@@ -5801,14 +6150,15 @@ const file_chat_proto_rawDesc = "" +
 	"\x05scope\x18\x01 \x01(\tR\x05scope\x12#\n" +
 	"\x05peers\x18\x02 \x03(\v2\r.pbx.TopicSubR\x05peers\x12+\n" +
 	"\bmessages\x18\x03 \x03(\v2\x0f.pbx.ServerDataR\bmessages\x12\x12\n" +
-	"\x04next\x18\x04 \x01(\tR\x04next\"\xca\x01\n" +
+	"\x04next\x18\x04 \x01(\tR\x04next\"\xe8\x01\n" +
 	"\n" +
 	"ServerCtrl\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05topic\x18\x02 \x01(\tR\x05topic\x12\x12\n" +
 	"\x04code\x18\x03 \x01(\x05R\x04code\x12\x12\n" +
 	"\x04text\x18\x04 \x01(\tR\x04text\x123\n" +
-	"\x06params\x18\x05 \x03(\v2\x1b.pbx.ServerCtrl.ParamsEntryR\x06params\x1a9\n" +
+	"\x06params\x18\x05 \x03(\v2\x1b.pbx.ServerCtrl.ParamsEntryR\x06params\x12\x1c\n" +
+	"\ttimestamp\x18\x06 \x01(\x03R\ttimestamp\x1a9\n" +
 	"\vParamsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\fR\x05value:\x028\x01\"\xb4\x04\n" +
@@ -5883,7 +6233,7 @@ const file_chat_proto_rawDesc = "" +
 	"\bCONTACTS\x10\x0e\x12\n" +
 	"\n" +
 	"\x06ASSETS\x10\x0f\x12\r\n" +
-	"\tWORKSPACE\x10\x10\"\x83\x04\n" +
+	"\tWORKSPACE\x10\x10\"\xce\x04\n" +
 	"\n" +
 	"ServerMeta\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
@@ -5899,7 +6249,9 @@ const file_chat_proto_rawDesc = "" +
 	" \x01(\v2\x14.pbx.ContactSnapshotR\bcontacts\x12)\n" +
 	"\x06assets\x18\v \x01(\v2\x11.pbx.AssetCatalogR\x06assets\x12\x12\n" +
 	"\x04next\x18\f \x01(\tR\x04next\x12/\n" +
-	"\areaders\x18\r \x01(\v2\x15.pbx.ReadParticipantsR\areaders\x1a6\n" +
+	"\areaders\x18\r \x01(\v2\x15.pbx.ReadParticipantsR\areaders\x12\x1c\n" +
+	"\ttimestamp\x18\x0e \x01(\x03R\ttimestamp\x12+\n" +
+	"\bpreviews\x18\x0f \x03(\v2\x0f.pbx.ServerDataR\bpreviews\x1a6\n" +
 	"\bAuxEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\fR\x05value:\x028\x01\">\n" +
@@ -5928,13 +6280,15 @@ const file_chat_proto_rawDesc = "" +
 	"\x04meta\x18\x04 \x01(\v2\x0f.pbx.ServerMetaH\x00R\x04meta\x12%\n" +
 	"\x04info\x18\x05 \x01(\v2\x0f.pbx.ServerInfoH\x00R\x04info\x12\x18\n" +
 	"\x05topic\x18\x06 \x01(\tB\x02\x18\x01R\x05topicB\t\n" +
-	"\aMessage*3\n" +
+	"\aMessage\"9\n" +
+	"\vServerBatch\x12*\n" +
+	"\bmessages\x18\x01 \x03(\v2\x0e.pbx.ServerMsgR\bmessages*3\n" +
 	"\tAuthLevel\x12\b\n" +
 	"\x04NONE\x10\x00\x12\b\n" +
 	"\x04ANON\x10\n" +
 	"\x12\b\n" +
 	"\x04AUTH\x10\x14\x12\b\n" +
-	"\x04ROOT\x10\x1e*^\n" +
+	"\x04ROOT\x10\x1e*h\n" +
 	"\bInfoNote\x12\x06\n" +
 	"\x02X1\x10\x00\x12\b\n" +
 	"\x04READ\x10\x01\x12\b\n" +
@@ -5944,7 +6298,8 @@ const file_chat_proto_rawDesc = "" +
 	"\x03KPA\x10\x05\x12\a\n" +
 	"\x03KPV\x10\x06\x12\t\n" +
 	"\x05REACT\x10\a\x12\a\n" +
-	"\x03PIN\x10\b*\x91\x01\n" +
+	"\x03PIN\x10\b\x12\b\n" +
+	"\x04DATA\x10\t*\x91\x01\n" +
 	"\tCallEvent\x12\x06\n" +
 	"\x02X2\x10\x00\x12\n" +
 	"\n" +
@@ -5975,7 +6330,7 @@ func file_chat_proto_rawDescGZIP() []byte {
 }
 
 var file_chat_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 59)
+var file_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 64)
 var file_chat_proto_goTypes = []any{
 	(AuthLevel)(0),                // 0: pbx.AuthLevel
 	(InfoNote)(0),                 // 1: pbx.InfoNote
@@ -5991,149 +6346,160 @@ var file_chat_proto_goTypes = []any{
 	(*GetOpts)(nil),               // 11: pbx.GetOpts
 	(*SearchOpts)(nil),            // 12: pbx.SearchOpts
 	(*ReadParticipantsQuery)(nil), // 13: pbx.ReadParticipantsQuery
-	(*ContactQuery)(nil),          // 14: pbx.ContactQuery
-	(*Contact)(nil),               // 15: pbx.Contact
-	(*ContactGroup)(nil),          // 16: pbx.ContactGroup
-	(*ContactMutation)(nil),       // 17: pbx.ContactMutation
-	(*ContactEvent)(nil),          // 18: pbx.ContactEvent
-	(*ContactRecommendation)(nil), // 19: pbx.ContactRecommendation
-	(*ContactSnapshot)(nil),       // 20: pbx.ContactSnapshot
-	(*AssetQuery)(nil),            // 21: pbx.AssetQuery
-	(*AssetPack)(nil),             // 22: pbx.AssetPack
-	(*MediaAsset)(nil),            // 23: pbx.MediaAsset
-	(*AssetVariant)(nil),          // 24: pbx.AssetVariant
-	(*AssetMutation)(nil),         // 25: pbx.AssetMutation
-	(*AssetCatalog)(nil),          // 26: pbx.AssetCatalog
-	(*GetQuery)(nil),              // 27: pbx.GetQuery
-	(*SetQuery)(nil),              // 28: pbx.SetQuery
-	(*ClientHi)(nil),              // 29: pbx.ClientHi
-	(*ClientAcc)(nil),             // 30: pbx.ClientAcc
-	(*ClientLogin)(nil),           // 31: pbx.ClientLogin
-	(*ClientSub)(nil),             // 32: pbx.ClientSub
-	(*ClientLeave)(nil),           // 33: pbx.ClientLeave
-	(*MessageRef)(nil),            // 34: pbx.MessageRef
-	(*ClientPub)(nil),             // 35: pbx.ClientPub
-	(*ClientGet)(nil),             // 36: pbx.ClientGet
-	(*ClientSet)(nil),             // 37: pbx.ClientSet
-	(*ClientDel)(nil),             // 38: pbx.ClientDel
-	(*ClientNote)(nil),            // 39: pbx.ClientNote
-	(*ClientExtra)(nil),           // 40: pbx.ClientExtra
-	(*ClientMsg)(nil),             // 41: pbx.ClientMsg
-	(*ServerCred)(nil),            // 42: pbx.ServerCred
-	(*TopicDesc)(nil),             // 43: pbx.TopicDesc
-	(*TopicSub)(nil),              // 44: pbx.TopicSub
-	(*DelValues)(nil),             // 45: pbx.DelValues
-	(*SearchResult)(nil),          // 46: pbx.SearchResult
-	(*ServerCtrl)(nil),            // 47: pbx.ServerCtrl
-	(*ServerData)(nil),            // 48: pbx.ServerData
-	(*Translation)(nil),           // 49: pbx.Translation
-	(*ForwardedMessage)(nil),      // 50: pbx.ForwardedMessage
-	(*Reaction)(nil),              // 51: pbx.Reaction
-	(*ServerPres)(nil),            // 52: pbx.ServerPres
-	(*ServerMeta)(nil),            // 53: pbx.ServerMeta
-	(*ReadParticipant)(nil),       // 54: pbx.ReadParticipant
-	(*ReadParticipants)(nil),      // 55: pbx.ReadParticipants
-	(*ServerInfo)(nil),            // 56: pbx.ServerInfo
-	(*ServerMsg)(nil),             // 57: pbx.ServerMsg
-	nil,                           // 58: pbx.ClientCred.ParamsEntry
-	nil,                           // 59: pbx.SetQuery.AuxEntry
-	nil,                           // 60: pbx.ClientPub.HeadEntry
-	nil,                           // 61: pbx.ServerCtrl.ParamsEntry
-	nil,                           // 62: pbx.ServerData.HeadEntry
-	nil,                           // 63: pbx.ServerMeta.AuxEntry
+	(*PreviewQuery)(nil),          // 14: pbx.PreviewQuery
+	(*ContactQuery)(nil),          // 15: pbx.ContactQuery
+	(*Contact)(nil),               // 16: pbx.Contact
+	(*ContactGroup)(nil),          // 17: pbx.ContactGroup
+	(*ContactMutation)(nil),       // 18: pbx.ContactMutation
+	(*ContactEvent)(nil),          // 19: pbx.ContactEvent
+	(*ContactRecommendation)(nil), // 20: pbx.ContactRecommendation
+	(*ContactSnapshot)(nil),       // 21: pbx.ContactSnapshot
+	(*AssetQuery)(nil),            // 22: pbx.AssetQuery
+	(*AssetPack)(nil),             // 23: pbx.AssetPack
+	(*MediaAsset)(nil),            // 24: pbx.MediaAsset
+	(*AssetVariant)(nil),          // 25: pbx.AssetVariant
+	(*AssetMutation)(nil),         // 26: pbx.AssetMutation
+	(*AssetCatalog)(nil),          // 27: pbx.AssetCatalog
+	(*GetQuery)(nil),              // 28: pbx.GetQuery
+	(*SetQuery)(nil),              // 29: pbx.SetQuery
+	(*ResumeTopic)(nil),           // 30: pbx.ResumeTopic
+	(*ClientHi)(nil),              // 31: pbx.ClientHi
+	(*ClientAcc)(nil),             // 32: pbx.ClientAcc
+	(*ClientLogin)(nil),           // 33: pbx.ClientLogin
+	(*ClientResume)(nil),          // 34: pbx.ClientResume
+	(*ClientSub)(nil),             // 35: pbx.ClientSub
+	(*ClientLeave)(nil),           // 36: pbx.ClientLeave
+	(*MessageRef)(nil),            // 37: pbx.MessageRef
+	(*ClientPub)(nil),             // 38: pbx.ClientPub
+	(*ClientGet)(nil),             // 39: pbx.ClientGet
+	(*ClientSet)(nil),             // 40: pbx.ClientSet
+	(*ClientDel)(nil),             // 41: pbx.ClientDel
+	(*ClientNote)(nil),            // 42: pbx.ClientNote
+	(*ClientExtra)(nil),           // 43: pbx.ClientExtra
+	(*ClientMsg)(nil),             // 44: pbx.ClientMsg
+	(*ClientBatch)(nil),           // 45: pbx.ClientBatch
+	(*ServerCred)(nil),            // 46: pbx.ServerCred
+	(*TopicDesc)(nil),             // 47: pbx.TopicDesc
+	(*TopicSub)(nil),              // 48: pbx.TopicSub
+	(*DelValues)(nil),             // 49: pbx.DelValues
+	(*SearchResult)(nil),          // 50: pbx.SearchResult
+	(*ServerCtrl)(nil),            // 51: pbx.ServerCtrl
+	(*ServerData)(nil),            // 52: pbx.ServerData
+	(*Translation)(nil),           // 53: pbx.Translation
+	(*ForwardedMessage)(nil),      // 54: pbx.ForwardedMessage
+	(*Reaction)(nil),              // 55: pbx.Reaction
+	(*ServerPres)(nil),            // 56: pbx.ServerPres
+	(*ServerMeta)(nil),            // 57: pbx.ServerMeta
+	(*ReadParticipant)(nil),       // 58: pbx.ReadParticipant
+	(*ReadParticipants)(nil),      // 59: pbx.ReadParticipants
+	(*ServerInfo)(nil),            // 60: pbx.ServerInfo
+	(*ServerMsg)(nil),             // 61: pbx.ServerMsg
+	(*ServerBatch)(nil),           // 62: pbx.ServerBatch
+	nil,                           // 63: pbx.ClientCred.ParamsEntry
+	nil,                           // 64: pbx.SetQuery.AuxEntry
+	nil,                           // 65: pbx.ClientPub.HeadEntry
+	nil,                           // 66: pbx.ServerCtrl.ParamsEntry
+	nil,                           // 67: pbx.ServerData.HeadEntry
+	nil,                           // 68: pbx.ServerMeta.AuxEntry
 }
 var file_chat_proto_depIdxs = []int32{
-	58, // 0: pbx.ClientCred.params:type_name -> pbx.ClientCred.ParamsEntry
+	63, // 0: pbx.ClientCred.params:type_name -> pbx.ClientCred.ParamsEntry
 	5,  // 1: pbx.SetDesc.default_acs:type_name -> pbx.DefaultAcsMode
 	10, // 2: pbx.GetOpts.ranges:type_name -> pbx.SeqRange
-	15, // 3: pbx.ContactMutation.contact:type_name -> pbx.Contact
-	16, // 4: pbx.ContactMutation.group:type_name -> pbx.ContactGroup
-	15, // 5: pbx.ContactSnapshot.contacts:type_name -> pbx.Contact
-	16, // 6: pbx.ContactSnapshot.groups:type_name -> pbx.ContactGroup
-	18, // 7: pbx.ContactSnapshot.events:type_name -> pbx.ContactEvent
-	19, // 8: pbx.ContactSnapshot.recommendations:type_name -> pbx.ContactRecommendation
-	24, // 9: pbx.MediaAsset.variants:type_name -> pbx.AssetVariant
-	22, // 10: pbx.AssetMutation.pack:type_name -> pbx.AssetPack
-	23, // 11: pbx.AssetMutation.asset:type_name -> pbx.MediaAsset
-	22, // 12: pbx.AssetCatalog.packs:type_name -> pbx.AssetPack
-	23, // 13: pbx.AssetCatalog.assets:type_name -> pbx.MediaAsset
+	16, // 3: pbx.ContactMutation.contact:type_name -> pbx.Contact
+	17, // 4: pbx.ContactMutation.group:type_name -> pbx.ContactGroup
+	16, // 5: pbx.ContactSnapshot.contacts:type_name -> pbx.Contact
+	17, // 6: pbx.ContactSnapshot.groups:type_name -> pbx.ContactGroup
+	19, // 7: pbx.ContactSnapshot.events:type_name -> pbx.ContactEvent
+	20, // 8: pbx.ContactSnapshot.recommendations:type_name -> pbx.ContactRecommendation
+	25, // 9: pbx.MediaAsset.variants:type_name -> pbx.AssetVariant
+	23, // 10: pbx.AssetMutation.pack:type_name -> pbx.AssetPack
+	24, // 11: pbx.AssetMutation.asset:type_name -> pbx.MediaAsset
+	23, // 12: pbx.AssetCatalog.packs:type_name -> pbx.AssetPack
+	24, // 13: pbx.AssetCatalog.assets:type_name -> pbx.MediaAsset
 	11, // 14: pbx.GetQuery.desc:type_name -> pbx.GetOpts
 	11, // 15: pbx.GetQuery.sub:type_name -> pbx.GetOpts
 	11, // 16: pbx.GetQuery.data:type_name -> pbx.GetOpts
 	11, // 17: pbx.GetQuery.del:type_name -> pbx.GetOpts
 	12, // 18: pbx.GetQuery.search:type_name -> pbx.SearchOpts
-	14, // 19: pbx.GetQuery.contacts:type_name -> pbx.ContactQuery
-	21, // 20: pbx.GetQuery.assets:type_name -> pbx.AssetQuery
+	15, // 19: pbx.GetQuery.contacts:type_name -> pbx.ContactQuery
+	22, // 20: pbx.GetQuery.assets:type_name -> pbx.AssetQuery
 	13, // 21: pbx.GetQuery.readers:type_name -> pbx.ReadParticipantsQuery
-	9,  // 22: pbx.SetQuery.desc:type_name -> pbx.SetDesc
-	7,  // 23: pbx.SetQuery.sub:type_name -> pbx.SetSub
-	8,  // 24: pbx.SetQuery.cred:type_name -> pbx.ClientCred
-	59, // 25: pbx.SetQuery.aux:type_name -> pbx.SetQuery.AuxEntry
-	17, // 26: pbx.SetQuery.contact:type_name -> pbx.ContactMutation
-	25, // 27: pbx.SetQuery.asset:type_name -> pbx.AssetMutation
-	9,  // 28: pbx.ClientAcc.desc:type_name -> pbx.SetDesc
-	8,  // 29: pbx.ClientAcc.cred:type_name -> pbx.ClientCred
-	0,  // 30: pbx.ClientAcc.auth_level:type_name -> pbx.AuthLevel
-	8,  // 31: pbx.ClientLogin.cred:type_name -> pbx.ClientCred
-	28, // 32: pbx.ClientSub.set_query:type_name -> pbx.SetQuery
-	27, // 33: pbx.ClientSub.get_query:type_name -> pbx.GetQuery
-	60, // 34: pbx.ClientPub.head:type_name -> pbx.ClientPub.HeadEntry
-	34, // 35: pbx.ClientPub.forward:type_name -> pbx.MessageRef
-	27, // 36: pbx.ClientGet.query:type_name -> pbx.GetQuery
-	28, // 37: pbx.ClientSet.query:type_name -> pbx.SetQuery
-	3,  // 38: pbx.ClientDel.what:type_name -> pbx.ClientDel.What
-	10, // 39: pbx.ClientDel.del_seq:type_name -> pbx.SeqRange
-	8,  // 40: pbx.ClientDel.cred:type_name -> pbx.ClientCred
-	1,  // 41: pbx.ClientNote.what:type_name -> pbx.InfoNote
-	2,  // 42: pbx.ClientNote.event:type_name -> pbx.CallEvent
-	0,  // 43: pbx.ClientExtra.auth_level:type_name -> pbx.AuthLevel
-	29, // 44: pbx.ClientMsg.hi:type_name -> pbx.ClientHi
-	30, // 45: pbx.ClientMsg.acc:type_name -> pbx.ClientAcc
-	31, // 46: pbx.ClientMsg.login:type_name -> pbx.ClientLogin
-	32, // 47: pbx.ClientMsg.sub:type_name -> pbx.ClientSub
-	33, // 48: pbx.ClientMsg.leave:type_name -> pbx.ClientLeave
-	35, // 49: pbx.ClientMsg.pub:type_name -> pbx.ClientPub
-	36, // 50: pbx.ClientMsg.get:type_name -> pbx.ClientGet
-	37, // 51: pbx.ClientMsg.set:type_name -> pbx.ClientSet
-	38, // 52: pbx.ClientMsg.del:type_name -> pbx.ClientDel
-	39, // 53: pbx.ClientMsg.note:type_name -> pbx.ClientNote
-	40, // 54: pbx.ClientMsg.extra:type_name -> pbx.ClientExtra
-	5,  // 55: pbx.TopicDesc.defacs:type_name -> pbx.DefaultAcsMode
-	6,  // 56: pbx.TopicDesc.acs:type_name -> pbx.AccessMode
-	6,  // 57: pbx.TopicSub.acs:type_name -> pbx.AccessMode
-	10, // 58: pbx.DelValues.del_seq:type_name -> pbx.SeqRange
-	44, // 59: pbx.SearchResult.peers:type_name -> pbx.TopicSub
-	48, // 60: pbx.SearchResult.messages:type_name -> pbx.ServerData
-	61, // 61: pbx.ServerCtrl.params:type_name -> pbx.ServerCtrl.ParamsEntry
-	62, // 62: pbx.ServerData.head:type_name -> pbx.ServerData.HeadEntry
-	50, // 63: pbx.ServerData.forwarded:type_name -> pbx.ForwardedMessage
-	51, // 64: pbx.ServerData.reactions:type_name -> pbx.Reaction
-	49, // 65: pbx.ServerData.translation:type_name -> pbx.Translation
-	4,  // 66: pbx.ServerPres.what:type_name -> pbx.ServerPres.What
-	10, // 67: pbx.ServerPres.del_seq:type_name -> pbx.SeqRange
-	6,  // 68: pbx.ServerPres.acs:type_name -> pbx.AccessMode
-	43, // 69: pbx.ServerMeta.desc:type_name -> pbx.TopicDesc
-	44, // 70: pbx.ServerMeta.sub:type_name -> pbx.TopicSub
-	45, // 71: pbx.ServerMeta.del:type_name -> pbx.DelValues
-	42, // 72: pbx.ServerMeta.cred:type_name -> pbx.ServerCred
-	63, // 73: pbx.ServerMeta.aux:type_name -> pbx.ServerMeta.AuxEntry
-	46, // 74: pbx.ServerMeta.search:type_name -> pbx.SearchResult
-	20, // 75: pbx.ServerMeta.contacts:type_name -> pbx.ContactSnapshot
-	26, // 76: pbx.ServerMeta.assets:type_name -> pbx.AssetCatalog
-	55, // 77: pbx.ServerMeta.readers:type_name -> pbx.ReadParticipants
-	54, // 78: pbx.ReadParticipants.users:type_name -> pbx.ReadParticipant
-	1,  // 79: pbx.ServerInfo.what:type_name -> pbx.InfoNote
-	2,  // 80: pbx.ServerInfo.event:type_name -> pbx.CallEvent
-	47, // 81: pbx.ServerMsg.ctrl:type_name -> pbx.ServerCtrl
-	48, // 82: pbx.ServerMsg.data:type_name -> pbx.ServerData
-	52, // 83: pbx.ServerMsg.pres:type_name -> pbx.ServerPres
-	53, // 84: pbx.ServerMsg.meta:type_name -> pbx.ServerMeta
-	56, // 85: pbx.ServerMsg.info:type_name -> pbx.ServerInfo
-	86, // [86:86] is the sub-list for method output_type
-	86, // [86:86] is the sub-list for method input_type
-	86, // [86:86] is the sub-list for extension type_name
-	86, // [86:86] is the sub-list for extension extendee
-	0,  // [0:86] is the sub-list for field type_name
+	14, // 22: pbx.GetQuery.previews:type_name -> pbx.PreviewQuery
+	9,  // 23: pbx.SetQuery.desc:type_name -> pbx.SetDesc
+	7,  // 24: pbx.SetQuery.sub:type_name -> pbx.SetSub
+	8,  // 25: pbx.SetQuery.cred:type_name -> pbx.ClientCred
+	64, // 26: pbx.SetQuery.aux:type_name -> pbx.SetQuery.AuxEntry
+	18, // 27: pbx.SetQuery.contact:type_name -> pbx.ContactMutation
+	26, // 28: pbx.SetQuery.asset:type_name -> pbx.AssetMutation
+	9,  // 29: pbx.ClientAcc.desc:type_name -> pbx.SetDesc
+	8,  // 30: pbx.ClientAcc.cred:type_name -> pbx.ClientCred
+	0,  // 31: pbx.ClientAcc.auth_level:type_name -> pbx.AuthLevel
+	8,  // 32: pbx.ClientLogin.cred:type_name -> pbx.ClientCred
+	30, // 33: pbx.ClientResume.topics:type_name -> pbx.ResumeTopic
+	29, // 34: pbx.ClientSub.set_query:type_name -> pbx.SetQuery
+	28, // 35: pbx.ClientSub.get_query:type_name -> pbx.GetQuery
+	65, // 36: pbx.ClientPub.head:type_name -> pbx.ClientPub.HeadEntry
+	37, // 37: pbx.ClientPub.forward:type_name -> pbx.MessageRef
+	28, // 38: pbx.ClientGet.query:type_name -> pbx.GetQuery
+	29, // 39: pbx.ClientSet.query:type_name -> pbx.SetQuery
+	3,  // 40: pbx.ClientDel.what:type_name -> pbx.ClientDel.What
+	10, // 41: pbx.ClientDel.del_seq:type_name -> pbx.SeqRange
+	8,  // 42: pbx.ClientDel.cred:type_name -> pbx.ClientCred
+	1,  // 43: pbx.ClientNote.what:type_name -> pbx.InfoNote
+	2,  // 44: pbx.ClientNote.event:type_name -> pbx.CallEvent
+	0,  // 45: pbx.ClientExtra.auth_level:type_name -> pbx.AuthLevel
+	31, // 46: pbx.ClientMsg.hi:type_name -> pbx.ClientHi
+	32, // 47: pbx.ClientMsg.acc:type_name -> pbx.ClientAcc
+	33, // 48: pbx.ClientMsg.login:type_name -> pbx.ClientLogin
+	35, // 49: pbx.ClientMsg.sub:type_name -> pbx.ClientSub
+	36, // 50: pbx.ClientMsg.leave:type_name -> pbx.ClientLeave
+	38, // 51: pbx.ClientMsg.pub:type_name -> pbx.ClientPub
+	39, // 52: pbx.ClientMsg.get:type_name -> pbx.ClientGet
+	40, // 53: pbx.ClientMsg.set:type_name -> pbx.ClientSet
+	41, // 54: pbx.ClientMsg.del:type_name -> pbx.ClientDel
+	42, // 55: pbx.ClientMsg.note:type_name -> pbx.ClientNote
+	34, // 56: pbx.ClientMsg.resume:type_name -> pbx.ClientResume
+	43, // 57: pbx.ClientMsg.extra:type_name -> pbx.ClientExtra
+	44, // 58: pbx.ClientBatch.messages:type_name -> pbx.ClientMsg
+	5,  // 59: pbx.TopicDesc.defacs:type_name -> pbx.DefaultAcsMode
+	6,  // 60: pbx.TopicDesc.acs:type_name -> pbx.AccessMode
+	6,  // 61: pbx.TopicSub.acs:type_name -> pbx.AccessMode
+	10, // 62: pbx.DelValues.del_seq:type_name -> pbx.SeqRange
+	48, // 63: pbx.SearchResult.peers:type_name -> pbx.TopicSub
+	52, // 64: pbx.SearchResult.messages:type_name -> pbx.ServerData
+	66, // 65: pbx.ServerCtrl.params:type_name -> pbx.ServerCtrl.ParamsEntry
+	67, // 66: pbx.ServerData.head:type_name -> pbx.ServerData.HeadEntry
+	54, // 67: pbx.ServerData.forwarded:type_name -> pbx.ForwardedMessage
+	55, // 68: pbx.ServerData.reactions:type_name -> pbx.Reaction
+	53, // 69: pbx.ServerData.translation:type_name -> pbx.Translation
+	4,  // 70: pbx.ServerPres.what:type_name -> pbx.ServerPres.What
+	10, // 71: pbx.ServerPres.del_seq:type_name -> pbx.SeqRange
+	6,  // 72: pbx.ServerPres.acs:type_name -> pbx.AccessMode
+	47, // 73: pbx.ServerMeta.desc:type_name -> pbx.TopicDesc
+	48, // 74: pbx.ServerMeta.sub:type_name -> pbx.TopicSub
+	49, // 75: pbx.ServerMeta.del:type_name -> pbx.DelValues
+	46, // 76: pbx.ServerMeta.cred:type_name -> pbx.ServerCred
+	68, // 77: pbx.ServerMeta.aux:type_name -> pbx.ServerMeta.AuxEntry
+	50, // 78: pbx.ServerMeta.search:type_name -> pbx.SearchResult
+	21, // 79: pbx.ServerMeta.contacts:type_name -> pbx.ContactSnapshot
+	27, // 80: pbx.ServerMeta.assets:type_name -> pbx.AssetCatalog
+	59, // 81: pbx.ServerMeta.readers:type_name -> pbx.ReadParticipants
+	52, // 82: pbx.ServerMeta.previews:type_name -> pbx.ServerData
+	58, // 83: pbx.ReadParticipants.users:type_name -> pbx.ReadParticipant
+	1,  // 84: pbx.ServerInfo.what:type_name -> pbx.InfoNote
+	2,  // 85: pbx.ServerInfo.event:type_name -> pbx.CallEvent
+	51, // 86: pbx.ServerMsg.ctrl:type_name -> pbx.ServerCtrl
+	52, // 87: pbx.ServerMsg.data:type_name -> pbx.ServerData
+	56, // 88: pbx.ServerMsg.pres:type_name -> pbx.ServerPres
+	57, // 89: pbx.ServerMsg.meta:type_name -> pbx.ServerMeta
+	60, // 90: pbx.ServerMsg.info:type_name -> pbx.ServerInfo
+	61, // 91: pbx.ServerBatch.messages:type_name -> pbx.ServerMsg
+	92, // [92:92] is the sub-list for method output_type
+	92, // [92:92] is the sub-list for method input_type
+	92, // [92:92] is the sub-list for extension type_name
+	92, // [92:92] is the sub-list for extension extendee
+	0,  // [0:92] is the sub-list for field type_name
 }
 
 func init() { file_chat_proto_init() }
@@ -6141,7 +6507,7 @@ func file_chat_proto_init() {
 	if File_chat_proto != nil {
 		return
 	}
-	file_chat_proto_msgTypes[36].OneofWrappers = []any{
+	file_chat_proto_msgTypes[39].OneofWrappers = []any{
 		(*ClientMsg_Hi)(nil),
 		(*ClientMsg_Acc)(nil),
 		(*ClientMsg_Login)(nil),
@@ -6152,8 +6518,9 @@ func file_chat_proto_init() {
 		(*ClientMsg_Set)(nil),
 		(*ClientMsg_Del)(nil),
 		(*ClientMsg_Note)(nil),
+		(*ClientMsg_Resume)(nil),
 	}
-	file_chat_proto_msgTypes[52].OneofWrappers = []any{
+	file_chat_proto_msgTypes[56].OneofWrappers = []any{
 		(*ServerMsg_Ctrl)(nil),
 		(*ServerMsg_Data)(nil),
 		(*ServerMsg_Pres)(nil),
@@ -6166,7 +6533,7 @@ func file_chat_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chat_proto_rawDesc), len(file_chat_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   59,
+			NumMessages:   64,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

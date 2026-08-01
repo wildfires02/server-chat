@@ -127,6 +127,11 @@ message ReadParticipantsQuery {
 	int32 seq_id = 1;
 }
 
+// PreviewQuery requests one latest visible message for each listed conversation.
+message PreviewQuery {
+	repeated string topics = 1;
+}
+
 // ContactQuery 定义联系人全量/增量同步参数。
 message ContactQuery {
 	uint64 since = 1;
@@ -274,6 +279,8 @@ message GetQuery {
 	AssetQuery assets = 8;
 	// "readers" 指定群消息的已读参与者查询参数
 	ReadParticipantsQuery readers = 9;
+	// "previews" 会话列表最后一条消息聚合查询
+	PreviewQuery previews = 10;
 }
 
 // SetQuery 定义 SetQuery 的 Protobuf 消息结构。
@@ -292,6 +299,15 @@ message SetQuery {
 	ContactMutation contact = 6;
 	// 素材包或素材管理操作
 	AssetMutation asset = 7;
+}
+
+// ResumeTopic 是快速恢复时需要重新订阅的 Topic 及客户端已落盘游标。
+message ResumeTopic {
+	string topic = 1;
+	int32 seq_id = 2;
+	int32 del_id = 3;
+	// active 表示恢复完整元数据与消息；false 仅恢复列表所需状态。
+	bool active = 4;
 }
 
 // 客户端握手消息
@@ -354,6 +370,13 @@ message ClientLogin  {
 	repeated ClientCred cred = 4;
 }
 
+// ClientResume 在 hi 后用一个请求恢复认证和最多 8 个实时订阅。
+message ClientResume {
+	string id = 1;
+	bytes token = 2;
+	repeated ResumeTopic topics = 3;
+}
+
 // 订阅请求消息 {sub}
 message ClientSub {
 	// id 保存该消息字段对应的协议值。
@@ -366,6 +389,8 @@ message ClientSub {
 
 	// 镜像 {get} 参数
 	GetQuery get_query = 4;
+	// invite 是服务端签名的群组邀请令牌。
+	string invite = 5;
 }
 
 // 取消订阅/离开请求消息 {leave}
@@ -491,6 +516,8 @@ enum InfoNote {
 	REACT = 7;
 	// PIN 表示该枚举对应的协议状态。
 	PIN = 8;
+	// DATA 表示服务端合并后的 data 批量通知。
+	DATA = 9;
 }
 
 // CallEvent 定义 CallEvent 的 Protobuf 枚举值集合。
@@ -575,9 +602,16 @@ message ClientMsg {
 		ClientDel del = 9;
 		// note 保存该消息字段对应的协议值。
 		ClientNote note = 10;
+		// resume 使用已有 Token 与持久化游标恢复会话。
+		ClientResume resume = 11;
 	}
 	// 消息附加扩展参数
 	ClientExtra extra = 13;
+}
+
+// ClientBatch 是 WebSocket Binary Frame 的顶层信封。
+message ClientBatch {
+	repeated ClientMsg messages = 1;
 }
 
 // ************************
@@ -717,6 +751,8 @@ message ServerCtrl {
 	string text = 4;
 	// params 保存该消息字段对应的协议值。
 	map<string, bytes> params = 5;
+	// timestamp 与 JSON ctrl.ts 一致，使用 Epoch 毫秒。
+	int64 timestamp = 6;
 }
 
 // {data} 聊天数据消息
@@ -874,6 +910,10 @@ message ServerMeta {
 	string next = 12;
 	// readers 保存指定群消息的已读参与者。
 	ReadParticipants readers = 13;
+	// timestamp 与 JSON meta.ts 一致，使用 Epoch 毫秒。
+	int64 timestamp = 14;
+	// previews 保存每个请求会话的最后一条可见消息。
+	repeated ServerData previews = 15;
 }
 
 // ReadParticipant is a member who has read the requested group message.
@@ -928,4 +968,9 @@ message ServerMsg {
 	}
 	// 已废弃，即将移除
 	string topic = 6 [deprecated = true];
+}
+
+// ServerBatch 是 WebSocket Binary Frame 的顶层信封。
+message ServerBatch {
+	repeated ServerMsg messages = 1;
 }

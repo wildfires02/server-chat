@@ -13,6 +13,8 @@ const (
 	defaultClusterReliableQueueCapacity = 512
 	// defaultClusterEphemeralQueueCapacity 预留给 CLUSTER-005 的瞬态事件队列。
 	defaultClusterEphemeralQueueCapacity = 128
+	// defaultClusterPipelineWindow 是单条 Lane 允许同时在途的请求数。
+	defaultClusterPipelineWindow = 32
 	// defaultClusterDialTimeout 是建立节点 gRPC 连接的最长等待时间。
 	defaultClusterDialTimeout = 3 * time.Second
 	// defaultClusterRequestTimeout 是一次节点间可靠请求的最长等待时间。
@@ -37,6 +39,8 @@ type clusterTransportConfig struct {
 	ReliableQueueCapacity int `json:"reliable_queue_capacity"`
 	// EphemeralQueueCapacity 是后续瞬态事件队列容量，目前只做配置门禁。
 	EphemeralQueueCapacity int `json:"ephemeral_queue_capacity"`
+	// PipelineWindow 是每条双向流允许尚未收到响应的最大请求数。
+	PipelineWindow int `json:"pipeline_window"`
 	// DialTimeout 使用 Go duration 字符串，例如 3s。
 	DialTimeout string `json:"dial_timeout"`
 	// RequestTimeout 使用 Go duration 字符串，例如 5s。
@@ -61,6 +65,8 @@ type normalizedClusterTransport struct {
 	ReliableQueueCapacity int
 	// EphemeralQueueCapacity 是每条 Lane 的瞬态事件容量。
 	EphemeralQueueCapacity int
+	// PipelineWindow 是每条 Lane 的最大同时在途请求数。
+	PipelineWindow int
 	// DialTimeout 是连接远端节点的最长等待时间。
 	DialTimeout time.Duration
 	// RequestTimeout 是一次调用包含排队和重试的总超时。
@@ -82,6 +88,7 @@ func normalizeClusterTransportConfig(config clusterTransportConfig) (normalizedC
 		LaneCount:              config.LaneCount,
 		ReliableQueueCapacity:  config.ReliableQueueCapacity,
 		EphemeralQueueCapacity: config.EphemeralQueueCapacity,
+		PipelineWindow:         config.PipelineWindow,
 		MaxRetries:             config.MaxRetries,
 		DedupeCapacity:         config.DedupeCapacity,
 	}
@@ -105,6 +112,13 @@ func normalizeClusterTransportConfig(config clusterTransportConfig) (normalizedC
 	if normalized.EphemeralQueueCapacity < 16 || normalized.EphemeralQueueCapacity > 65536 {
 		return normalizedClusterTransport{}, fmt.Errorf(
 			"cluster transport ephemeral_queue_capacity 必须在 16～65536 之间")
+	}
+	if normalized.PipelineWindow == 0 {
+		normalized.PipelineWindow = defaultClusterPipelineWindow
+	}
+	if normalized.PipelineWindow < 2 || normalized.PipelineWindow > 1024 {
+		return normalizedClusterTransport{}, fmt.Errorf(
+			"cluster transport pipeline_window 必须在 2～1024 之间")
 	}
 
 	var err error

@@ -148,6 +148,8 @@ Telegram 官方目前支持 20 万人群组、无限订阅者频道、普通账�
 ### 3.1 ✅ 通讯协议与消息路由
 
 - WebSocket 双向长连接。
+- 协议 0.33 支持 `im.protobuf.v1` WebSocket 二进制批量帧，并保留 JSON 自动降级。
+- Token、Topic 与 `seq/del` 游标可通过 `{resume}` 原子恢复，固定快照缺口支持续页。
 - HTTP Long Polling 备用通道。
 - 基于 Protobuf 的 gRPC 双向流。
 - 基于 Topic 的发布订阅消息模型。

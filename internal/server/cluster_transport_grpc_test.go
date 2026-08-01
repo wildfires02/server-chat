@@ -44,6 +44,38 @@ type recordingClusterLaneServer struct {
 	firstResponseDropped bool
 }
 
+type pipelinedClusterLaneServer struct {
+	pbx.UnimplementedClusterTransportServer
+	expected int
+}
+
+func (server *pipelinedClusterLaneServer) Lane(stream pbx.ClusterTransport_LaneServer) error {
+	frames := make([]*pbx.ClusterFrame, 0, server.expected)
+	for len(frames) < server.expected {
+		frame, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+		frames = append(frames, frame)
+	}
+	payload, err := encodeClusterPayload(false)
+	if err != nil {
+		return err
+	}
+	for _, frame := range frames {
+		if err = stream.Send(&pbx.ClusterFrame{
+			ClusterId: frame.ClusterId, SourceNode: "node-b", SourceInstance: 2,
+			ProtocolVersion: clusterProtocolVersion, MinProtocolVersion: clusterMinProtocolVersion,
+			Lane: frame.Lane, Sequence: frame.Sequence, RequestId: frame.RequestId,
+			Kind: frame.Kind, Payload: payload, Response: true,
+			ClusterEpoch: frame.ClusterEpoch, RingSignature: frame.RingSignature,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Lane 验证每条真实 gRPC 流从 1 开始严格递增，并回显关联字段。
 func (server *recordingClusterLaneServer) Lane(stream pbx.ClusterTransport_LaneServer) error {
 	var expectedSequence uint64 = 1
@@ -115,7 +147,7 @@ func (server *recordingClusterLaneServer) snapshot() []recordedClusterFrame {
 // startRecordingClusterServer 启动仅供当前测试使用的真实本地 gRPC 服务。
 func startRecordingClusterServer(
 	t *testing.T,
-	server *recordingClusterLaneServer,
+	server pbx.ClusterTransportServer,
 ) func(context.Context, string) (net.Conn, error) {
 	t.Helper()
 	listener := bufconn.Listen(1024 * 1024)
@@ -216,6 +248,35 @@ func TestClusterGRPCPeerPreservesLaneOrder(t *testing.T) {
 			t.Fatalf("request_id %q 重复", frame.requestID)
 		}
 		requestIDs[frame.requestID] = struct{}{}
+	}
+}
+
+func TestClusterGRPCPeerPipelinesMultipleRequestsPerLane(t *testing.T) {
+	const requestCount = 8
+	dialer := startRecordingClusterServer(t, &pipelinedClusterLaneServer{expected: requestCount})
+	_, peer := newClusterTransportTestPeer(t, dialer, true)
+	peer.config.PipelineWindow = requestCount
+
+	errorsFound := make(chan error, requestCount)
+	var calls sync.WaitGroup
+	for range requestCount {
+		calls.Add(1)
+		go func() {
+			defer calls.Done()
+			var rejected bool
+			errorsFound <- peer.Call(
+				"Cluster.TopicMaster",
+				&ClusterReq{RcptTo: "grp-pipeline"},
+				&rejected,
+			)
+		}()
+	}
+	calls.Wait()
+	close(errorsFound)
+	for err := range errorsFound {
+		if err != nil {
+			t.Fatalf("流水线调用失败: %v", err)
+		}
 	}
 }
 

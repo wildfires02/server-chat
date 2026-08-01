@@ -77,9 +77,15 @@ go build -tags mysql -o bin/im-admin ./cmd/im-admin
 
 ## 文件断点续传与可靠处理
 
-`/v0/file/resumable/` 的会话、偏移、分块清单和写租约保存在数据库持久缓存中。分块
-本体写入 `media.use_handler` 指定的媒体存储，因此生产和预发布集群必须使用 `s3`
-等共享处理器，配置为节点本地 `fs` 会在启动校验阶段被拒绝。
+`/v0/file/resumable/` 的会话、偏移、Multipart Part 清单和写租约保存在数据库持久缓存中。
+使用 `s3` 处理器时，新客户端通过 `Upload-Part-Size` 协商至少 5 MiB 的块，每个 tus
+PATCH 由服务端直接流入 S3 `UploadPart`，完成时调用 `CompleteMultipartUpload`；不再保存
+中间对象、下载拼接临时文件或二次上传。非 Multipart 处理器仍保留旧分块兼容路径。
+S3 配置 `direct_upload: true` 后，`/v0/file/direct/` 还会签发原生 Multipart Upload
+分块 URL，浏览器直接上传且服务端只完成签名、合并、ACL 和处理任务登记。
+可选 `cdn_base_url` 把 ACL 校验后的下载重定向到 CDN；设置 `cdn_hmac_secret` 时边缘
+需校验 `path + "\n" + expires` 的 HMAC-SHA256 URL-safe Base64 签名。集群文件处理必须
+使用 `s3` 等共享处理器，配置为节点本地 `fs` 会在启动校验阶段被拒绝。
 
 `media.processing` 的任务同样持久化。`poll_interval` 是任务扫描秒数，
 `max_attempts` 是最大执行次数，`retry_base` 是指数退避基数秒数，

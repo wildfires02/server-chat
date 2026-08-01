@@ -75,8 +75,14 @@ media:
       disable_ssl: false
       force_path_style: false
       presign_ttl: 3600
+      direct_upload: true
       cache_control: max-age=86400
       cors_origins: []
+      # 可选：下载通过服务端 ACL 后重定向到 CDN；边缘按 path + "\n" + expires 校验 HMAC-SHA256。
+      cdn_base_url: ""
+      cdn_key_id: ""
+      cdn_hmac_secret: ""
+      cdn_ttl: 3600
 
 # 客户端 TLS 建议在生产网关终止；集群内部 TLS 在 cluster_config.tls 配置。
 tls:
@@ -118,6 +124,7 @@ push: []
 
 webrtc:
   enabled: false
+  require_turn: true
   call_establishment_timeout: 30
   ice_servers_file: ""
   agora:
@@ -169,6 +176,7 @@ cluster_config:
     listen: 0.0.0.0:12000
     lane_count: 8
     reliable_queue_capacity: 4096
+    pipeline_window: 32
     ephemeral_queue_capacity: 1024
     dial_timeout: 3s
     request_timeout: 5s

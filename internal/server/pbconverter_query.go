@@ -96,6 +96,9 @@ func pbGetQuerySerialize(in *MsgGetQuery) *pbx.GetQuery {
 	if in.Readers != nil {
 		out.Readers = &pbx.ReadParticipantsQuery{SeqId: int32(in.Readers.SeqId)}
 	}
+	if in.Previews != nil {
+		out.Previews = &pbx.PreviewQuery{Topics: append([]string(nil), in.Previews.Topics...)}
+	}
 	return out
 }
 
@@ -191,6 +194,9 @@ func pbGetQueryDeserialize(in *pbx.GetQuery) *MsgGetQuery {
 	}
 	if readers := in.GetReaders(); readers != nil {
 		msg.Readers = &MsgGetReaders{SeqId: int(readers.GetSeqId())}
+	}
+	if previews := in.GetPreviews(); previews != nil {
+		msg.Previews = &MsgPreviewQuery{Topics: append([]string(nil), previews.GetTopics()...)}
 	}
 
 	return &msg
