@@ -4,10 +4,11 @@ import (
 	"crypto/tls"
 	"net/http"
 	"os"
+	"strings"
 
 	"chat/server/logs"
 
-	gh "github.com/gorilla/handlers"
+	"github.com/gin-gonic/gin"
 )
 
 func startProtocolRuntime(config configType) *tls.Config {
@@ -31,6 +32,12 @@ func registerServerHTTPRoutes(
 	config *configType,
 	tlsConfig *tls.Config,
 ) {
+	// Gin 仅负责 HTTP 路由与中间件；已有协议处理函数继续使用标准库
+	// http.Handler 签名，避免 WebSocket、Long Poll 和文件传输逻辑产生行为变化。
+	router := gin.New()
+	router.RedirectTrailingSlash = false
+	router.RedirectFixedPath = false
+
 	staticMountPoint := ""
 	if config.StaticData != "" && config.StaticData != "-" {
 		staticPath := toAbsolutePath(curwd, config.StaticData)
@@ -39,13 +46,17 @@ func registerServerHTTPRoutes(
 		}
 
 		staticMountPoint = normalizeHTTPPath(config.StaticMount, defaultStaticMount)
-		mux.Handle(staticMountPoint,
-			cacheControlHandler(config.CacheControl,
-				optionalHttpHeaders(
-					gh.CompressHandler(
-						httpErrorHandler(
-							http.StripPrefix(staticMountPoint,
-								http.FileServer(http.Dir(staticPath))))))))
+		staticHandler := cacheControlHandler(config.CacheControl,
+			optionalHttpHeaders(
+				httpErrorHandler(
+					http.StripPrefix(staticMountPoint,
+						http.FileServer(http.Dir(staticPath))))))
+		if staticMountPoint == "/" {
+			router.NoRoute(ginCompression(), gin.WrapH(staticHandler))
+		} else {
+			staticRoute := strings.TrimSuffix(staticMountPoint, "/") + "/*filepath"
+			router.Any(staticRoute, ginCompression(), gin.WrapH(staticHandler))
+		}
 		logs.Info.Printf("Serving static content from '%s' at '%s'", staticPath, staticMountPoint)
 	} else {
 		logs.Info.Println("Static content is disabled")
@@ -76,17 +87,24 @@ func registerServerHTTPRoutes(
 		mux.HandleFunc(statusPath, serveStatus)
 	}
 
-	mux.HandleFunc(config.ApiPath+"v0/channels", serveWebSocket)
-	mux.Handle(config.ApiPath+"v0/channels/lp", gh.CompressHandler(http.HandlerFunc(serveLongPoll)))
+	router.Any(config.ApiPath+"v0/channels", gin.WrapF(serveWebSocket))
+	router.Any(config.ApiPath+"v0/channels/lp", ginCompression(), gin.WrapF(serveLongPoll))
 	if config.Media != nil {
-		mux.Handle(config.ApiPath+"v0/file/u/", gh.CompressHandler(http.HandlerFunc(largeFileReceiveHTTP)))
-		mux.Handle(config.ApiPath+"v0/file/s/", gh.CompressHandler(http.HandlerFunc(largeFileServeHTTP)))
-		mux.Handle(config.ApiPath+"v0/file/meta/", gh.CompressHandler(http.HandlerFunc(largeFileMetaHTTP)))
-		mux.Handle(config.ApiPath+"v0/file/resumable/", gh.CompressHandler(http.HandlerFunc(resumableFileHTTP)))
-		mux.Handle(config.ApiPath+"v0/file/direct/", gh.CompressHandler(http.HandlerFunc(directFileHTTP)))
+		registerGinSubtree(router, config.ApiPath+"v0/file/u/", largeFileReceiveHTTP)
+		registerGinSubtree(router, config.ApiPath+"v0/file/s/", largeFileServeHTTP)
+		registerGinSubtree(router, config.ApiPath+"v0/file/meta/", largeFileMetaHTTP)
+		registerGinSubtree(router, config.ApiPath+"v0/file/resumable/", resumableFileHTTP)
+		registerGinSubtree(router, config.ApiPath+"v0/file/direct/", directFileHTTP)
 		logs.Info.Println("Large media handling enabled", config.Media.UseHandler)
 	}
 	if staticMountPoint != "/" {
-		mux.HandleFunc("/", serve404)
+		router.NoRoute(gin.WrapF(serve404))
 	}
+	mux.Handle("/", router)
+}
+
+// registerGinSubtree 保留 net/http ServeMux 以斜线结尾时匹配整个子树的行为。
+func registerGinSubtree(router *gin.Engine, path string, handler http.HandlerFunc) {
+	router.Any(strings.TrimSuffix(path, "/")+"/*filepath",
+		ginCompression(), gin.WrapF(handler))
 }

@@ -79,6 +79,8 @@ func (handler *adminHTTPHandler) createIdentitySession(wrt http.ResponseWriter, 
 	}
 	user, err := store.Users.Get(uid)
 	if err != nil || user == nil {
+		logs.Warn.Printf("external identity user lookup failed for %s:%s (uid=%s): %v",
+			input.Provider, input.ExternalID, uid.UserId(), err)
 		handler.writeError(wrt, http.StatusInternalServerError, "identity_user_unavailable", requestID)
 		return
 	}
@@ -113,11 +115,13 @@ func (handler *adminHTTPHandler) createIdentitySession(wrt http.ResponseWriter, 
 func ensureExternalIdentity(input adminIdentitySessionRequest) (types.Uid, error) {
 	unique := externalIdentityUnique(input.Provider, input.ExternalID)
 	uid, _, _, _, err := store.Users.GetAuthUniqueRecord(externalIdentityAuthScheme, unique)
-	if err == nil && !uid.IsZero() {
-		return uid, updateExternalIdentityProfile(uid, input)
-	}
-	if !errors.Is(err, types.ErrNotFound) {
+	if err != nil && !errors.Is(err, types.ErrNotFound) {
 		return types.ZeroUid, err
+	}
+	// SQL 适配器在认证记录不存在时返回 (ZeroUid, nil)，部分其他适配器返回 ErrNotFound。
+	// 两种结果都表示首次登录；只有非零 UID 才代表已经绑定的外部身份。
+	if !uid.IsZero() {
+		return uid, updateExternalIdentityProfile(uid, input)
 	}
 
 	public := map[string]any{
