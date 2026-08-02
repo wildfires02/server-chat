@@ -124,7 +124,8 @@ func (a *adapter) Find(caller, promoPrefix string, req [][]string, opt []string,
 	return subs, cursor.Err()
 }
 
-// FindByName 按公开 alias 子串发现用户，并按 alias 或 Public.fn 发现公开 Topic。
+// FindByName 按公开 alias 子串、精确外部 ID 或精确昵称发现用户。
+// 公开 Topic 仍支持 alias 或 Public.fn 模糊匹配。
 func (a *adapter) FindByName(caller string, search *t.PeerSearchQuery) ([]t.Subscription, error) {
 	if search == nil || search.Query == "" {
 		return nil, nil
@@ -135,11 +136,16 @@ func (a *adapter) FindByName(caller string, search *t.PeerSearchQuery) ([]t.Subs
 		aliasPattern = "(?i)^" + regexp.QuoteMeta(search.AliasPrefix) + ":.*" + quotedQuery
 	}
 	namePattern := "(?i)" + quotedQuery
+	exactPattern := "(?i)^" + quotedQuery + "$"
 
 	userQuery := rdb.DB(a.dbName).Table("users").Filter(func(row rdb.Term) any {
-		return row.Field("Tags").Default([]any{}).Contains(func(tag rdb.Term) any {
+		aliasMatch := row.Field("Tags").Default([]any{}).Contains(func(tag rdb.Term) any {
 			return tag.Match(aliasPattern)
 		})
+		public := row.Field("Public").Default(map[string]any{})
+		externalIDMatch := public.Field("external_id").Default("").Match(exactPattern)
+		nameMatch := public.Field("fn").Default("").Match(exactPattern)
+		return rdb.Or(aliasMatch, externalIDMatch, nameMatch)
 	})
 	if search.ActiveOnly {
 		userQuery = userQuery.Filter(rdb.Row.Field("State").Eq(t.StateOK))

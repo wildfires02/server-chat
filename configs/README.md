@@ -45,13 +45,13 @@ admin:
     - http://localhost:4173
 ```
 
-- `/v0/admin/` 和 `/v0/internal/` 只由 `im-admin` 暴露；`im-server` 不注册这些路由。
+- `/v0/` 和 `/v0/internal/` 只由 `im-admin` 暴露；`im-server` 不注册这些路由。
 - 两个进程必须连接同一个 `store_config`，并使用相同的 `uid_key` 和
   `api_key_salt`。`admin.worker_id` 必须与所有聊天节点的 Snowflake Worker ID
   不同。
 - `im-server` 通过 `translation.refresh_interval` 周期读取 `im-admin` 写入共享数据库
   的翻译策略，更新管理配置不需要重启聊天节点。
-- 官方频道通过 `/v0/admin/official-topics` 创建和认证，角色分配必须使用该管理接口；
+- 官方频道通过 `/v0/official-topics` 创建和认证，角色分配必须使用该管理接口；
   普通聊天协议不能任命官方管理员或发布者。
 - 开发令牌只能用于本地；预发布和生产令牌至少 32 字符，并应由 Secret 管理系统
   写入权限受限的最终 `admin.yaml`。

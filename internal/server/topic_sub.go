@@ -353,6 +353,11 @@ func (t *Topic) subscriptionReply(asChan bool, msg *ClientComMessage) error {
 		if t.cat == types.TopicCatGrp && msgsub.Newsub {
 			t.subCnt++
 		}
+		if t.isOfficialLargeGroup() && msgsub.Newsub {
+			// 原生 App 通过供应商 Topic 接收官方大群离线通知。这里只提交
+			// 一个异步订阅动作，不读取或遍历大群成员。
+			t.pushTopicSubUnsub(asUid, true)
+		}
 	}
 
 	params := map[string]any{}

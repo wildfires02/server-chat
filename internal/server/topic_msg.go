@@ -67,12 +67,19 @@ func (t *Topic) saveAndBroadcastMessage(msg *ClientComMessage, asUid types.Uid, 
 			return types.ErrPermissionDenied
 		}
 	}
-	scope := "message"
-	if len(attachments) > 0 {
-		scope = "media"
-	}
-	if head != nil && head["webrtc"] != nil {
-		scope = "call"
+	scope := businessPolicyAction(head, content, attachments)
+	if t.cat == types.TopicCatP2P && globals.businessPolicy != nil {
+		if err := globals.businessPolicy.authorizeUIDs(asUid, t.p2pOtherUser(asUid), scope, t.name); err != nil {
+			if msg.sess != nil {
+				if errors.Is(err, errBusinessPolicyUnavailable) || errors.Is(err, errBusinessPolicyRateLimited) {
+					msg.sess.queueOut(ErrServiceUnavailableExplicitTs(
+						msg.Id, t.original(asUid), msg.Timestamp, msg.Timestamp))
+				} else {
+					msg.sess.queueOut(ErrPermissionDenied(msg.Id, t.original(asUid), msg.Timestamp))
+				}
+			}
+			return err
+		}
 	}
 	if err := t.checkOfficialPublish(asUid, scope, types.TimeNow()); err != nil {
 		if msg.sess != nil {
@@ -96,6 +103,26 @@ func (t *Topic) saveAndBroadcastMessage(msg *ClientComMessage, asUid types.Uid, 
 	if msg.Pub != nil {
 		clientID = msg.Pub.ClientId
 	}
+	if t.cat == types.TopicCatP2P && globals.businessPolicy != nil && clientID == "" {
+		if msg.sess != nil {
+			msg.sess.queueOut(ErrMalformed(msg.Id, t.original(asUid), msg.Timestamp))
+		}
+		return types.ErrMalformed
+	}
+	archiveForCompliance := func(stored *types.Message) error {
+		if t.cat != types.TopicCatP2P || globals.businessPolicy == nil {
+			return nil
+		}
+		if err := globals.businessPolicy.archiveTextMessage(stored, t.p2pOtherUser(asUid)); err != nil {
+			logs.Warn.Printf("topic[%s]: 文字审计写入持久 outbox 失败: %v", t.name, err)
+			if msg.sess != nil {
+				msg.sess.queueOut(ErrServiceUnavailableExplicitTs(
+					msg.Id, t.original(asUid), msg.Timestamp, msg.Timestamp))
+			}
+			return err
+		}
+		return nil
+	}
 	ackDuplicate := func(existing *types.Message) {
 		if msg.Id != "" && msg.sess != nil {
 			msg.sess.queueOut(NoErrDeliveredParams(msg.Id, t.original(asUid), msg.Timestamp,
@@ -105,6 +132,22 @@ func (t *Topic) saveAndBroadcastMessage(msg *ClientComMessage, asUid types.Uid, 
 					"duplicate": true,
 				}))
 		}
+	}
+	replayDuplicate := func(existing *types.Message) {
+		if t.cat != types.TopicCatP2P || globals.businessPolicy == nil {
+			return
+		}
+		data := &ServerComMessage{
+			Data:      serverDataFromStored(msg.Original, msg.AsUser, existing),
+			RcptTo:    msg.RcptTo,
+			AsUser:    msg.AsUser,
+			Timestamp: msg.Timestamp,
+			sess:      msg.sess,
+		}
+		if noEcho && msg.sess != nil {
+			data.SkipSid = msg.sess.sid
+		}
+		t.broadcastToSessions(data)
 	}
 	if clientID != "" {
 		existing, err := store.Messages.GetByClientId(t.name, asUid, clientID)
@@ -116,7 +159,11 @@ func (t *Topic) saveAndBroadcastMessage(msg *ClientComMessage, asUid types.Uid, 
 			return err
 		}
 		if existing != nil {
+			if err = archiveForCompliance(existing); err != nil {
+				return err
+			}
 			ackDuplicate(existing)
+			replayDuplicate(existing)
 			return nil
 		}
 	}
@@ -157,7 +204,11 @@ func (t *Topic) saveAndBroadcastMessage(msg *ClientComMessage, asUid types.Uid, 
 		// 多节点竞争时唯一索引可能先于本节点的预查询命中。重新读取并按成功重试确认。
 		if clientID != "" {
 			if existing, lookupErr := store.Messages.GetByClientId(t.name, asUid, clientID); lookupErr == nil && existing != nil {
+				if archiveErr := archiveForCompliance(existing); archiveErr != nil {
+					return archiveErr
+				}
 				ackDuplicate(existing)
+				replayDuplicate(existing)
 				return nil
 			}
 		}
@@ -179,6 +230,9 @@ func (t *Topic) saveAndBroadcastMessage(msg *ClientComMessage, asUid types.Uid, 
 
 	t.lastID++
 	t.touched = msg.Timestamp
+	if err := archiveForCompliance(stored); err != nil {
+		return err
+	}
 
 	if userFound {
 		pud.readID = t.lastID

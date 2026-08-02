@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	admincontrol "chat/server/admin"
 	"chat/server/logs"
+	"chat/server/push"
 	"chat/server/store"
 	"chat/server/store/types"
 	translation "chat/server/translate"
@@ -98,7 +100,7 @@ func registerAdminHTTPRoutes(mux *http.ServeMux, apiPath string, config configTy
 		logs.Err.Fatalf("Failed to initialize admin control plane: %v", err)
 	}
 	globals.adminControl = control
-	basePath := apiPath + "v0/admin/"
+	basePath := apiPath + "v0/"
 	handler := newAdminHTTPHandler(basePath, *config.Admin, config, control)
 	mux.Handle(basePath, handler)
 	registerInternalWorkspaceHTTPRoutes(mux, apiPath, *config.Admin, control)
@@ -166,12 +168,26 @@ func (handler *adminHTTPHandler) ServeHTTP(wrt http.ResponseWriter, req *http.Re
 	case resource == "audit" && req.Method == http.MethodGet:
 		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
 		handler.writeData(wrt, http.StatusOK, handler.control.Audit(limit), requestID)
+	case resource == "push/outbox" && req.Method == http.MethodGet:
+		handler.pushOutbox(wrt, requestID)
+	case resource == "push/dlq" && req.Method == http.MethodGet:
+		handler.pushDeadLetters(wrt, req, requestID)
+	case strings.HasPrefix(resource, "push/dlq/"):
+		handler.pushDeadLetterMutation(wrt, req, resource, requestID)
 	case resource == "evaluate" && req.Method == http.MethodPost:
 		handler.evaluate(wrt, req, requestID)
 	case resource == "settings" && req.Method == http.MethodPut:
 		handler.updateSettings(wrt, req, requestID)
 	case resource == "identities/session" && req.Method == http.MethodPost:
 		handler.createIdentitySession(wrt, req, requestID)
+	case resource == "identities/profile" && req.Method == http.MethodPut:
+		handler.updateIdentityProfile(wrt, req, requestID)
+	case resource == "identities/device" && req.Method == http.MethodPut:
+		handler.updateIdentityDevice(wrt, req, requestID)
+	case resource == "business/topic-member" && req.Method == http.MethodPost:
+		handler.validateBusinessTopicMember(wrt, req, requestID)
+	case resource == "business/messages" && req.Method == http.MethodPost:
+		handler.enqueueBusinessMessage(wrt, req, requestID)
 	case strings.HasPrefix(resource, "translation/providers/") &&
 		strings.HasSuffix(resource, "/test") && req.Method == http.MethodPost:
 		handler.testTranslationProvider(wrt, req, resource, requestID)
@@ -184,6 +200,89 @@ func (handler *adminHTTPHandler) ServeHTTP(wrt http.ResponseWriter, req *http.Re
 	default:
 		handler.writeError(wrt, http.StatusNotFound, "admin_route_not_found", requestID)
 	}
+}
+
+func (handler *adminHTTPHandler) pushOutbox(wrt http.ResponseWriter, requestID string) {
+	providers := []string{"fcm", "tnpg"}
+	result := make([]push.DurableOutboxStats, 0, len(providers))
+	for _, provider := range providers {
+		stats, err := push.GetDurableOutboxStats(provider)
+		if err != nil {
+			handler.writeError(wrt, http.StatusServiceUnavailable,
+				"push_outbox_unavailable", requestID)
+			return
+		}
+		result = append(result, stats)
+	}
+	handler.writeData(wrt, http.StatusOK, result, requestID)
+}
+
+func (handler *adminHTTPHandler) pushDeadLetters(wrt http.ResponseWriter,
+	req *http.Request, requestID string) {
+	limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
+	if limit <= 0 {
+		limit = 100
+	}
+	providers := []string{"fcm", "tnpg"}
+	if provider := strings.TrimSpace(req.URL.Query().Get("provider")); provider != "" {
+		providers = []string{provider}
+	}
+	result := make([]push.DurableDeadLetter, 0)
+	for _, provider := range providers {
+		letters, err := push.ListDurableDeadLetters(provider, limit)
+		if err != nil {
+			handler.writeError(wrt, http.StatusServiceUnavailable,
+				"push_dlq_unavailable", requestID)
+			return
+		}
+		result = append(result, letters...)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedAt.After(result[j].CreatedAt)
+	})
+	if len(result) > limit {
+		result = result[:limit]
+	}
+	handler.writeData(wrt, http.StatusOK, result, requestID)
+}
+
+func (handler *adminHTTPHandler) pushDeadLetterMutation(wrt http.ResponseWriter,
+	req *http.Request, resource, requestID string) {
+	parts := strings.Split(strings.TrimPrefix(resource, "push/dlq/"), "/")
+	if len(parts) < 2 || len(parts) > 3 || parts[0] == "" || parts[1] == "" {
+		handler.writeError(wrt, http.StatusBadRequest, "invalid_push_dead_letter", requestID)
+		return
+	}
+	provider, id := parts[0], parts[1]
+	var err error
+	switch {
+	case req.Method == http.MethodPost && len(parts) == 3 && parts[2] == "replay":
+		_, err = push.ReplayDurableDeadLetter(provider, id)
+		if err == nil {
+			handler.writeData(wrt, http.StatusOK,
+				map[string]any{"provider": provider, "id": id, "status": "queued"}, requestID)
+			return
+		}
+	case req.Method == http.MethodDelete && len(parts) == 2:
+		err = push.DeleteDurableDeadLetter(provider, id)
+		if err == nil {
+			handler.writeData(wrt, http.StatusOK,
+				map[string]any{"provider": provider, "id": id, "status": "deleted"}, requestID)
+			return
+		}
+	default:
+		handler.writeError(wrt, http.StatusMethodNotAllowed, "method_not_allowed", requestID)
+		return
+	}
+	if errors.Is(err, types.ErrNotFound) {
+		handler.writeError(wrt, http.StatusNotFound, "push_dead_letter_not_found", requestID)
+		return
+	}
+	if strings.Contains(err.Error(), "invalid") || strings.Contains(err.Error(), "corrupt") {
+		handler.writeError(wrt, http.StatusBadRequest, "invalid_push_dead_letter", requestID)
+		return
+	}
+	handler.writeError(wrt, http.StatusServiceUnavailable, "push_dlq_unavailable", requestID)
 }
 
 func (handler *adminHTTPHandler) applyCORS(wrt http.ResponseWriter, req *http.Request) bool {

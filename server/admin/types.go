@@ -75,7 +75,6 @@ type GeneralSettings struct {
 type TopicSettings struct {
 	OfficialChannelsEnabled    bool `json:"official_channels_enabled"`
 	OfficialLargeGroupsEnabled bool `json:"official_large_groups_enabled"`
-	EmergencyMemberCap         int  `json:"emergency_member_cap"`
 	MemberListPageSize         int  `json:"member_list_page_size"`
 }
 

@@ -213,7 +213,8 @@ func (a *adapter) Find(caller, prefPrefix string, req [][]string, opt []string, 
 	return subs, err
 }
 
-// FindByName 按公开 alias 子串发现用户，并按 alias 或 Public.fn 发现公开 Topic。
+// FindByName 按公开 alias 子串、精确外部 ID 或精确昵称发现用户。
+// 公开 Topic 仍支持 alias 或 Public.fn 模糊匹配。
 func (a *adapter) FindByName(caller string, search *t.PeerSearchQuery) ([]t.Subscription, error) {
 	if search == nil || search.Query == "" {
 		return nil, nil
@@ -228,8 +229,13 @@ func (a *adapter) FindByName(caller string, search *t.PeerSearchQuery) ([]t.Subs
 		Options: "i",
 	}
 	namePattern := b.Regex{Pattern: quotedQuery, Options: "i"}
+	exactPattern := b.Regex{Pattern: "^" + quotedQuery + "$", Options: "i"}
 
-	userFilter := b.M{"tags": aliasPattern}
+	userFilter := b.M{"$or": b.A{
+		b.M{"tags": aliasPattern},
+		b.M{"public.external_id": exactPattern},
+		b.M{"public.fn": exactPattern},
+	}}
 	if search.ActiveOnly {
 		userFilter["state"] = t.StateOK
 	}

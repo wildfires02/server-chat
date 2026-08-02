@@ -95,6 +95,9 @@ func TestFileDownloadACL(t *testing.T) {
 	if _, err := AuthorizeFileDownload(member, rawURL); err != nil {
 		t.Fatalf("topic reader denied: %v", err)
 	}
+	if _, topic, err := AuthorizeFileDownloadContext(member, rawURL); err != nil || topic != "grp-secure" {
+		t.Fatalf("topic context: want grp-secure, got %q, %v", topic, err)
+	}
 	if _, err := AuthorizeFileDownload(stranger, rawURL); err != types.ErrPermissionDenied {
 		t.Fatalf("stranger: want denied, got %v", err)
 	}

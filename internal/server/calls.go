@@ -214,6 +214,16 @@ func (t *Topic) handleCallEvent(msg *ClientComMessage) {
 		}
 		return
 	}
+	// P2P 接听、媒体协商、加入和 Token 续期都重新检查业务关系。
+	// 挂断始终允许，避免客户转移或账号停用后残留无法结束的通话。
+	if t.cat == types.TopicCatP2P && msg.Note.Event != constCallEventHangUp && globals.businessPolicy != nil {
+		if err := globals.businessPolicy.authorizeUIDs(asUid, t.p2pOtherUser(asUid), "call", t.name); err != nil {
+			if msg.sess != nil {
+				msg.sess.queueOut(ErrPermissionDeniedReply(msg, types.TimeNow()))
+			}
+			return
+		}
+	}
 
 	switch t.currentCall.provider {
 	case callProvider(constCallProviderAgora):

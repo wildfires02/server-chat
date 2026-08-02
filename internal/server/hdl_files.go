@@ -101,7 +101,11 @@ func largeFileServeHTTP(wrt http.ResponseWriter, req *http.Request) {
 	}
 
 	// 文件级 ACL 必须在 S3/代理处理器生成重定向签名之前完成校验。
-	if _, err = store.AuthorizeFileDownload(uid, req.URL.String()); err != nil {
+	_, accessTopic, err := store.AuthorizeFileDownloadContext(uid, req.URL.String())
+	if err == nil {
+		err = authorizeBusinessFileTopic(uid, accessTopic)
+	}
+	if err != nil {
 		writeHttpResponse(decodeStoreError(err, "", now, nil), err)
 		return
 	}
@@ -375,7 +379,11 @@ func (*grpcNodeServer) LargeFileServe(req *pbx.FileDownReq, stream pbx.Node_Larg
 		return nil
 	}
 
-	if _, err = store.AuthorizeFileDownload(uid, req.GetUri()); err != nil {
+	_, accessTopic, err := store.AuthorizeFileDownloadContext(uid, req.GetUri())
+	if err == nil {
+		err = authorizeBusinessFileTopic(uid, accessTopic)
+	}
+	if err != nil {
 		writeResponse(decodeStoreError(err, msgID, now, nil), err)
 		return nil
 	}

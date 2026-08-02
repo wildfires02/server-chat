@@ -281,6 +281,10 @@ func (t *Topic) setAnotherUserRole(sess *Session, asUid, target types.Uid, asCha
 		// 读者提升为发布者后不再使用频道读者的推送订阅。
 		t.channelSubUnsub(target, false)
 	}
+	if t.isOfficialLargeGroup() && !requested.ChannelSub {
+		t.pushTopicSubUnsub(target,
+			requested.Mode.IsJoiner() && requested.Mode.IsReader() && requested.Mode.IsPresencer())
+	}
 	if requested.Name == "banned" {
 		t.evictUser(target, false, "")
 	}

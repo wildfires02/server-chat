@@ -34,6 +34,8 @@ default_country_code: CN
 # 下列空标量必须在部署生成的节点配置文件中填写。
 api_key_salt: ""
 max_message_size: 4194304
+# 仅限制普通群。平台认证且 scale_class=large 的官方大群固定使用 0（无产品
+# 人数上限）并采用冷成员、分页列表和 Push Topic 扇出，不受此值限制。
 max_subscriber_count: 10000
 max_tag_count: 32
 permanent_accounts: false
@@ -46,6 +48,19 @@ translation:
   enabled: false
   refresh_interval: 5
 
+# 商城是客户归属和角色权限的唯一事实源。生产环境必须启用并通过内网访问。
+business_policy:
+  # 部署生成器写入 endpoint 与 bearer_token 后必须改为 true。
+  enabled: false
+  endpoint: http://server-user.internal:9889/v1/internal/im/policy/evaluate
+  bearer_token: ""
+  timeout_ms: 1500
+  cache_ttl_seconds: 30
+  deny_ttl_seconds: 5
+  cache_max_entries: 200000
+  audit_endpoint: http://server-user.internal:9889/v1/internal/im/audit/events
+  audit_poll_seconds: 2
+
 # 生产集群使用共享对象存储，不能把唯一媒体文件留在节点本地。
 media:
   use_handler: s3
@@ -54,7 +69,7 @@ media:
   gc_block_size: 100
   # 各节点都可运行处理 worker；ClamAV、FFmpeg 与 LibreOffice 必须在容器内可用。
   processing:
-    enabled: false
+    enabled: true
     workers: 2
     queue_size: 256
     timeout: 120

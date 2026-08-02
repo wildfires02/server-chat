@@ -256,45 +256,59 @@ func ValidateFileAttachments(owner types.Uid, attachmentURLs []string) error {
 
 // AuthorizeFileDownload 校验文件所有者、显式用户授权或 Topic 读权限。
 func AuthorizeFileDownload(requester types.Uid, rawURL string) (*types.FileDef, error) {
+	definition, _, err := AuthorizeFileDownloadContext(requester, rawURL)
+	return definition, err
+}
+
+// AuthorizeFileDownloadContext 在完成文件 ACL 校验的同时返回命中的 Topic。
+// 上层可据此继续执行商城客户范围等实时业务鉴权；所有者、显式用户和公共授权
+// 不依赖 Topic，因此返回空字符串。
+func AuthorizeFileDownloadContext(requester types.Uid, rawURL string) (*types.FileDef, string, error) {
 	return authorizeFileAccess(requester, rawURL, true)
 }
 
 // AuthorizeFileMetadata 允许已授权用户在扫描期间轮询处理状态。
 func AuthorizeFileMetadata(requester types.Uid, rawURL string) (*types.FileDef, error) {
+	definition, _, err := AuthorizeFileMetadataContext(requester, rawURL)
+	return definition, err
+}
+
+// AuthorizeFileMetadataContext 是元数据接口对应的带 Topic 上下文版本。
+func AuthorizeFileMetadataContext(requester types.Uid, rawURL string) (*types.FileDef, string, error) {
 	return authorizeFileAccess(requester, rawURL, false)
 }
 
-func authorizeFileAccess(requester types.Uid, rawURL string, enforceScan bool) (*types.FileDef, error) {
+func authorizeFileAccess(requester types.Uid, rawURL string, enforceScan bool) (*types.FileDef, string, error) {
 	fid := localFileID(rawURL)
 	if requester.IsZero() || fid == "" {
-		return nil, types.ErrPermissionDenied
+		return nil, "", types.ErrPermissionDenied
 	}
 	definition, err := Files.Get(fid)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if definition == nil {
-		return nil, types.ErrNotFound
+		return nil, "", types.ErrNotFound
 	}
 	state, err := GetFileProcessingState(fid)
 	if err != nil && !errors.Is(err, types.ErrNotFound) {
-		return nil, err
+		return nil, "", err
 	}
 	if enforceScan && fileScanBlocksAccess(state) {
-		return nil, types.ErrPermissionDenied
+		return nil, "", types.ErrPermissionDenied
 	}
 	if definition.User == requester.String() {
-		return definition, nil
+		return definition, "", nil
 	}
 	grant, err := loadFileGrant(fid)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if containsString(grant.Users, requester.UserId()) {
-		return definition, nil
+		return definition, "", nil
 	}
 	if grant.Public {
-		return definition, nil
+		return definition, "", nil
 	}
 	for _, topic := range grant.Topics {
 		candidates := []string{topic}
@@ -307,14 +321,14 @@ func authorizeFileAccess(requester types.Uid, rawURL string, enforceScan bool) (
 				if errors.Is(subErr, types.ErrNotFound) {
 					continue
 				}
-				return nil, subErr
+				return nil, "", subErr
 			}
 			if subscription != nil && (subscription.ModeWant & subscription.ModeGiven).IsReader() {
-				return definition, nil
+				return definition, topic, nil
 			}
 		}
 	}
-	return nil, types.ErrPermissionDenied
+	return nil, "", types.ErrPermissionDenied
 }
 
 // SetFileProcessingState 保存文件扫描、摘要和预览处理状态。

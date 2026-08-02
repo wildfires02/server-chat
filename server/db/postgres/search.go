@@ -135,12 +135,14 @@ func (a *adapter) Find(caller, promoPrefix string, req [][]string, opt []string,
 
 }
 
-// FindByName 按公开 alias 子串发现用户，并按 alias 或 Public.fn 发现公开 Topic。
+// FindByName 按公开 alias 子串、精确外部 ID 或精确昵称发现用户。
+// 公开 Topic 仍支持 alias 或 Public.fn 模糊匹配。
 func (a *adapter) FindByName(caller string, search *t.PeerSearchQuery) ([]t.Subscription, error) {
 	if search == nil || search.Query == "" {
 		return nil, nil
 	}
 	needle := common.EscapeLike(strings.ToLower(search.Query))
+	exactNeedle := strings.ToLower(strings.TrimSpace(search.Query))
 	aliasPattern := strings.ToLower(search.AliasPrefix) + ":%" + needle + "%"
 	namePattern := "%" + needle + "%"
 	stateFilter := ""
@@ -154,10 +156,12 @@ func (a *adapter) FindByName(caller string, search *t.PeerSearchQuery) ([]t.Subs
 		aliasConstraint = "EXISTS(SELECT 1 FROM usertags ut WHERE ut.userid=u.id AND LOWER(ut.tag) LIKE ? ESCAPE '!')"
 		userArgs = append(userArgs, aliasPattern)
 	}
-	userArgs = append(userArgs, a.maxResults)
+	userArgs = append(userArgs, exactNeedle, exactNeedle, a.maxResults)
 	userQuery, userArgs := expandQuery(
 		"SELECT CAST(u.id AS TEXT),u.createdat,u.updatedat,u.access::jsonb,u.public::jsonb,u.trusted::jsonb,u.tags::jsonb"+
-			" FROM users u WHERE "+stateFilter+aliasConstraint+" LIMIT ?", userArgs...)
+			" FROM users u WHERE "+stateFilter+"("+aliasConstraint+
+			" OR LOWER(COALESCE(u.public::jsonb->>'external_id','')) = ?"+
+			" OR LOWER(COALESCE(u.public::jsonb->>'fn','')) = ?) LIMIT ?", userArgs...)
 
 	ctx, cancel := a.getContext()
 	if cancel != nil {

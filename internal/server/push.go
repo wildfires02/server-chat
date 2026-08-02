@@ -15,13 +15,30 @@ import (
 	"chat/server/store/types"
 )
 
-// 为用户订阅或取消订阅 FCM Topic（Channel）
-func (t *Topic) channelSubUnsub(uid types.Uid, sub bool) {
+// pushTopicSubUnsub 为用户订阅或取消订阅移动端 Push Topic。
+//
+// 普通广播频道沿用 chn... 名称；官方大群使用 grp... 名称。官方大群必须使用
+// 供应商 Topic 做扇出，不能为了发送一条离线通知把全量成员加载进 Topic Actor。
+func (t *Topic) pushTopicSubUnsub(uid types.Uid, sub bool) {
+	channel := ""
+	switch {
+	case t.isChan:
+		channel = types.GrpToChn(t.name)
+	case t.isOfficialLargeGroup():
+		channel = t.name
+	default:
+		return
+	}
 	push.ChannelSub(&push.ChannelReq{
 		Uid:     uid,
-		Channel: types.GrpToChn(t.name),
+		Channel: channel,
 		Unsub:   !sub,
 	})
+}
+
+// channelSubUnsub 保留旧调用名称，广播频道仍走同一条 Push Topic 同步链路。
+func (t *Topic) channelSubUnsub(uid types.Uid, sub bool) {
+	t.pushTopicSubUnsub(uid, sub)
 }
 
 // 准备要推送到移动设备的推送通知负载，响应 {data} 消息
@@ -51,6 +68,12 @@ func (t *Topic) pushForData(fromUid types.Uid, data *MsgServerData, msgMarkedAsR
 	}
 	if replace, found := data.Head["replace"].(string); found {
 		receipt.Payload.Replace = replace
+	}
+	if t.isOfficialLargeGroup() {
+		// 官方大群只向供应商 Topic 投递一次。在线消息仍由 Topic Actor 向当前
+		// Session 广播；离线 Push 不遍历冷成员，也不为每个成员重复查设备表。
+		receipt.Channel = t.name
+		return &receipt
 	}
 
 	if t.isChan {
@@ -85,9 +108,9 @@ func (t *Topic) pushForData(fromUid types.Uid, data *MsgServerData, msgMarkedAsR
 	return nil
 }
 
-//sendPushForData防止未翻译的P2P文本泄露到
-//收件人的通知。 发件人和收件人的收据是分开的，因为
-//他们的有效载荷可能有所不同，但未读会计仍然必须发生一次。
+// sendPushForData防止未翻译的P2P文本泄露到
+// 收件人的通知。 发件人和收件人的收据是分开的，因为
+// 他们的有效载荷可能有所不同，但未读会计仍然必须发生一次。
 func (t *Topic) sendPushForData(fromUid types.Uid, data *MsgServerData,
 	msgMarkedAsReadBySender bool) {
 	receipt := t.pushForData(fromUid, data, msgMarkedAsReadBySender)
@@ -250,7 +273,6 @@ func sendPush(rcpt *push.Receipt) {
 		}}
 		remote := &UserCacheReq{PushRcpt: &push.Receipt{
 			Payload: rcpt.Payload,
-			Channel: rcpt.Channel,
 			To:      make(map[types.Uid]push.Recipient),
 		}}
 
@@ -262,7 +284,7 @@ func sendPush(rcpt *push.Receipt) {
 			}
 		}
 
-		if len(remote.PushRcpt.To) > 0 || remote.PushRcpt.Channel != "" {
+		if len(remote.PushRcpt.To) > 0 {
 			globals.cluster.routeUserReq(remote)
 		}
 	} else {

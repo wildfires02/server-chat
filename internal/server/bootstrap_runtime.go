@@ -54,6 +54,15 @@ func applyServerRuntimeConfig(config configType) {
 		refresh := time.Duration(config.Translation.RefreshInterval) * time.Second
 		globals.translation = newTranslationRuntime(newPersistentTranslationSettingsSource(refresh))
 	}
+	globals.businessPolicy = nil
+	if config.BusinessPolicy != nil {
+		client, err := newBusinessPolicyClient(*config.BusinessPolicy)
+		if err != nil {
+			logs.Err.Fatalf("Failed to initialize business policy: %v", err)
+		}
+		globals.businessPolicy = client
+		client.startAuditWorker()
+	}
 }
 
 func startServerMedia(config *configType) func() {

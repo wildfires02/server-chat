@@ -379,7 +379,7 @@ Topic 查询。但当前联系人状态按用户聚合存放在 PCache 中，没
 
 当前实现状态：
 
-- `POST /v0/admin/official-topics` 使用 `scale_class=large` 创建官方大群，
+- `POST /v0/official-topics` 使用 `scale_class=large` 创建官方大群，
   `member_limit` 固定为 `0`，可在创建时由平台批量分配管理员。
 - 全量成员关系继续使用数据库 `subscriptions(topic, userid)` 唯一索引；Topic Actor
   仅缓存所有者、管理员、在线与近期活跃成员，普通成员最后一个 Session 离开后释放快照。
@@ -528,7 +528,7 @@ Groupbuying 用户停用、渠道变化、员工角色变化或删除时，通�
 配置权限目录、角色模板、主体绑定、基础产品策略和审计记录：
 
 - 管理端：`/Users/wildfire/github/im/im/web-admin`
-- 服务端入口：`/v0/admin/*`
+- 服务端入口：`/v0/*`
 - 权限执行：本地 Casbin，支持 `subject + domain + object + action`
 - 配置存储：IM 持久缓存中的单一版本化文档，写操作必须携带 `If-Match`
 - 临时身份：独立 Bootstrap 管理令牌，只保存在浏览器 Session Storage
@@ -621,16 +621,16 @@ IM 管理接口完成委派。
 
 | 接口 | 用途 |
 | --- | --- |
-| `GET /v0/admin/official-topics` | 列出官方频道 |
-| `POST /v0/admin/official-topics` | 创建并认证官方只读频道 |
-| `PATCH /v0/admin/official-topics/{topic}` | 修改官方策略 |
-| `PUT /v0/admin/official-topics/{topic}/members/{uid}/role` | 分配管理员、发布者或订阅者角色 |
-| `GET /v0/admin/official-topics/{topic}/audit` | 查询官方频道管理审计 |
-| `POST /v0/admin/official-topics/{topic}/moderation/mutes` | 单人或批量禁言 |
-| `DELETE /v0/admin/official-topics/{topic}/moderation/mutes/{uid}` | 解除禁言 |
-| `DELETE /v0/admin/official-topics/{topic}/members/{uid}` | 移出成员 |
-| `POST /v0/admin/official-topics/{topic}/bans` | 封禁并阻止重新加入 |
-| `DELETE /v0/admin/official-topics/{topic}/bans/{uid}` | 解除封禁 |
+| `GET /v0/official-topics` | 列出官方频道 |
+| `POST /v0/official-topics` | 创建并认证官方只读频道 |
+| `PATCH /v0/official-topics/{topic}` | 修改官方策略 |
+| `PUT /v0/official-topics/{topic}/members/{uid}/role` | 分配管理员、发布者或订阅者角色 |
+| `GET /v0/official-topics/{topic}/audit` | 查询官方频道管理审计 |
+| `POST /v0/official-topics/{topic}/moderation/mutes` | 单人或批量禁言 |
+| `DELETE /v0/official-topics/{topic}/moderation/mutes/{uid}` | 解除禁言 |
+| `DELETE /v0/official-topics/{topic}/members/{uid}` | 移出成员 |
+| `POST /v0/official-topics/{topic}/bans` | 封禁并阻止重新加入 |
+| `DELETE /v0/official-topics/{topic}/bans/{uid}` | 解除封禁 |
 
 普通成员邀请、离开和读取仍可复用现有 Topic 协议。
 
@@ -1335,17 +1335,17 @@ IM 已消费的非敏感快照快速首屏显示。钱包余额、支付机构�
 
 | 接口 | 用途 |
 | --- | --- |
-| `GET /v0/admin/bootstrap` | 权限目录、角色、绑定、基础配置、运行快照和集成状态 |
-| `PUT/DELETE /v0/admin/roles/{id}` | 创建、修改或删除自定义角色 |
-| `PUT/DELETE /v0/admin/bindings/{id}` | 管理主体—角色—Domain 绑定 |
-| `PUT /v0/admin/settings` | 保存基础产品策略 |
-| `GET/POST /v0/admin/official-topics` | 查询或创建认证官方频道 |
-| `GET/PATCH /v0/admin/official-topics/{topic}` | 查询或修改官方频道策略 |
-| `PUT /v0/admin/official-topics/{topic}/members/{uid}/role` | 分配管理员、发布者或订阅者 |
-| `GET /v0/admin/official-topics/{topic}/audit` | 查询官方频道管理审计 |
-| `POST /v0/admin/evaluate` | 使用当前 Casbin 策略试算权限 |
-| `GET /v0/admin/audit` | 查询最近的管理操作审计 |
-| `GET /v0/admin/health` | 查询管理控制面状态和版本 |
+| `GET /v0/bootstrap` | 权限目录、角色、绑定、基础配置、运行快照和集成状态 |
+| `PUT/DELETE /v0/roles/{id}` | 创建、修改或删除自定义角色 |
+| `PUT/DELETE /v0/bindings/{id}` | 管理主体—角色—Domain 绑定 |
+| `PUT /v0/settings` | 保存基础产品策略 |
+| `GET/POST /v0/official-topics` | 查询或创建认证官方频道 |
+| `GET/PATCH /v0/official-topics/{topic}` | 查询或修改官方频道策略 |
+| `PUT /v0/official-topics/{topic}/members/{uid}/role` | 分配管理员、发布者或订阅者 |
+| `GET /v0/official-topics/{topic}/audit` | 查询官方频道管理审计 |
+| `POST /v0/evaluate` | 使用当前 Casbin 策略试算权限 |
+| `GET /v0/audit` | 查询最近的管理操作审计 |
+| `GET /v0/health` | 查询管理控制面状态和版本 |
 
 当前开发配置允许 `http://localhost:4173`；生产环境禁止通配 CORS，令牌至少 32 字符，
 并应通过 Secret 注入。

@@ -65,6 +65,11 @@ func validateDeploymentConfig(config *configType, clusterSelfOverride, pprofURL 
 		(config.Translation.RefreshInterval < 1 || config.Translation.RefreshInterval > 300) {
 		return fmt.Errorf("translation.refresh_interval 必须在 1..300 秒之间")
 	}
+	if config.BusinessPolicy != nil && config.BusinessPolicy.Enabled {
+		if _, err := newBusinessPolicyClient(*config.BusinessPolicy); err != nil {
+			return err
+		}
+	}
 	if config.Media != nil && mode == deploymentModeCluster &&
 		(environment == environmentStaging || environment == environmentProduction) &&
 		strings.EqualFold(strings.TrimSpace(config.Media.UseHandler), "fs") {

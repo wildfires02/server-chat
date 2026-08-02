@@ -479,11 +479,53 @@ func userGetState(uid types.Uid) (types.ObjState, error) {
 	return user.State, nil
 }
 
-// 为单个用户的设备订阅或取消订阅所有 FCM Topic（Channel）
+// 为单个用户的设备订阅或取消订阅所有移动端 Push Topic。
+// 频道由 Push 适配器批量查询；官方大群在后台按用户订阅逐个补齐，避免登录
+// 热路径等待数据库，同时让后来安装/更换的 App 设备也能收到大群离线通知。
 func userChannelsSubUnsub(uid types.Uid, deviceID string, sub bool) {
 	push.ChannelSub(&push.ChannelReq{
 		Uid:      uid,
 		DeviceID: deviceID,
 		Unsub:    !sub,
 	})
+	go userOfficialLargeGroupsSubUnsub(uid, deviceID, sub)
+}
+
+func userOfficialLargeGroupsSubUnsub(uid types.Uid, deviceID string, sub bool) {
+	if uid.IsZero() || deviceID == "" {
+		return
+	}
+	subscriptions, err := store.Users.GetTopics(uid, nil)
+	if err != nil {
+		logs.Warn.Printf("official push topic sync failed to list user topics, uid=%s: %v",
+			uid.UserId(), err)
+		return
+	}
+	for index := range subscriptions {
+		subscription := &subscriptions[index]
+		if types.GetTopicCat(subscription.Topic) != types.TopicCatGrp {
+			continue
+		}
+		mode := subscription.ModeWant & subscription.ModeGiven
+		if !mode.IsJoiner() || !mode.IsReader() || !mode.IsPresencer() {
+			continue
+		}
+		topic, topicErr := store.Topics.Get(subscription.Topic)
+		if topicErr != nil {
+			logs.Warn.Printf("official push topic sync failed to load %s: %v",
+				subscription.Topic, topicErr)
+			continue
+		}
+		if topic == nil {
+			continue
+		}
+		policy, policyErr := officialPolicyFromAux(subscription.Topic, topic.Aux)
+		if policyErr != nil || policy == nil || !policy.Official ||
+			policy.OfficialStatus != "verified" || policy.ScaleClass != "large" {
+			continue
+		}
+		push.ChannelSub(&push.ChannelReq{
+			Uid: uid, DeviceID: deviceID, Channel: subscription.Topic, Unsub: !sub,
+		})
+	}
 }

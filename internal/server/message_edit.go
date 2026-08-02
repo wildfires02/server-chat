@@ -36,7 +36,6 @@ func (t *Topic) editMessage(msg *ClientComMessage, asUid types.Uid) error {
 	if err = t.checkOfficialPublish(asUid, "message", types.TimeNow()); err != nil {
 		return err
 	}
-
 	info, err := validateMessageContent(pub.Kind, pub.Content)
 	if err != nil {
 		return types.ErrMalformed
@@ -57,6 +56,14 @@ func (t *Topic) editMessage(msg *ClientComMessage, asUid types.Uid) error {
 		head[key] = value
 	}
 	head[headMessageKind] = info.Kind
+	if t.cat == types.TopicCatP2P && globals.businessPolicy != nil {
+		if err = globals.businessPolicy.authorizeUIDs(
+			asUid, t.p2pOtherUser(asUid),
+			businessPolicyAction(head, pub.Content, attachments), t.name,
+		); err != nil {
+			return types.ErrPolicy
+		}
+	}
 	now := types.TimeNow()
 	head[headEditedAt] = now.Format(time.RFC3339Nano)
 	target.Head = head
@@ -64,6 +71,11 @@ func (t *Topic) editMessage(msg *ClientComMessage, asUid types.Uid) error {
 	target.UpdatedAt = now
 	if err = store.Messages.Update(target); err != nil {
 		return err
+	}
+	if t.cat == types.TopicCatP2P && globals.businessPolicy != nil {
+		if err = globals.businessPolicy.archiveTextMessage(target, t.p2pOtherUser(asUid)); err != nil {
+			logs.Warn.Printf("topic[%s]: 更新文字审计投影失败: %v", t.name, err)
+		}
 	}
 
 	if store.Files != nil && (len(attachments) > 0 || hadAttachmentRefs) {

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
-	"strings"
 	"time"
 
 	fcmv1 "google.golang.org/api/fcm/v1"
@@ -102,10 +101,20 @@ func clonePayload(src map[string]string) map[string]string {
 
 // PrepareV1Notifications 为提供的回执创建可发布到推送通知服务器的通知载荷。
 func PrepareV1Notifications(rcpt *push.Receipt, config *configType) ([]*fcmv1.Message, []t.Uid) {
+	messages, uids, err := PrepareV1NotificationsWithError(rcpt, config)
+	if err != nil {
+		logs.Warn.Println("fcm push: prepare notifications failed:", err)
+		return nil, nil
+	}
+	return messages, uids
+}
+
+// PrepareV1NotificationsWithError 保留载荷或数据库错误，供持久队列决定是否重试。
+func PrepareV1NotificationsWithError(rcpt *push.Receipt,
+	config *configType) ([]*fcmv1.Message, []t.Uid, error) {
 	data, err := payloadToData(&rcpt.Payload)
 	if err != nil {
-		logs.Warn.Println("fcm push: could not parse payload:", err)
-		return nil, nil
+		return nil, nil, push.Permanent(err)
 	}
 
 	// 要发送推送的设备 ID。
@@ -129,12 +138,11 @@ func PrepareV1Notifications(rcpt *push.Receipt, config *configType) ([]*fcmv1.Me
 		}
 		devices, count, err = store.Devices.GetAll(uids...)
 		if err != nil {
-			logs.Warn.Println("fcm push: db error", err)
-			return nil, nil
+			return nil, nil, err
 		}
 	}
 	if count == 0 && rcpt.Channel == "" {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	if config == nil {
@@ -208,7 +216,7 @@ func PrepareV1Notifications(rcpt *push.Receipt, config *configType) ([]*fcmv1.Me
 		uids = append(uids, t.ZeroUid)
 	}
 
-	return messages, uids
+	return messages, uids, nil
 }
 
 // DevicesForUser 加载指定用户的设备 ID。
@@ -266,6 +274,11 @@ func androidNotificationConfig(what, topic string, data map[string]string, confi
 		Priority: priority,
 		Ttl:      timeToLive,
 	}
+	if videoCall {
+		// Flutter 壳必须在后台处理数据消息，才能创建来电专用通知频道、
+		// 全屏意图并把点击事件路由回现有 WebView。
+		return ac
+	}
 
 	// 当包含此通知类型且应用不在前台时，
 	// Android 不会唤醒应用也不会调用 FirebaseMessagingService:onMessageReceived。
@@ -320,13 +333,9 @@ func apnsNotificationConfig(what, topic string, data map[string]string, unread i
 	priority := 10
 	interruptionLevel := common.InterruptionLevelTimeSensitive
 	if callStatus == "started" {
-		// 仅在新通话启动时发送 VOIP 强提醒。若 BundleID 配置了 .voip 则使用 Voip 推送，否则使用 Critical 强提醒降级
-		interruptionLevel = common.InterruptionLevelCritical
-		if strings.HasSuffix(bundleId, ".voip") {
-			pushType = common.ApnsPushTypeVoip
-		} else {
-			pushType = common.ApnsPushTypeAlert
-		}
+		// FCM token 不是 PushKit token，不能伪装成 .voip 推送。使用标准
+		// time-sensitive alert 唤醒 Flutter 壳，再由 WebView 继续 Agora 通话。
+		pushType = common.ApnsPushTypeAlert
 		expires = time.Now().UTC().Add(time.Duration(voipTimeToLive) * time.Second)
 	} else if what == push.ActRead {
 		priority = 5
@@ -343,8 +352,17 @@ func apnsNotificationConfig(what, topic string, data map[string]string, unread i
 		ThreadID:          topic,
 	}
 
-	// 不为已读通知和视频通话显示提醒。
-	if apnsShouldPresentAlert(what, callStatus, data["silent"], config) {
+	if callStatus == "started" {
+		title := "Incoming video call"
+		if data["aonly"] == "true" {
+			title = "Incoming voice call"
+		}
+		body := "Open the app to answer"
+		if data["xfrom"] != "" {
+			body = data["xfrom"] + " is calling"
+		}
+		apsPayload.Alert = &common.ApsAlert{Title: title, Body: body}
+	} else if apnsShouldPresentAlert(what, callStatus, data["silent"], config) {
 		body := config.Apns.GetStringField(what, "Body")
 		if body == "$content" {
 			body = data["content"]

@@ -72,7 +72,7 @@ go run -tags mysql cmd/im-server/main.go
 覆盖。前者搜索 `configs/admin.yaml`、`admin.yaml`、`/etc/im/admin.yaml`，后者搜索
 `configs/im.yaml`、`im.yaml`、`/etc/im/im.yaml`。
 
-`im-admin` 只提供管理 API，`im-server` 不暴露 `/v0/admin/`。二者连接同一个
+`im-admin` 只提供管理 API，`im-server` 不暴露 `/v0/`。二者连接同一个
 数据库，后台保存的翻译策略由聊天服务自动读取。`static_data: "-"` 表示不挂载 Web
 静态资源；需要调试独立 Web 客户端时，在 `configs/im.yaml` 中改为实际目录。
 
@@ -84,7 +84,7 @@ curl --fail http://127.0.0.1:6060/readyz
 curl --fail http://127.0.0.1:6060/debug/vars
 curl --fail \
   -H 'Authorization: Bearer dev-only-change-this-admin-token' \
-  http://127.0.0.1:6061/v0/admin/health
+  http://127.0.0.1:6061/v0/health
 ```
 
 使用示例账号通过 gRPC 登录：

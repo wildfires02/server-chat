@@ -59,7 +59,10 @@ func largeFileMetaHTTP(wrt http.ResponseWriter, req *http.Request) {
 		writeError(ErrMalformed("", "", now), types.ErrMalformed)
 		return
 	}
-	definition, err := store.AuthorizeFileMetadata(uid, rawURL)
+	definition, accessTopic, err := store.AuthorizeFileMetadataContext(uid, rawURL)
+	if err == nil {
+		err = authorizeBusinessFileTopic(uid, accessTopic)
+	}
 	if err != nil {
 		writeError(decodeStoreError(err, "", now, nil), err)
 		return

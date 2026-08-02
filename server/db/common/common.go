@@ -137,8 +137,8 @@ func FilterFoundTags(setTags t.StringSlice, index map[string]struct{}) []string 
 	return foundTags
 }
 
-// RankPeerSearch 计算用户名/别名和公开名称的稳定相关性分数。
-// 用户只通过显式 alias Tag 被发现；群组和频道还允许按 Public.fn 搜索。
+// RankPeerSearch 计算用户名、公开外部 ID 和公开名称的稳定相关性分数。
+// 用户名允许模糊匹配；用户外部 ID 和显示名称只允许精确匹配，避免昵称前缀枚举。
 func RankPeerSearch(topic, query, aliasPrefix string, tags t.StringSlice, public any) (int, []string) {
 	query = strings.ToLower(strings.TrimSpace(query))
 	aliasPrefix = strings.ToLower(strings.TrimSpace(aliasPrefix))
@@ -174,19 +174,26 @@ func RankPeerSearch(topic, query, aliasPrefix string, tags t.StringSlice, public
 		matched = append(matched, tag)
 	}
 
-	// 用户显示名称不属于公开用户名，避免仅凭昵称枚举账号。
-	if !strings.HasPrefix(topic, "usr") {
-		if fields, ok := public.(map[string]any); ok {
-			if name, ok := fields["fn"].(string); ok {
-				name = strings.ToLower(strings.TrimSpace(name))
-				switch {
-				case name == query && score < 60:
-					score = 60
-				case strings.HasPrefix(name, query) && score < 50:
-					score = 50
-				case strings.Contains(name, query) && score < 40:
-					score = 40
-				}
+	if fields, ok := public.(map[string]any); ok {
+		name, _ := fields["fn"].(string)
+		name = strings.ToLower(strings.TrimSpace(name))
+		if strings.HasPrefix(topic, "usr") {
+			externalID, _ := fields["external_id"].(string)
+			externalID = strings.ToLower(strings.TrimSpace(externalID))
+			switch {
+			case externalID != "" && externalID == query && score < 95:
+				score = 95
+			case name != "" && name == query && score < 60:
+				score = 60
+			}
+		} else {
+			switch {
+			case name == query && score < 60:
+				score = 60
+			case strings.HasPrefix(name, query) && score < 50:
+				score = 50
+			case strings.Contains(name, query) && score < 40:
+				score = 40
 			}
 		}
 	}

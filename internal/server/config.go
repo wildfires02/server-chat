@@ -56,7 +56,7 @@ type mediaProcessingConfig struct {
 	LibreOffice  string `json:"libreoffice"`
 }
 
-//adminAPIConfig控制独立的Svelte管理API。 引导
+// adminAPIConfig控制独立的Svelte管理API。 引导
 // 令牌是临时的：团购身份和Casbin政策同步
 // 将在最终集成阶段替换它。
 type adminAPIConfig struct {
@@ -66,7 +66,7 @@ type adminAPIConfig struct {
 	AllowedOrigins []string `json:"allowed_origins"`
 }
 
-//translationConsumerConfig控制im-server使用编写的设置方式
+// translationConsumerConfig控制im-server使用编写的设置方式
 // 通过独立启动的im-admin进程。
 type translationConsumerConfig struct {
 	Enabled         bool `json:"enabled"`
@@ -171,4 +171,6 @@ type configType struct {
 	Admin *adminAPIConfig `json:"admin,omitempty"`
 	//翻译启用了im-admin翻译设置的聊天端消费者。
 	Translation *translationConsumerConfig `json:"translation,omitempty"`
+	// BusinessPolicy 由商城业务服务提供客户归属、私聊、通话和资金消息授权。
+	BusinessPolicy *businessPolicyConfig `json:"business_policy,omitempty"`
 }

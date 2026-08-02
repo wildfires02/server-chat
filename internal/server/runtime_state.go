@@ -51,6 +51,8 @@ var globals struct {
 	adminControl *admincontrol.ControlPlane
 	// translation 提供支持热加载和多服务商的消息翻译能力。
 	translation *translationRuntime
+	// businessPolicy 是商城业务权限的短 TTL、失败关闭客户端。
+	businessPolicy *businessPolicyClient
 	// gRPC 服务器
 	grpcServer *grpc.Server
 	// 插件

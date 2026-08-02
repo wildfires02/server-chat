@@ -21,9 +21,9 @@ go build -tags mysql -o bin/im-admin ./cmd/im-admin
 ```
 
 管理请求发送到 `im-admin`（开发默认 `http://127.0.0.1:6061`）。先读取
-`GET /v0/admin/bootstrap`，修改响应中的
+`GET /v0/bootstrap`，修改响应中的
 `control_plane.settings.translation`，再把完整的 `settings` 对象通过
-`PUT /v0/admin/settings` 写回，并使用当前版本作为 `If-Match`。
+`PUT /v0/settings` 写回，并使用当前版本作为 `If-Match`。
 
 ```json
 {
@@ -117,7 +117,7 @@ Azure、Google、AWS 和 DeepL 有默认官方 API 地址；LibreTranslate 必�
 或日志中输出密钥。
 
 ```http
-POST /v0/admin/translation/providers/azure-primary/test
+POST /v0/translation/providers/azure-primary/test
 Authorization: Bearer <admin-token>
 Content-Type: application/json
 

@@ -45,12 +45,15 @@ func (s *Session) hello(msg *ClientComMessage) {
 			"build":              store.Store.GetAdapterName() + ":" + buildstamp,
 			"maxMessageSize":     globals.maxMessageSize,
 			"maxSubscriberCount": globals.maxSubscriberCount,
-			"minTagLength":       minTagLength,
-			"maxTagLength":       maxTagLength,
-			"maxTagCount":        globals.maxTagCount,
-			"maxFileUploadSize":  globals.maxFileUploadSize,
-			"reqCred":            globals.validatorClientConfig,
-			"msgDelAge":          globals.msgDeleteAge.Seconds(),
+			// 0 表示平台认证官方大群没有产品人数上限；普通群仍受上面的
+			// maxSubscriberCount 保护，防止任意用户创建热点巨型群。
+			"officialLargeGroupMemberLimit": 0,
+			"minTagLength":                  minTagLength,
+			"maxTagLength":                  maxTagLength,
+			"maxTagCount":                   globals.maxTagCount,
+			"maxFileUploadSize":             globals.maxFileUploadSize,
+			"reqCred":                       globals.validatorClientConfig,
+			"msgDelAge":                     globals.msgDeleteAge.Seconds(),
 		}
 		mediaHandler := store.Store.GetMediaHandler()
 		_, streamingUpload := mediaHandler.(media.StreamingMultipartHandler)

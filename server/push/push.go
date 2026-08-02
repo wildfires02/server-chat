@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"chat/server/logs"
 	t "chat/server/store/types"
 )
 
@@ -169,9 +170,22 @@ func Push(msg *Receipt) {
 			continue
 		}
 
+		if durable, ok := hnd.(DurableEnqueuer); ok {
+			if err := durable.Enqueue(msg); err != nil {
+				logs.Warn.Println("持久化推送任务失败，降级为内存投递:", err)
+				select {
+				case hnd.Push() <- msg:
+				default:
+					logs.Err.Println("推送任务未能进入持久队列或内存队列")
+				}
+			}
+			continue
+		}
+
 		select {
 		case hnd.Push() <- msg:
 		default:
+			logs.Warn.Println("推送处理器内存队列已满")
 		}
 	}
 }

@@ -229,6 +229,22 @@ func initTopicFnd(t *Topic, sreg *ClientComMessage) error {
 // 当两个用户尝试同时创建 p2p Topic 时存在竞争条件。
 func initTopicP2P(t *Topic, sreg *ClientComMessage) error {
 	pktsub := sreg.Sub
+	if globals.businessPolicy != nil {
+		actor := types.ParseUserId(sreg.AsUser)
+		var target types.Uid
+		if strings.HasPrefix(t.xoriginal, "usr") {
+			target = types.ParseUserId(t.xoriginal)
+		} else if first, second, parseErr := types.ParseP2P(t.xoriginal); parseErr == nil {
+			target = first
+			if target.Compare(actor) == 0 {
+				target = second
+			}
+		}
+		if actor.IsZero() || target.IsZero() ||
+			globals.businessPolicy.authorizeUIDs(actor, target, "discover", t.xoriginal) != nil {
+			return types.ErrPermissionDenied
+		}
+	}
 
 	// 处理以下情况：
 	// 1. Topic 和订阅都不存在：创建新的 p2p Topic 和订阅。

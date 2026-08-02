@@ -39,6 +39,7 @@ api_key_salt: T713/rYYgW7g4m3vG6zGRh7+FM1t0T8j13koXScOAj4=
 
 # 消息、群组和账号限制。
 max_message_size: 131072
+# 仅限制普通群；官方大群 member_limit=0 并使用冷成员模型。
 max_subscriber_count: 128
 max_tag_count: 16
 permanent_accounts: false
@@ -51,6 +52,18 @@ alias_tag: alias
 translation:
   enabled: true
   refresh_interval: 5
+
+# 本地联调使用与 Groupbuying server 相同的服务间密钥。
+business_policy:
+  enabled: true
+  endpoint: http://127.0.0.1:9889/v1/internal/im/policy/evaluate
+  bearer_token: dev-only-change-this-admin-token
+  timeout_ms: 1500
+  cache_ttl_seconds: 30
+  deny_ttl_seconds: 5
+  cache_max_entries: 20000
+  audit_endpoint: http://127.0.0.1:9889/v1/internal/im/audit/events
+  audit_poll_seconds: 2
 
 # 文件与对象存储。
 media:

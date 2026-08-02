@@ -428,6 +428,8 @@ func (t *Topic) replyDelSub(sess *Session, asUid types.Uid, msg *ClientComMessag
 	t.evictUser(uid, true, "")
 	if isChannelSub {
 		t.channelSubUnsub(uid, false)
+	} else if t.isOfficialLargeGroup() {
+		t.pushTopicSubUnsub(uid, false)
 	}
 	if t.cat == types.TopicCatGrp && t.subCnt > 0 {
 		t.subCnt--

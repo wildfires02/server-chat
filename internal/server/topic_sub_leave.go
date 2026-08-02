@@ -66,6 +66,9 @@ func (t *Topic) replyLeaveUnsub(sess *Session, msg *ClientComMessage, asUid type
 		oldWant, oldGiven = types.ModeCChnReader, types.ModeCChnReader
 		t.channelSubUnsub(asUid, false)
 	}
+	if !asChan && t.isOfficialLargeGroup() {
+		t.pushTopicSubUnsub(asUid, false)
+	}
 
 	t.notifySubChange(asUid, asUid, asChan, oldWant, oldGiven, types.ModeUnset, types.ModeUnset, sess.sid)
 	t.evictUser(asUid, true, sess.sid)

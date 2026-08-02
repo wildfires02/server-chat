@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 
@@ -51,6 +52,8 @@ type Handler struct {
 	client *legacy.Client
 	// v1 保存v1。
 	v1 *fcmv1.Service
+	// outbox 在数据库中保存尚未确认的推送任务。
+	outbox *push.DurableOutbox
 }
 
 // configType 保存配置Type的数据和运行状态。
@@ -127,13 +130,22 @@ func (Handler) Init(jsonconf json.RawMessage) (bool, error) {
 	handler.channel = make(chan *push.ChannelReq, bufferSize)
 	handler.stop = make(chan bool, 1)
 	handler.projectID = credentials.ProjectID
+	handler.outbox = push.NewDurableOutbox("fcm", func(receipt *push.Receipt) error {
+		return sendFcmV1(receipt, &config)
+	})
+	handler.outbox.Start()
 
 	// 启动 Worker 协程循环处理推送与订阅请求
 	go func() {
 		for {
 			select {
 			case rcpt := <-handler.input:
-				go sendFcmV1(rcpt, &config)
+				// 持久化失败时由该通道执行一次尽力投递，避免立即丢失通知。
+				go func() {
+					if err := sendFcmV1(rcpt, &config); err != nil {
+						logs.Warn.Println("fcm 降级投递失败:", err)
+					}
+				}()
 			case sub := <-handler.channel:
 				go processSubscription(sub)
 			case <-handler.stop:
@@ -146,8 +158,11 @@ func (Handler) Init(jsonconf json.RawMessage) (bool, error) {
 }
 
 // sendFcmV1 构建 FCM v1 消息报文并分发给目标设备。
-func sendFcmV1(rcpt *push.Receipt, config *configType) {
-	messages, uids := PrepareV1Notifications(rcpt, config)
+func sendFcmV1(rcpt *push.Receipt, config *configType) error {
+	messages, uids, prepareErr := PrepareV1NotificationsWithError(rcpt, config)
+	if prepareErr != nil {
+		return fmt.Errorf("fcm prepare notifications: %w", prepareErr)
+	}
 	for i := range messages {
 		req := &fcmv1.SendMessageRequest{
 			Message:      messages[i],
@@ -160,15 +175,19 @@ func sendFcmV1(rcpt *push.Receipt, config *configType) {
 				logs.Info.Println("fcm googleapi.Error 解码警告:", err)
 			}
 			switch strings.ToUpper(gerr.FcmErrCode) {
-			case "": // 无错误
+			case "":
+				if gerr.HttpCode == 429 || gerr.HttpCode >= 500 {
+					return fmt.Errorf("fcm temporary http error %d: %w", gerr.HttpCode, err)
+				}
+				return push.Permanent(fmt.Errorf("fcm rejected request %d: %w", gerr.HttpCode, err))
 			case common.ErrorQuotaExceeded, common.ErrorUnavailable, common.ErrorInternal, common.ErrorUnspecified:
 				// 临时故障，停止该批次发送
 				logs.Warn.Println("fcm 临时发信故障:", gerr.FcmErrCode, gerr.ErrMessage)
-				return
+				return fmt.Errorf("fcm temporary error %s: %w", gerr.FcmErrCode, err)
 			case common.ErrorSenderIDMismatch, common.ErrorInvalidArgument, common.ErrorThirdPartyAuth:
 				// 配置错误，停止发送
 				logs.Warn.Println("fcm 配置无效:", gerr.FcmErrCode, gerr.ErrMessage)
-				return
+				return push.Permanent(fmt.Errorf("fcm configuration error %s: %w", gerr.FcmErrCode, err))
 			case common.ErrorUnregistered:
 				// 设备 Token 已失效，从数据库清理该 Token 并继续发送
 				logs.Warn.Println("fcm Token 已失效/取消注册:", gerr.FcmErrCode, gerr.ErrMessage)
@@ -178,10 +197,11 @@ func sendFcmV1(rcpt *push.Receipt, config *configType) {
 			default:
 				// 未知错误
 				logs.Warn.Println("fcm 未知错误:", gerr.FcmErrCode, gerr.ErrMessage)
-				return
+				return fmt.Errorf("fcm unknown error %s: %w", gerr.FcmErrCode, err)
 			}
 		}
 	}
+	return nil
 }
 
 // processSubscription 处理设备针对 FCM Topic (Channel) 的订阅与取消订阅。
@@ -191,7 +211,11 @@ func processSubscription(req *push.ChannelReq) {
 	var device string
 	var channels []string
 
-	if req.Channel != "" {
+	if req.Channel != "" && req.DeviceID != "" {
+		// 新设备登录时只同步当前 Token，避免为用户的其它设备重复请求 FCM。
+		devices = []string{req.DeviceID}
+		channel = req.Channel
+	} else if req.Channel != "" {
 		devices = DevicesForUser(req.Uid)
 		channel = req.Channel
 	} else if req.DeviceID != "" {
@@ -266,6 +290,14 @@ func (Handler) Push() chan<- *push.Receipt {
 	return handler.input
 }
 
+// Enqueue 先持久化推送任务，再由 FCM Worker 投递。
+func (Handler) Enqueue(receipt *push.Receipt) error {
+	if handler.outbox == nil {
+		return errors.New("fcm outbox is unavailable")
+	}
+	return handler.outbox.Enqueue(receipt)
+}
+
 // Channel 返回用于设备 FCM Topic 频道订阅管理的 Channel。
 func (Handler) Channel() chan<- *push.ChannelReq {
 	return handler.channel
@@ -274,6 +306,9 @@ func (Handler) Channel() chan<- *push.ChannelReq {
 // Stop 停止 FCM 推送服务。
 func (Handler) Stop() {
 	handler.stop <- true
+	if handler.outbox != nil {
+		handler.outbox.Stop()
+	}
 }
 
 // init 注册当前包提供的实现并初始化包级状态。

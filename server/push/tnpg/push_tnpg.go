@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -67,6 +68,8 @@ type Handler struct {
 	pushUrl string
 	// subUrl 保存订阅URL。
 	subUrl string
+	// outbox 在数据库中保存尚未确认的推送任务。
+	outbox *push.DurableOutbox
 }
 
 // configType 保存配置Type的数据和运行状态。
@@ -171,13 +174,22 @@ func (Handler) Init(jsonconf json.RawMessage) (bool, error) {
 	handler.input = make(chan *push.Receipt, bufferSize)
 	handler.channel = make(chan *push.ChannelReq, bufferSize)
 	handler.stop = make(chan bool, 1)
+	handler.outbox = push.NewDurableOutbox("tnpg", func(receipt *push.Receipt) error {
+		return sendPushes(receipt, &config)
+	})
+	handler.outbox.Start()
 
 	// 启动 Worker 协程循环处理推送与订阅请求
 	go func() {
 		for {
 			select {
 			case rcpt := <-handler.input:
-				go sendPushes(rcpt, &config)
+				// 持久化失败时执行一次尽力投递，避免立即丢失通知。
+				go func() {
+					if err := sendPushes(rcpt, &config); err != nil {
+						logs.Warn.Println("tnpg 降级投递失败:", err)
+					}
+				}()
 			case sub := <-handler.channel:
 				go processSubscription(sub, &config)
 			case <-handler.stop:
@@ -255,8 +267,11 @@ func postMessage(endpoint string, body any, config *configType) (*batchResponse,
 }
 
 // sendPushes 批量打包并通过 TNPG 发送推送消息。
-func sendPushes(rcpt *push.Receipt, config *configType) {
-	messages, uids := fcm.PrepareV1Notifications(rcpt, nil)
+func sendPushes(rcpt *push.Receipt, config *configType) error {
+	messages, uids, prepareErr := fcm.PrepareV1NotificationsWithError(rcpt, nil)
+	if prepareErr != nil {
+		return fmt.Errorf("tnpg prepare notifications: %w", prepareErr)
+	}
 
 	n := len(messages)
 	for i := 0; i < n; i += pushBatchSize {
@@ -268,19 +283,30 @@ func sendPushes(rcpt *push.Receipt, config *configType) {
 		resp, err := postMessage(handler.pushUrl, payloads, config)
 		if err != nil {
 			logs.Warn.Println("tnpg 推送请求失败:", err)
-			break
+			return fmt.Errorf("tnpg request failed: %w", err)
 		}
 		if resp.httpCode >= 300 {
 			logs.Warn.Println("tnpg 推送请求被拒绝:", resp.httpStatus)
-			break
+			requestErr := fmt.Errorf("tnpg rejected request: %s", resp.httpStatus)
+			if resp.httpCode == http.StatusTooManyRequests || resp.httpCode >= 500 {
+				return requestErr
+			}
+			return push.Permanent(requestErr)
 		}
 		if resp.FatalCode != "" {
 			logs.Err.Println("tnpg 推送发生致命错误:", resp.FatalMessage)
-			break
+			fatalErr := fmt.Errorf("tnpg fatal error %s: %s", resp.FatalCode, resp.FatalMessage)
+			if isTemporaryPushError(resp.FatalCode) {
+				return fatalErr
+			}
+			return push.Permanent(fatalErr)
 		}
 		// 处理失效 Token 与错误
-		handlePushResponse(resp, messages[i:upper], uids[i:upper])
+		if err = handlePushResponse(resp, messages[i:upper], uids[i:upper]); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // processSubscription 处理网关上的设备频道订阅/取消订阅。
@@ -289,7 +315,10 @@ func processSubscription(req *push.ChannelReq, config *configType) {
 		Unsub: req.Unsub,
 	}
 
-	if req.Channel != "" {
+	if req.Channel != "" && req.DeviceID != "" {
+		su.Devices = []string{req.DeviceID}
+		su.Channel = req.Channel
+	} else if req.Channel != "" {
 		su.Devices = fcm.DevicesForUser(req.Uid)
 		su.Channel = req.Channel
 	} else if req.DeviceID != "" {
@@ -323,35 +352,58 @@ func processSubscription(req *push.ChannelReq, config *configType) {
 }
 
 // handlePushResponse 检查网关返回的响应，清理失效的设备 Token。
-func handlePushResponse(batch *batchResponse, messages []*fcmv1.Message, uids []types.Uid) {
+func handlePushResponse(batch *batchResponse, messages []*fcmv1.Message, uids []types.Uid) error {
 	if batch.FailureCount <= 0 {
-		return
+		return nil
 	}
 
 	for i, resp := range batch.Responses {
+		if resp == nil {
+			continue
+		}
 		switch resp.ErrorCode {
 		case "": // 无错误
 		case common.ErrorQuotaExceeded, common.ErrorUnavailable, common.ErrorInternal, common.ErrorUnspecified:
 			logs.Warn.Println("tnpg 临时故障:", resp.ErrorMessage)
-			return
+			return fmt.Errorf("tnpg temporary error %s: %s", resp.ErrorCode, resp.ErrorMessage)
 		case common.ErrorInvalidArgument:
 			logs.Warn.Println("tnpg 参数无效:", resp.ExtendedError, resp.ErrorMessage)
-			if strings.Contains(resp.ExtendedError, "message.token") {
+			if strings.Contains(resp.ExtendedError, "message.token") && i < len(uids) && i < len(messages) {
+				if err := store.Devices.Delete(uids[i], messages[i].Token); err != nil {
+					logs.Warn.Println("tnpg 清理无效 Token 失败:", err)
+				}
+			} else {
+				return push.Permanent(fmt.Errorf("tnpg invalid argument: %s", resp.ErrorMessage))
+			}
+		case common.ErrorSenderIDMismatch, common.ErrorThirdPartyAuth:
+			logs.Warn.Println("tnpg 配置错误:", resp.ExtendedError, resp.ErrorMessage)
+			return push.Permanent(fmt.Errorf("tnpg configuration error %s: %s",
+				resp.ErrorCode, resp.ErrorMessage))
+		case common.ErrorUnregistered:
+			logs.Info.Println("tnpg Token 已失效:", resp.ErrorMessage, resp.ExtendedError, resp.MessageID)
+			if i < len(uids) && i < len(messages) {
 				if err := store.Devices.Delete(uids[i], messages[i].Token); err != nil {
 					logs.Warn.Println("tnpg 清理无效 Token 失败:", err)
 				}
 			}
-		case common.ErrorSenderIDMismatch, common.ErrorThirdPartyAuth:
-			logs.Warn.Println("tnpg 配置错误:", resp.ExtendedError, resp.ErrorMessage)
-			return
-		case common.ErrorUnregistered:
-			logs.Info.Println("tnpg Token 已失效:", resp.ErrorMessage, resp.ExtendedError, resp.MessageID)
-			if err := store.Devices.Delete(uids[i], messages[i].Token); err != nil {
-				logs.Warn.Println("tnpg 清理无效 Token 失败:", err)
-			}
 		default:
 			logs.Warn.Println("tnpg 未知错误:", resp.ErrorCode, resp.ErrorMessage, resp.ExtendedError, resp.Code)
+			unknownErr := fmt.Errorf("tnpg unknown error %s: %s", resp.ErrorCode, resp.ErrorMessage)
+			if resp.Code >= 500 || isTemporaryPushError(resp.ErrorCode) {
+				return unknownErr
+			}
+			return push.Permanent(unknownErr)
 		}
+	}
+	return nil
+}
+
+func isTemporaryPushError(code string) bool {
+	switch strings.ToUpper(strings.TrimSpace(code)) {
+	case common.ErrorQuotaExceeded, common.ErrorUnavailable, common.ErrorInternal, common.ErrorUnspecified:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -382,6 +434,14 @@ func (Handler) Push() chan<- *push.Receipt {
 	return handler.input
 }
 
+// Enqueue 先持久化推送任务，再由网关 Worker 投递。
+func (Handler) Enqueue(receipt *push.Receipt) error {
+	if handler.outbox == nil {
+		return errors.New("tnpg outbox is unavailable")
+	}
+	return handler.outbox.Enqueue(receipt)
+}
+
 // Channel 返回用于发送频道订阅请求的 Channel。
 func (Handler) Channel() chan<- *push.ChannelReq {
 	return handler.channel
@@ -390,6 +450,9 @@ func (Handler) Channel() chan<- *push.ChannelReq {
 // Stop 停止网关推送服务。
 func (Handler) Stop() {
 	handler.stop <- true
+	if handler.outbox != nil {
+		handler.outbox.Stop()
+	}
 }
 
 // init 注册当前包提供的实现并初始化包级状态。

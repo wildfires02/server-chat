@@ -36,7 +36,8 @@ func (t *Topic) replySetContact(sess *Session, asUid types.Uid, msg *ClientComMe
 		sess.queueOut(ErrOperationNotAllowedReply(msg, now))
 		return errors.New("contacts can only be updated on the me topic")
 	}
-	if strings.EqualFold(msg.Set.Contact.Op, "request_friend") {
+	op := strings.ToLower(strings.TrimSpace(msg.Set.Contact.Op))
+	if op == "request_friend" || op == "accept_friend" || op == "upsert_contact" {
 		target := types.ParseUserId(msg.Set.Contact.User)
 		if target.IsZero() && msg.Set.Contact.Contact != nil {
 			target = types.ParseUserId(msg.Set.Contact.Contact.User)
@@ -55,6 +56,12 @@ func (t *Topic) replySetContact(sess *Session, asUid types.Uid, msg *ClientComMe
 				now, msg.Timestamp, nil))
 			return types.ErrUserNotFound
 		}
+		if globals.businessPolicy != nil {
+			if err = globals.businessPolicy.authorizeUIDs(asUid, target, "discover", "contacts"); err != nil {
+				sess.queueOut(ErrPermissionDenied(msg.Id, msg.Original, now))
+				return types.ErrPolicy
+			}
+		}
 	}
 	result, err := store.Contacts.Apply(asUid, *msg.Set.Contact)
 	if err != nil {
@@ -68,7 +75,6 @@ func (t *Topic) replySetContact(sess *Session, asUid types.Uid, msg *ClientComMe
 		Contacts:  result,
 	}})
 	t.presSubsOnline("contacts", "", nilPresParams, nilPresFilters, sess.sid)
-	op := strings.ToLower(msg.Set.Contact.Op)
 	if (op == "request_friend" || op == "accept_friend" || op == "remove_friend") &&
 		globals.hub != nil {
 		target := types.ParseUserId(msg.Set.Contact.User)

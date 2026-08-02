@@ -52,7 +52,7 @@ HTTP(S) 服务对外暴露以下接口端点：
 * `/v0/file/direct/`：可选的浏览器预签名 S3 Multipart 直传端点。
 * `/v0/file/meta/`：文件摘要、安全扫描、预览/转码及可靠任务状态查询端点。
 
-独立启动的 `im-admin` 提供 `/v0/admin/`（开发默认端口 `6061`），该路由不会挂载到
+独立启动的 `im-admin` 提供 `/v0/`（开发默认端口 `6061`），该路由不会挂载到
 `im-server`。管理接口使用独立 Bearer 令牌，所有写请求必须携带当前控制面版本
 `If-Match`，成功后通过 `ETag` 返回新版本。
 
@@ -63,7 +63,7 @@ HTTP(S) 服务对外暴露以下接口端点：
 `employee`（或含相同权限的自定义角色）的主体访问：
 
 ```http
-PUT /v0/admin/bindings/employee-alice
+PUT /v0/bindings/employee-alice
 Authorization: Bearer <管理令牌>
 Content-Type: application/json
 If-Match: "1"
@@ -110,7 +110,7 @@ Content-Type: application/json
 官方频道只能由管理接口创建和认证，不能通过普通聊天协议把普通频道伪装成官方频道。
 
 ```http
-POST /v0/admin/official-topics
+POST /v0/official-topics
 Authorization: Bearer <管理令牌>
 Content-Type: application/json
 If-Match: "1"
@@ -126,7 +126,7 @@ If-Match: "1"
 加入、读取和接收 Presence。平台通过以下接口分配角色：
 
 ```http
-PUT /v0/admin/official-topics/grpYiqEXb4QY6s/members/usrTarget/role
+PUT /v0/official-topics/grpYiqEXb4QY6s/members/usrTarget/role
 Authorization: Bearer <管理令牌>
 Content-Type: application/json
 If-Match: "2"
@@ -144,7 +144,7 @@ If-Match: "2"
 表示没有产品固定人数上限；全量成员保存在订阅索引中，不常驻单个 Topic Actor。
 
 ```http
-POST /v0/admin/official-topics
+POST /v0/official-topics
 Authorization: Bearer <管理令牌>
 Content-Type: application/json
 If-Match: "3"
@@ -162,7 +162,7 @@ If-Match: "3"
 全员禁言通过策略更新：
 
 ```http
-PATCH /v0/admin/official-topics/grpYiqEXb4QY6s
+PATCH /v0/official-topics/grpYiqEXb4QY6s
 Authorization: Bearer <管理令牌>
 Content-Type: application/json
 If-Match: "4"
@@ -173,12 +173,12 @@ If-Match: "4"
 单人/批量禁言、解禁、移出、封禁和解封接口如下：
 
 ```text
-POST   /v0/admin/official-topics/{topic}/moderation/mutes
-DELETE /v0/admin/official-topics/{topic}/moderation/mutes/{uid}
-DELETE /v0/admin/official-topics/{topic}/members/{uid}?reason_code=spam&note=...
-POST   /v0/admin/official-topics/{topic}/bans
-DELETE /v0/admin/official-topics/{topic}/bans/{uid}
-GET    /v0/admin/official-topics/{topic}/audit?limit=100
+POST   /v0/official-topics/{topic}/moderation/mutes
+DELETE /v0/official-topics/{topic}/moderation/mutes/{uid}
+DELETE /v0/official-topics/{topic}/members/{uid}?reason_code=spam&note=...
+POST   /v0/official-topics/{topic}/bans
+DELETE /v0/official-topics/{topic}/bans/{uid}
+GET    /v0/official-topics/{topic}/audit?limit=100
 ```
 
 禁言请求可提供 `user` 或最多 100 个 `users`、`scope=message|media|call|all`、

@@ -119,7 +119,7 @@ func defaultDocument() *Document {
 			},
 			Topics: TopicSettings{
 				OfficialChannelsEnabled: true, OfficialLargeGroupsEnabled: true,
-				EmergencyMemberCap: 1000000, MemberListPageSize: 100,
+				MemberListPageSize: 100,
 			},
 			Moderation: ModerationSettings{
 				RequireReason: true, DefaultMuteMinutes: 60, MaxMuteMinutes: 10080,
@@ -539,7 +539,6 @@ func validateSettings(settings ProductSettings) error {
 	if strings.TrimSpace(settings.General.ProductName) == "" || len(settings.General.ProductName) > 80 ||
 		settings.General.DefaultLocale == "" || len(settings.General.DefaultLocale) > 16 ||
 		settings.General.TimeZone == "" || len(settings.General.TimeZone) > 64 ||
-		settings.Topics.EmergencyMemberCap < 100 || settings.Topics.EmergencyMemberCap > 10000000 ||
 		settings.Topics.MemberListPageSize < 20 || settings.Topics.MemberListPageSize > 500 ||
 		settings.Moderation.DefaultMuteMinutes < 1 ||
 		settings.Moderation.MaxMuteMinutes < settings.Moderation.DefaultMuteMinutes ||

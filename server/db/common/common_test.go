@@ -485,7 +485,7 @@ func TestExtractTags(t *testing.T) {
 	}
 }
 
-// TestRankPeerSearch 验证公开 alias 的优先级，并防止仅凭用户昵称枚举账号。
+// TestRankPeerSearch 验证公开 alias 的优先级以及用户资料的精确匹配规则。
 func TestRankPeerSearch(t *testing.T) {
 	userScore, matched := RankPeerSearch(
 		"usrAlice", "alice", "alias", types.StringSlice{"alias:alice", "email:hidden@example.com"},
@@ -496,8 +496,21 @@ func TestRankPeerSearch(t *testing.T) {
 
 	userScore, _ = RankPeerSearch(
 		"usrHidden", "hidden", "alias", nil, map[string]any{"fn": "Hidden"})
+	if userScore != 60 {
+		t.Fatalf("user exact display name was not discoverable: %d", userScore)
+	}
+
+	userScore, _ = RankPeerSearch(
+		"usrHidden", "hidd", "alias", nil, map[string]any{"fn": "Hidden"})
 	if userScore != 0 {
-		t.Fatalf("user was discoverable by display name without an alias: %d", userScore)
+		t.Fatalf("user was discoverable by partial display name: %d", userScore)
+	}
+
+	userScore, _ = RankPeerSearch(
+		"usrExternal", "45885384", "alias", nil,
+		map[string]any{"fn": "REINHARDTz", "external_id": "45885384"})
+	if userScore != 95 {
+		t.Fatalf("user exact external id was not discoverable: %d", userScore)
 	}
 
 	topicScore, _ := RankPeerSearch(
