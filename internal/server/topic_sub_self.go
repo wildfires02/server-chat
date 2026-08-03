@@ -37,6 +37,10 @@ func (t *Topic) thisUserSub(sess *Session, pkt *ClientComMessage, asUid types.Ui
 	// 旧客户端的“移除成员”操作错误地写入了封禁 ACL，而不是删除订阅。
 	// 有效邀请必须能恢复这类记录，否则被踢出的成员无法通过邀请重新加入。
 	if existingSub && !userData.deleted && hasInvite && !userData.modeGiven.IsJoiner() {
+		if !consumeTopicInvite(invite, t.name, now) {
+			sess.queueOut(ErrPermissionDeniedReply(pkt, now))
+			return nil, errors.New("group invitation has no remaining uses")
+		}
 		oldWant, oldGiven := userData.modeWant, userData.modeGiven
 		memberAccess := types.ModeJoin | types.ModeRead | types.ModeWrite | types.ModePres
 		userData.modeWant = memberAccess
@@ -67,6 +71,15 @@ func (t *Topic) thisUserSub(sess *Session, pkt *ClientComMessage, asUid types.Ui
 	}
 
 	if !existingSub || userData.deleted {
+		if t.cat == types.TopicCatGrp {
+			if err := t.checkOfficialSelfJoin(sess, pkt, asUid, hasInvite, now); err != nil {
+				return nil, err
+			}
+			if hasInvite && !consumeTopicInvite(invite, t.name, now) {
+				sess.queueOut(ErrPermissionDeniedReply(pkt, now))
+				return nil, errors.New("group invitation has no remaining uses")
+			}
+		}
 		if t.cat == types.TopicCatGrp && !asChan && !t.isOfficialLargeGroup() &&
 			t.subsCount() >= globals.maxSubscriberCount {
 			sess.queueOut(ErrPolicyReply(pkt, now))

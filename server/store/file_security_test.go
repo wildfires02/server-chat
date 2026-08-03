@@ -165,3 +165,32 @@ func TestFileURLsWithPreviewsIncludesDerivedFiles(t *testing.T) {
 		t.Fatalf("unexpected expanded URLs: %#v", urls)
 	}
 }
+
+func TestMessageFileGrantIsRevokedAfterHardDelete(t *testing.T) {
+	useMemoryPersistentCache(t)
+	oldFiles, oldSubs, oldMedia := Files, Subs, mediaHandler
+	t.Cleanup(func() { Files, Subs, mediaHandler = oldFiles, oldSubs, oldMedia })
+	fid := types.Uid(910)
+	message := types.Uid(920)
+	owner := types.Uid(10)
+	member := types.Uid(20)
+	rawURL := "/file/" + fid.String()
+	Files = &fileSecurityFiles{definition: &types.FileDef{
+		ObjHeader: types.ObjHeader{Id: fid.String()}, User: owner.String(),
+	}}
+	Subs = &fileSecuritySubs{topic: "grp-lifecycle", user: member}
+	mediaHandler = fileSecurityMediaHandler{}
+
+	if err := GrantFileMessageAccess("grp-lifecycle", message, []string{rawURL}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AuthorizeFileDownload(member, rawURL); err != nil {
+		t.Fatalf("message attachment reader denied: %v", err)
+	}
+	if err := RevokeFileMessageAccess(message); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AuthorizeFileDownload(member, rawURL); err != types.ErrPermissionDenied {
+		t.Fatalf("revoked attachment: want denied, got %v", err)
+	}
+}

@@ -130,6 +130,7 @@ type OfficialTopic struct {
 	AdminAssignPolicy   string    `json:"admin_assign_policy"`
 	DirectMessagePolicy string    `json:"dm_policy"`
 	AllMuted            bool      `json:"all_muted"`
+	SlowModeSeconds     int       `json:"slow_mode_seconds"`
 	ReactionsEnabled    bool      `json:"reactions_enabled"`
 	CreatedBy           string    `json:"created_by"`
 	CreatedAt           time.Time `json:"created_at"`

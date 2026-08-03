@@ -103,6 +103,14 @@ acc_gc_config:
   gc_block_size: 10
   gc_min_account_age: 30
 
+push_alerts:
+  enabled: false
+  webhook_url: https://alerts.example.com/hooks/server-chat
+  bearer_token: ""
+  timeout_seconds: 5
+  max_attempts: 3
+  min_interval_seconds: 10
+  allow_insecure: true
 push: []
 
 webrtc:

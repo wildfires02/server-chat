@@ -600,6 +600,9 @@ func ValidateOfficialTopic(topic OfficialTopic) error {
 	default:
 		return ErrInvalid
 	}
+	if topic.SlowModeSeconds < 0 || topic.SlowModeSeconds > 24*60*60 {
+		return ErrInvalid
+	}
 	return nil
 }
 

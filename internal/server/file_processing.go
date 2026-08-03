@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -31,12 +32,26 @@ type fileProcessingJob struct {
 var dialClamAV = net.DialTimeout
 
 type fileProcessingRuntime struct {
-	config mediaProcessingConfig
-	owner  string
-	wake   chan struct{}
-	stop   chan struct{}
-	wg     sync.WaitGroup
-	once   sync.Once
+	config             mediaProcessingConfig
+	owner              string
+	wake               chan struct{}
+	stop               chan struct{}
+	wg                 sync.WaitGroup
+	once               sync.Once
+	scannerVersionMu   sync.Mutex
+	scannerVersion     string
+	scannerVersionNext time.Time
+}
+
+const fileContentIndexPrefix = "filecontent:v1:"
+
+type fileContentIndex struct {
+	FileID    string            `json:"file_id"`
+	Owner     string            `json:"owner"`
+	MimeType  string            `json:"mime_type"`
+	SHA256    string            `json:"sha256"`
+	Preview   map[string]string `json:"preview,omitempty"`
+	UpdatedAt time.Time         `json:"updated_at"`
 }
 
 func startFileProcessing(config *mediaProcessingConfig) func() {
@@ -228,6 +243,7 @@ func (runtime *fileProcessingRuntime) process(job fileProcessingJob, attempt int
 		_ = store.SetFileProcessingState(job.File.Id, *state)
 	}
 	if runtime.config.ClamAVAddr != "" {
+		state.ScannerVersion = runtime.loadClamAVVersion()
 		state.ScanStatus = "scanning"
 		_ = store.SetFileProcessingState(job.File.Id, *state)
 		infected, scanErr := scanFileWithClamAV(source, runtime.config.ClamAVAddr,
@@ -241,6 +257,15 @@ func (runtime *fileProcessingRuntime) process(job fileProcessingJob, attempt int
 			state.ScanStatus = "quarantined"
 			state.ProcessStatus = "blocked"
 			state.Error = "malware detected"
+			quarantineLocation, quarantineErr := store.QuarantineFile(job.File)
+			if quarantineErr != nil {
+				state.QuarantineStatus = "isolation_failed"
+				state.Error = "malware detected; physical isolation failed: " + quarantineErr.Error()
+				_ = store.SetFileProcessingState(job.File.Id, *state)
+				return quarantineErr
+			}
+			state.QuarantineStatus = "isolated"
+			state.QuarantineLocation = quarantineLocation
 			_ = store.SetFileProcessingState(job.File.Id, *state)
 			return nil
 		}
@@ -248,7 +273,26 @@ func (runtime *fileProcessingRuntime) process(job fileProcessingJob, attempt int
 	} else {
 		state.ScanStatus = "skipped"
 	}
-
+	if duplicate, duplicateErr := findReadyFileContent(job.File, state.SHA256); duplicateErr != nil {
+		return duplicateErr
+	} else if duplicate != nil {
+		previews := reusedFilePreviews(duplicate.Preview, job.URL)
+		for previewType, previewURL := range previews {
+			if previewType == "original" {
+				continue
+			}
+			if previewURL != "" {
+				if err = store.CopyFileAccess(job.File.Id, previewURL); err != nil {
+					return err
+				}
+			}
+		}
+		state.DuplicateOf = duplicate.FileID
+		state.Preview = previews
+		state.ProcessStatus = "ready"
+		state.Error = ""
+		return store.SetFileProcessingState(job.File.Id, *state)
+	}
 	previews, err := runtime.generatePreviews(job, source, workDir)
 	if err != nil {
 		return err
@@ -256,7 +300,103 @@ func (runtime *fileProcessingRuntime) process(job fileProcessingJob, attempt int
 	state.Preview = previews
 	state.ProcessStatus = "ready"
 	state.Error = ""
-	return store.SetFileProcessingState(job.File.Id, *state)
+	if err = store.SetFileProcessingState(job.File.Id, *state); err != nil {
+		return err
+	}
+	return saveReadyFileContent(job.File, state.SHA256, previews)
+}
+
+func copyStringMap(source map[string]string) map[string]string {
+	if len(source) == 0 {
+		return nil
+	}
+	cloned := make(map[string]string, len(source))
+	for key, value := range source {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func reusedFilePreviews(source map[string]string, originalURL string) map[string]string {
+	previews := copyStringMap(source)
+	if previews == nil {
+		previews = make(map[string]string)
+	}
+	// 去重只复用同一上传者的派生资源。original 必须始终指向本次上传，
+	// 否则删除旧文件会让新消息失效，也会泄漏旧文件标识。
+	previews["original"] = originalURL
+	return previews
+}
+
+func fileContentIndexKey(definition *types.FileDef, digest string) string {
+	ownerDigest := sha256.Sum256([]byte(definition.User))
+	return fileContentIndexPrefix + hex.EncodeToString(ownerDigest[:8]) + ":" + digest
+}
+
+func findReadyFileContent(definition *types.FileDef, digest string) (*fileContentIndex, error) {
+	if definition == nil || digest == "" {
+		return nil, nil
+	}
+	raw, err := store.PCache.Get(fileContentIndexKey(definition, digest))
+	if errors.Is(err, types.ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var index fileContentIndex
+	if json.Unmarshal([]byte(raw), &index) != nil || index.Owner != definition.User ||
+		index.MimeType != definition.MimeType || index.SHA256 != digest || index.FileID == definition.Id {
+		return nil, nil
+	}
+	state, stateErr := store.GetFileProcessingState(index.FileID)
+	if stateErr != nil || state == nil || state.ProcessStatus != "ready" ||
+		(state.ScanStatus != "clean" && state.ScanStatus != "skipped") {
+		return nil, nil
+	}
+	index.Preview = copyStringMap(state.Preview)
+	return &index, nil
+}
+
+func saveReadyFileContent(definition *types.FileDef, digest string, preview map[string]string) error {
+	if definition == nil || digest == "" {
+		return nil
+	}
+	index := fileContentIndex{
+		FileID: definition.Id, Owner: definition.User, MimeType: definition.MimeType,
+		SHA256: digest, Preview: copyStringMap(preview), UpdatedAt: types.TimeNow(),
+	}
+	raw, err := json.Marshal(index)
+	if err != nil {
+		return err
+	}
+	return store.PCache.Upsert(fileContentIndexKey(definition, digest), string(raw), false)
+}
+
+func (runtime *fileProcessingRuntime) loadClamAVVersion() string {
+	runtime.scannerVersionMu.Lock()
+	defer runtime.scannerVersionMu.Unlock()
+	if runtime.scannerVersion != "" || time.Now().Before(runtime.scannerVersionNext) {
+		return runtime.scannerVersion
+	}
+	// ClamAV 在进程启动时可能尚未就绪。失败后五分钟重试，避免一次瞬时
+	// 故障导致整个进程生命周期都缺少扫描器版本信息。
+	runtime.scannerVersionNext = time.Now().Add(5 * time.Minute)
+	connection, err := dialClamAV("tcp", runtime.config.ClamAVAddr,
+		time.Duration(runtime.config.Timeout)*time.Second)
+	if err != nil {
+		return runtime.scannerVersion
+	}
+	defer connection.Close()
+	_ = connection.SetDeadline(time.Now().Add(5 * time.Second))
+	if _, err = connection.Write([]byte("zVERSION\x00")); err != nil {
+		return runtime.scannerVersion
+	}
+	reply, readErr := bufio.NewReader(connection).ReadString(0)
+	if readErr == nil || errors.Is(readErr, io.EOF) {
+		runtime.scannerVersion = strings.TrimSpace(strings.TrimSuffix(reply, "\x00"))
+	}
+	return runtime.scannerVersion
 }
 
 func fileSHA256(filePath string) (string, error) {
@@ -354,35 +494,58 @@ func (runtime *fileProcessingRuntime) generatePreviews(
 		}
 		previews["document"] = job.URL + separator + "preview=true"
 	}
-	var output, outputMIME, label string
-	var compressedVideo string
-
+	type generatedOutput struct {
+		label string
+		path  string
+		mime  string
+	}
+	outputs := make([]generatedOutput, 0, 6)
 	switch {
 	case strings.HasPrefix(mimeType, "image/") && runtime.config.FFmpeg != "":
-		output, outputMIME, label = filepath.Join(workDir, "preview.webp"), "image/webp", "image"
-		if err := runtime.run(runtime.config.FFmpeg, "-y", "-i", source,
-			"-vf", "scale='min(1024,iw)':-2", "-quality", "75", output); err != nil {
-			return nil, err
+		for _, variant := range []struct {
+			label string
+			width int
+		}{{"image_small", 320}, {"image", 1024}, {"image_large", 2048}} {
+			output := filepath.Join(workDir, variant.label+".webp")
+			filter := fmt.Sprintf("scale='min(%d,iw)':-2:flags=lanczos", variant.width)
+			if err := runtime.run(runtime.config.FFmpeg, "-y", "-i", source,
+				"-vf", filter, "-quality", "75", output); err != nil {
+				return nil, err
+			}
+			outputs = append(outputs, generatedOutput{variant.label, output, "image/webp"})
 		}
 	case strings.HasPrefix(mimeType, "video/") && runtime.config.FFmpeg != "":
-		output, outputMIME, label = filepath.Join(workDir, "poster.jpg"), "image/jpeg", "poster"
+		poster := filepath.Join(workDir, "poster.jpg")
 		if err := runtime.run(runtime.config.FFmpeg, "-y", "-ss", "00:00:01", "-i", source,
-			"-frames:v", "1", "-vf", "scale='min(1280,iw)':-2", output); err != nil {
+			"-frames:v", "1", "-vf", "scale='min(1280,iw)':-2", poster); err != nil {
 			return nil, err
 		}
-		compressedVideo = filepath.Join(workDir, "compressed.mp4")
-		if err := runtime.run(runtime.config.FFmpeg, "-y", "-i", source,
-			"-c:v", "libx264", "-preset", "medium", "-crf", "28",
-			"-vf", "scale='min(1280,iw)':-2", "-c:a", "aac", "-b:a", "96k",
-			"-movflags", "+faststart", compressedVideo); err != nil {
-			return nil, err
+		outputs = append(outputs, generatedOutput{"poster", poster, "image/jpeg"})
+		for _, variant := range []struct {
+			label, width, videoRate, audioRate string
+		}{
+			{"video_360p", "640", "700k", "64k"},
+			{"video_720p", "1280", "1800k", "96k"},
+			{"video_1080p", "1920", "3500k", "128k"},
+		} {
+			output := filepath.Join(workDir, variant.label+".mp4")
+			filter := "scale='min(" + variant.width + ",iw)':-2:flags=lanczos"
+			if err := runtime.run(runtime.config.FFmpeg, "-y", "-i", source,
+				"-c:v", "libx264", "-preset", "medium", "-crf", "24",
+				"-maxrate", variant.videoRate, "-bufsize", variant.videoRate,
+				"-vf", filter, "-c:a", "aac", "-b:a", variant.audioRate,
+				"-movflags", "+faststart", output); err != nil {
+				return nil, err
+			}
+			outputs = append(outputs, generatedOutput{variant.label, output, "video/mp4"})
 		}
 	case strings.HasPrefix(mimeType, "audio/") && runtime.config.FFmpeg != "":
-		output, outputMIME, label = filepath.Join(workDir, "preview.opus"), "audio/ogg", "audio"
+		output := filepath.Join(workDir, "preview.opus")
 		if err := runtime.run(runtime.config.FFmpeg, "-y", "-i", source,
 			"-c:a", "libopus", "-b:a", "64k", output); err != nil {
 			return nil, err
 		}
+		outputs = append(outputs, generatedOutput{"audio", output, "audio/ogg"})
 	case isOfficeDocument(mimeType) && runtime.config.LibreOffice != "":
 		if err := runtime.run(runtime.config.LibreOffice, "--headless", "--convert-to", "pdf",
 			"--outdir", workDir, source); err != nil {
@@ -392,35 +555,30 @@ func (runtime *fileProcessingRuntime) generatePreviews(
 		if len(matches) == 0 {
 			return nil, errors.New("libreoffice produced no PDF")
 		}
-		output, outputMIME, label = matches[0], "application/pdf", "document"
+		outputs = append(outputs, generatedOutput{"document", matches[0], "application/pdf"})
 	}
-	if output == "" {
+	if len(outputs) == 0 {
 		return previews, nil
 	}
-	generatedURL, err := uploadGeneratedPreview(job.File, output, outputMIME)
-	if err != nil {
-		return nil, err
-	}
-	if err = store.CopyFileAccess(job.File.Id, generatedURL); err != nil {
-		return nil, err
-	}
-	if outputMIME == "application/pdf" {
-		separator := "?"
-		if strings.Contains(generatedURL, "?") {
-			separator = "&"
+	for _, output := range outputs {
+		generatedURL, err := uploadGeneratedPreview(job.File, output.path, output.mime)
+		if err != nil {
+			return nil, err
 		}
-		generatedURL += separator + "preview=true"
+		if err = store.CopyFileAccess(job.File.Id, generatedURL); err != nil {
+			return nil, err
+		}
+		if output.mime == "application/pdf" {
+			separator := "?"
+			if strings.Contains(generatedURL, "?") {
+				separator = "&"
+			}
+			generatedURL += separator + "preview=true"
+		}
+		previews[output.label] = generatedURL
 	}
-	previews[label] = generatedURL
-	if compressedVideo != "" {
-		videoURL, videoErr := uploadGeneratedPreview(job.File, compressedVideo, "video/mp4")
-		if videoErr != nil {
-			return nil, videoErr
-		}
-		if videoErr = store.CopyFileAccess(job.File.Id, videoURL); videoErr != nil {
-			return nil, videoErr
-		}
-		previews["video"] = videoURL
+	if previews["video_720p"] != "" {
+		previews["video"] = previews["video_720p"]
 	}
 	return previews, nil
 }

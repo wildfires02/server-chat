@@ -2,6 +2,8 @@ package server
 
 import (
 	"encoding/json"
+
+	"chat/server/push"
 )
 
 // 凭证验证器配置。
@@ -155,6 +157,8 @@ type configType struct {
 	Store json.RawMessage `json:"store_config"`
 	// Push 保存Push。
 	Push json.RawMessage `json:"push"`
+	// PushAlerts 把持久死信以通用 Webhook 推送到外部告警平台。
+	PushAlerts *push.DLQAlertConfig `json:"push_alerts,omitempty"`
 	// TLS 保存TLS。
 	TLS json.RawMessage `json:"tls"`
 	// Auth 按键索引认证。

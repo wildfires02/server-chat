@@ -680,6 +680,21 @@ func ErrPolicyReply(msg *ClientComMessage, ts time.Time) *ServerComMessage {
 	return ErrPolicyExplicitTs(msg.Id, msg.Original, ts, msg.Timestamp)
 }
 
+// ErrTooManyRequestsReply 表示请求因服务端频率策略被拒绝，并返回建议重试秒数。
+func ErrTooManyRequestsReply(msg *ClientComMessage, topic string, ts time.Time, retryAfter time.Duration) *ServerComMessage {
+	seconds := int64((retryAfter + time.Second - 1) / time.Second)
+	if seconds < 1 {
+		seconds = 1
+	}
+	return &ServerComMessage{
+		Ctrl: &MsgServerCtrl{
+			Id: msg.Id, Code: http.StatusTooManyRequests, Text: "too many requests",
+			Topic: topic, Timestamp: ts, Params: map[string]any{"retry_after": seconds},
+		},
+		Id: msg.Id, Timestamp: msg.Timestamp,
+	}
+}
+
 // ErrCallBusyExplicitTs 响应音视频呼叫请求，表示目标用户正忙 (486 Busy Here)。
 func ErrCallBusyExplicitTs(id, topic string, serverTs, incomingReqTs time.Time) *ServerComMessage {
 	return &ServerComMessage{

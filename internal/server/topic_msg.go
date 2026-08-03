@@ -87,6 +87,17 @@ func (t *Topic) saveAndBroadcastMessage(msg *ClientComMessage, asUid types.Uid, 
 		}
 		return err
 	}
+	if retryAfter, err := t.enforceOfficialSlowMode(asUid, scope, types.TimeNow()); err != nil {
+		if msg.sess != nil {
+			if errors.Is(err, errOfficialSlowMode) {
+				msg.sess.queueOut(ErrTooManyRequestsReply(msg, t.original(asUid), types.TimeNow(), retryAfter))
+			} else {
+				msg.sess.queueOut(ErrServiceUnavailableExplicitTs(
+					msg.Id, t.original(asUid), msg.Timestamp, msg.Timestamp))
+			}
+		}
+		return err
+	}
 
 	if msg.sess != nil && msg.sess.uid != asUid {
 		// "sender" 标头包含代表 asUid 发送消息的用户 ID

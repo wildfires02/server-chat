@@ -37,7 +37,9 @@ func (t *Topic) replySetContact(sess *Session, asUid types.Uid, msg *ClientComMe
 		return errors.New("contacts can only be updated on the me topic")
 	}
 	op := strings.ToLower(strings.TrimSpace(msg.Set.Contact.Op))
-	if op == "request_friend" || op == "accept_friend" || op == "upsert_contact" {
+	if op == "request_friend" || op == "accept_friend" || op == "upsert_contact" ||
+		op == "reject_friend" || op == "block_contact" || op == "unblock_contact" ||
+		op == "dismiss_recommendation" {
 		target := types.ParseUserId(msg.Set.Contact.User)
 		if target.IsZero() && msg.Set.Contact.Contact != nil {
 			target = types.ParseUserId(msg.Set.Contact.Contact.User)
@@ -75,7 +77,8 @@ func (t *Topic) replySetContact(sess *Session, asUid types.Uid, msg *ClientComMe
 		Contacts:  result,
 	}})
 	t.presSubsOnline("contacts", "", nilPresParams, nilPresFilters, sess.sid)
-	if (op == "request_friend" || op == "accept_friend" || op == "remove_friend") &&
+	if (op == "request_friend" || op == "accept_friend" || op == "remove_friend" ||
+		op == "reject_friend" || op == "block_contact" || op == "unblock_contact") &&
 		globals.hub != nil {
 		target := types.ParseUserId(msg.Set.Contact.User)
 		if target.IsZero() && msg.Set.Contact.Contact != nil {

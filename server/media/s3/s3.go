@@ -89,6 +89,8 @@ type awshandler struct {
 	corsOrigins []media.AllowedOrigin
 }
 
+var _ media.QuarantineHandler = (*awshandler)(nil)
+
 // readerCounter 用于通过 io.Reader 实时统计读取字节数的计数器。
 type readerCounter struct {
 	// Embedded 嵌入公共状态或行为，供当前结构直接复用。
@@ -531,6 +533,56 @@ func (ah *awshandler) Delete(locations []string) error {
 		}
 	}
 	return nil
+}
+
+func (ah *awshandler) copyObject(ctx context.Context, source, target string) error {
+	copySource := url.PathEscape(ah.conf.BucketName + "/" + strings.TrimLeft(source, "/"))
+	_, err := ah.svc.CopyObject(ctx, &s3.CopyObjectInput{
+		Bucket: aws.String(ah.conf.BucketName), Key: aws.String(target), CopySource: aws.String(copySource),
+	})
+	return err
+}
+
+// Quarantine 把对象复制到不可由 ServeURL 解析的 quarantine/ 前缀，再删除公开位置。
+func (ah *awshandler) Quarantine(ctx context.Context, location string) (string, error) {
+	location = strings.TrimLeft(strings.TrimSpace(location), "/")
+	if location == "" || strings.HasPrefix(location, "quarantine/") {
+		return "", types.ErrMalformed
+	}
+	target := "quarantine/" + location
+	if err := ah.copyObject(ctx, location, target); err != nil {
+		return "", err
+	}
+	if _, err := ah.svc.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(ah.conf.BucketName), Key: aws.String(location),
+	}); err != nil {
+		return "", err
+	}
+	return target, nil
+}
+
+func (ah *awshandler) ReleaseQuarantine(ctx context.Context, quarantineLocation, originalLocation string) error {
+	if !strings.HasPrefix(quarantineLocation, "quarantine/") ||
+		strings.TrimPrefix(quarantineLocation, "quarantine/") != strings.TrimLeft(originalLocation, "/") {
+		return types.ErrPermissionDenied
+	}
+	if err := ah.copyObject(ctx, quarantineLocation, originalLocation); err != nil {
+		return err
+	}
+	_, err := ah.svc.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(ah.conf.BucketName), Key: aws.String(quarantineLocation),
+	})
+	return err
+}
+
+func (ah *awshandler) DeleteQuarantine(ctx context.Context, quarantineLocation string) error {
+	if !strings.HasPrefix(quarantineLocation, "quarantine/") {
+		return types.ErrPermissionDenied
+	}
+	_, err := ah.svc.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(ah.conf.BucketName), Key: aws.String(quarantineLocation),
+	})
+	return err
 }
 
 // isAPIError 辅助函数：判断错误是否为指定的 AWS API 错误码。

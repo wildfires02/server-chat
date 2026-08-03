@@ -80,6 +80,11 @@ func (t *Topic) handleMetaSet(msg *ClientComMessage, asUid types.Uid, asChan boo
 			logs.Warn.Printf("topic[%s] meta.Set.Invite failed: %v", t.name, err)
 		}
 	}
+	if msg.MetaWhat&constMsgMetaReport != 0 {
+		if err := t.replySetReport(msg.sess, asUid, msg); err != nil {
+			logs.Warn.Printf("topic[%s] meta.Set.Report failed: %v", t.name, err)
+		}
+	}
 	if msg.MetaWhat&constMsgMetaDesc != 0 {
 		if err := t.replySetDesc(msg.sess, asUid, asChan, authLevel, msg); err == nil {
 			// 通知插件更新

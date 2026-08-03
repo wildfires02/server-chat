@@ -114,13 +114,18 @@ func startAccountGarbageCollector(config *accountGcConfig) func() {
 	}
 }
 
-func startServerPush(config json.RawMessage) func() {
+func startServerPush(config json.RawMessage, alertConfig *push.DLQAlertConfig) func() {
 	handlers, err := push.Init(config)
 	if err != nil {
 		logs.Err.Fatal("Failed to initialize push notifications:", err)
 	}
+	stopAlerts, err := push.StartDLQAlerts(alertConfig)
+	if err != nil {
+		logs.Err.Fatal("Failed to initialize push DLQ alerts:", err)
+	}
 	logs.Info.Println("Push handlers configured:", handlers)
 	return func() {
+		stopAlerts()
 		push.Stop()
 		logs.Info.Println("Stopped push notifications")
 	}

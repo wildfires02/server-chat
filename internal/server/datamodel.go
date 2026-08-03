@@ -117,6 +117,15 @@ type MsgSetInvite struct {
 	//ExpiresIn以秒为单位的期限有效期；服务端将限制在安全范围内，
 	// 未提供时使用默认值。
 	ExpiresIn int64 `json:"expires_in,omitempty"`
+	// MaxUses 限制邀请最多成功加入的人数；0 表示不限制。
+	MaxUses int `json:"max_uses,omitempty"`
+}
+
+// MsgSetReport 提交群消息举报，正文不进入举报记录。
+type MsgSetReport struct {
+	SeqID  int    `json:"seq_id"`
+	Reason string `json:"reason"`
+	Note   string `json:"note,omitempty"`
 }
 
 // MsgSetDesc 在 set.what == "desc" 时用于更新属性的结构体。
@@ -155,6 +164,8 @@ type MsgSetQuery struct {
 	Cred *MsgCredClient `json:"cred,omitempty"`
 	// 生成供非成员加入群组的签名邀请链接。
 	Invite *MsgSetInvite `json:"invite,omitempty"`
+	// 举报当前 Topic 内的一条消息。
+	Report *MsgSetReport `json:"report,omitempty"`
 	// 辅助数据更新
 	Aux map[string]any `json:"aux,omitempty"`
 	// 联系人或联系人分组 CRUD，仅允许在 me Topic 使用。
@@ -300,6 +311,8 @@ const (
 	constMsgMetaPreviews
 	//constMsgMetaInvite 指定簽發群組邀請連結。
 	constMsgMetaInvite
+	// constMsgMetaReport 指定群消息举报。
+	constMsgMetaReport
 )
 
 const (

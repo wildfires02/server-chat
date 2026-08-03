@@ -86,3 +86,17 @@ func TestScanFileWithClamAVProtocol(t *testing.T) {
 		})
 	}
 }
+
+func TestReusedFilePreviewsKeepNewOriginalURL(t *testing.T) {
+	source := map[string]string{
+		"original": "/file/old",
+		"poster":   "/file/poster",
+	}
+	reused := reusedFilePreviews(source, "/file/new")
+	if reused["original"] != "/file/new" || reused["poster"] != "/file/poster" {
+		t.Fatalf("去重预览地址异常：%+v", reused)
+	}
+	if source["original"] != "/file/old" {
+		t.Fatalf("复用时不应修改源文件状态：%+v", source)
+	}
+}

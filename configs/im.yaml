@@ -246,6 +246,15 @@ acc_gc_config:
   gc_block_size: 10
   gc_min_account_age: 30
 
+# Push 死信外部告警。生产环境通过 Secret 注入 URL 和令牌。
+push_alerts:
+  enabled: false
+  webhook_url: https://alerts.example.com/hooks/server-chat
+  bearer_token: ""
+  timeout_seconds: 5
+  max_attempts: 5
+  min_interval_seconds: 30
+
 # 推送通知。
 push:
   - name: stdout

@@ -82,6 +82,14 @@ type DirectUploadCapability interface {
 	DirectUploadEnabled() bool
 }
 
+// QuarantineHandler 是媒体后端可选的物理隔离能力。
+// 检出恶意文件后必须把对象移出正常下载位置；只有受审计的管理操作才能释放或删除。
+type QuarantineHandler interface {
+	Quarantine(context.Context, string) (string, error)
+	ReleaseQuarantine(context.Context, string, string) error
+	DeleteQuarantine(context.Context, string) error
+}
+
 // AllowedOrigin 存储解析后的允许跨域源地址配置结构。
 type AllowedOrigin struct {
 	// Origin 保存Origin。

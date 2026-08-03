@@ -56,6 +56,7 @@ type officialTopicCreateInput struct {
 	JoinPolicy          string         `json:"join_policy,omitempty"`
 	DirectMessagePolicy string         `json:"dm_policy,omitempty"`
 	ReactionsEnabled    bool           `json:"reactions_enabled,omitempty"`
+	SlowModeSeconds     int            `json:"slow_mode_seconds,omitempty"`
 }
 
 // officialTopicPatchInput 定义官方 Topic 可热更新的策略字段。
@@ -65,12 +66,18 @@ type officialTopicPatchInput struct {
 	DirectMessagePolicy *string         `json:"dm_policy,omitempty"`
 	AllMuted            *bool           `json:"all_muted,omitempty"`
 	ReactionsEnabled    *bool           `json:"reactions_enabled,omitempty"`
+	SlowModeSeconds     *int            `json:"slow_mode_seconds,omitempty"`
 	Public              json.RawMessage `json:"public,omitempty"`
 }
 
 // officialTopicRoleInput 定义一次平台成员角色分配。
 type officialTopicRoleInput struct {
 	Role string `json:"role"`
+}
+
+type officialTopicInviteInput struct {
+	ExpiresIn int64 `json:"expires_in,omitempty"`
+	MaxUses   int   `json:"max_uses,omitempty"`
 }
 
 // officialTopicMutationView 返回变更后的版本和官方 Topic 快照。
@@ -151,7 +158,8 @@ func (manager *officialTopicManager) create(expected uint64, input officialTopic
 		ScaleClass: scaleClass, MemberLimit: 0, JoinPolicy: joinPolicy,
 		AdminAssignPolicy: "platform", DirectMessagePolicy: directMessagePolicy,
 		ReactionsEnabled: input.ReactionsEnabled, CreatedBy: actor.Subject,
-		CreatedAt: now, UpdatedAt: now,
+		SlowModeSeconds: input.SlowModeSeconds,
+		CreatedAt:       now, UpdatedAt: now,
 	}
 	if err = admincontrol.ValidateOfficialTopic(record); err != nil {
 		return officialTopicMutationView{}, err
@@ -255,7 +263,8 @@ func (manager *officialTopicManager) patch(expected uint64, topicName string,
 	defer manager.mu.Unlock()
 	if input.OfficialStatus == nil && input.JoinPolicy == nil &&
 		input.DirectMessagePolicy == nil && input.AllMuted == nil &&
-		input.ReactionsEnabled == nil && input.Public == nil {
+		input.ReactionsEnabled == nil && input.SlowModeSeconds == nil &&
+		input.Public == nil {
 		return officialTopicMutationView{}, admincontrol.ErrInvalid
 	}
 	record, err := manager.control.OfficialTopic(topicName)
@@ -289,6 +298,9 @@ func (manager *officialTopicManager) patch(expected uint64, topicName string,
 	if input.ReactionsEnabled != nil {
 		record.ReactionsEnabled = *input.ReactionsEnabled
 	}
+	if input.SlowModeSeconds != nil {
+		record.SlowModeSeconds = *input.SlowModeSeconds
+	}
 	record.UpdatedAt = time.Now().UTC()
 	if err = admincontrol.ValidateOfficialTopic(record); err != nil {
 		return officialTopicMutationView{}, err
@@ -298,7 +310,14 @@ func (manager *officialTopicManager) patch(expected uint64, topicName string,
 	if err != nil {
 		return officialTopicMutationView{}, err
 	}
-	update := map[string]any{"Aux": officialAux}
+	defaultAuth := types.ModeNone
+	if record.JoinPolicy == "open" && record.ScaleClass == "large" {
+		defaultAuth = types.ModeJoin | types.ModeRead | types.ModeWrite | types.ModePres
+	}
+	update := map[string]any{
+		"Aux":    officialAux,
+		"Access": types.DefaultAccess{Auth: defaultAuth, Anon: types.ModeNone},
+	}
 	publicSet := input.Public != nil
 	var public any
 	if publicSet {
@@ -313,7 +332,7 @@ func (manager *officialTopicManager) patch(expected uint64, topicName string,
 
 	snapshot, err := manager.control.UpsertOfficialTopic(expected, record, actor)
 	if err != nil {
-		rollback := map[string]any{"Aux": stored.Aux}
+		rollback := map[string]any{"Aux": stored.Aux, "Access": stored.Access}
 		if publicSet {
 			rollback["Public"] = stored.Public
 		}
@@ -507,6 +526,56 @@ func (handler *adminHTTPHandler) officialTopics(wrt http.ResponseWriter, req *ht
 	case len(parts) == 4 && parts[1] == "members" && parts[3] == "role" &&
 		req.Method == http.MethodPut:
 		handler.assignOfficialTopicRole(wrt, req, parts[0], parts[2], requestID)
+	case len(parts) == 2 && parts[1] == "join-requests" && req.Method == http.MethodGet:
+		status := strings.ToLower(strings.TrimSpace(req.URL.Query().Get("status")))
+		if status != "" && status != "pending" && status != "approved" && status != "rejected" {
+			handler.writeAdminError(wrt, admincontrol.ErrInvalid, requestID)
+			return
+		}
+		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
+		requests, err := listOfficialJoinRequests(parts[0], status, limit)
+		if err != nil {
+			handler.writeAdminError(wrt, err, requestID)
+			return
+		}
+		handler.writeData(wrt, http.StatusOK, requests, requestID)
+	case len(parts) == 4 && parts[1] == "join-requests" && parts[3] == "approve" &&
+		req.Method == http.MethodPost:
+		handler.decideOfficialTopicJoin(wrt, req, parts[0], parts[2], true, requestID)
+	case len(parts) == 4 && parts[1] == "join-requests" && parts[3] == "reject" &&
+		req.Method == http.MethodPost:
+		handler.decideOfficialTopicJoin(wrt, req, parts[0], parts[2], false, requestID)
+	case len(parts) == 2 && parts[1] == "invites" && req.Method == http.MethodGet:
+		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
+		invites, err := listTopicInvites(parts[0], limit)
+		if err != nil {
+			handler.writeAdminError(wrt, err, requestID)
+			return
+		}
+		handler.writeData(wrt, http.StatusOK, invites, requestID)
+	case len(parts) == 2 && parts[1] == "invites" && req.Method == http.MethodPost:
+		handler.createOfficialTopicInvite(wrt, req, parts[0], requestID)
+	case len(parts) == 3 && parts[1] == "invites" && req.Method == http.MethodDelete:
+		handler.revokeOfficialTopicInvite(wrt, req, parts[0], parts[2], requestID)
+	case len(parts) == 2 && parts[1] == "reports" && req.Method == http.MethodGet:
+		status := strings.ToLower(strings.TrimSpace(req.URL.Query().Get("status")))
+		if status != "" && status != "open" && status != "resolved" && status != "dismissed" {
+			handler.writeAdminError(wrt, admincontrol.ErrInvalid, requestID)
+			return
+		}
+		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
+		reports, err := listOfficialReports(parts[0], status, limit)
+		if err != nil {
+			handler.writeAdminError(wrt, err, requestID)
+			return
+		}
+		handler.writeData(wrt, http.StatusOK, reports, requestID)
+	case len(parts) == 4 && parts[1] == "reports" && parts[3] == "resolve" &&
+		req.Method == http.MethodPost:
+		handler.decideOfficialTopicReport(wrt, req, parts[0], parts[2], "resolved", requestID)
+	case len(parts) == 4 && parts[1] == "reports" && parts[3] == "dismiss" &&
+		req.Method == http.MethodPost:
+		handler.decideOfficialTopicReport(wrt, req, parts[0], parts[2], "dismissed", requestID)
 	case len(parts) == 3 && parts[1] == "moderation" && parts[2] == "mutes" &&
 		req.Method == http.MethodPost:
 		handler.muteOfficialTopicMembers(wrt, req, parts[0], requestID)
@@ -522,6 +591,136 @@ func (handler *adminHTTPHandler) officialTopics(wrt http.ResponseWriter, req *ht
 	default:
 		handler.writeError(wrt, http.StatusNotFound, "admin_route_not_found", requestID)
 	}
+}
+
+// decideOfficialTopicReport 完成举报审核并写入官方 Topic 审计。
+func (handler *adminHTTPHandler) decideOfficialTopicReport(wrt http.ResponseWriter, req *http.Request,
+	topicName, reportID, status, requestID string) {
+	expected, ok := handler.expectedVersion(wrt, req, requestID)
+	if !ok {
+		return
+	}
+	var input officialReportDecisionInput
+	if !handler.decode(wrt, req, &input, requestID) {
+		return
+	}
+	actor := handler.actor(req, requestID)
+	report, err := decideOfficialReport(topicName, reportID, status, actor.Subject,
+		input.Note, time.Now().UTC())
+	if err != nil {
+		handler.writeAdminError(wrt, err, requestID)
+		return
+	}
+	snapshot, err := handler.control.RecordOfficialAction(expected, actor, topicName,
+		"official_topic.report."+status, reportID,
+		map[string]any{"seq_id": report.SeqID, "reason": report.Reason})
+	if err != nil {
+		handler.writeAdminError(wrt, err, requestID)
+		return
+	}
+	topic, err := handler.control.OfficialTopic(topicName)
+	if err != nil {
+		handler.writeAdminError(wrt, err, requestID)
+		return
+	}
+	handler.writeData(wrt, http.StatusOK, map[string]any{
+		"version": snapshot.Version, "topic": topic, "report": report,
+	}, requestID)
+}
+
+// createOfficialTopicInvite 创建可撤销、可设置有效期和使用次数的官方群邀请。
+func (handler *adminHTTPHandler) createOfficialTopicInvite(wrt http.ResponseWriter, req *http.Request,
+	topicName, requestID string) {
+	expected, ok := handler.expectedVersion(wrt, req, requestID)
+	if !ok {
+		return
+	}
+	var input officialTopicInviteInput
+	if !handler.decode(wrt, req, &input, requestID) {
+		return
+	}
+	if _, err := handler.control.OfficialTopic(topicName); err != nil {
+		handler.writeAdminError(wrt, err, requestID)
+		return
+	}
+	now := time.Now().UTC()
+	expiresAt := topicInviteExpiry(&MsgSetInvite{ExpiresIn: input.ExpiresIn}, now)
+	actor := handler.actor(req, requestID)
+	token, invite, err := issueManagedTopicInvite(topicName, actor.Subject, expiresAt,
+		input.MaxUses, now)
+	if err != nil {
+		handler.writeAdminError(wrt, err, requestID)
+		return
+	}
+	snapshot, err := handler.control.RecordOfficialAction(expected, actor, topicName,
+		"official_topic.invite.create", invite.ID,
+		map[string]any{"expires_at": invite.ExpiresAt, "max_uses": invite.MaxUses})
+	if err != nil {
+		_ = revokeTopicInvite(topicName, invite.ID)
+		handler.writeAdminError(wrt, err, requestID)
+		return
+	}
+	topic, err := handler.control.OfficialTopic(topicName)
+	if err != nil {
+		handler.writeAdminError(wrt, err, requestID)
+		return
+	}
+	handler.writeData(wrt, http.StatusCreated, map[string]any{
+		"version": snapshot.Version, "topic": topic, "invite": invite, "token": token,
+	}, requestID)
+}
+
+// revokeOfficialTopicInvite 立即撤销一个仍在有效期内的邀请。
+func (handler *adminHTTPHandler) revokeOfficialTopicInvite(wrt http.ResponseWriter, req *http.Request,
+	topicName, inviteID, requestID string) {
+	expected, ok := handler.expectedVersion(wrt, req, requestID)
+	if !ok {
+		return
+	}
+	if err := revokeTopicInvite(topicName, inviteID); err != nil {
+		handler.writeAdminError(wrt, err, requestID)
+		return
+	}
+	actor := handler.actor(req, requestID)
+	snapshot, err := handler.control.RecordOfficialAction(expected, actor, topicName,
+		"official_topic.invite.revoke", inviteID, nil)
+	if err != nil {
+		handler.writeAdminError(wrt, err, requestID)
+		return
+	}
+	topic, err := handler.control.OfficialTopic(topicName)
+	if err != nil {
+		handler.writeAdminError(wrt, err, requestID)
+		return
+	}
+	handler.writeData(wrt, http.StatusOK, map[string]any{
+		"version": snapshot.Version, "topic": topic, "invite_id": inviteID, "active": false,
+	}, requestID)
+}
+
+// decideOfficialTopicJoin 处理官方群入群审批决定。
+func (handler *adminHTTPHandler) decideOfficialTopicJoin(wrt http.ResponseWriter, req *http.Request,
+	topicName, userID string, approve bool, requestID string) {
+	expected, ok := handler.expectedVersion(wrt, req, requestID)
+	if !ok {
+		return
+	}
+	var input officialJoinDecisionInput
+	if !handler.decode(wrt, req, &input, requestID) {
+		return
+	}
+	var (
+		view officialTopicMutationView
+		err  error
+	)
+	if approve {
+		view, err = handler.official.approveJoin(expected, topicName, userID, input,
+			handler.actor(req, requestID))
+	} else {
+		view, err = handler.official.rejectJoin(expected, topicName, userID, input,
+			handler.actor(req, requestID))
+	}
+	handler.writeOfficialTopicMutation(wrt, http.StatusOK, view, err, requestID)
 }
 
 // muteOfficialTopicMembers 处理单人或批量禁言请求。

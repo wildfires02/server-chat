@@ -21,7 +21,11 @@ const (
 	officialPolicyRefreshInterval = 2 * time.Second
 	// officialModerationCacheTTL 限制跨节点禁言变更的最大本地可见延迟。
 	officialModerationCacheTTL = time.Second
+	// officialSlowModeKeyPrefix 保存官方群成员最近一次被接受的发布时间。
+	officialSlowModeKeyPrefix = "official-topic:slow-mode:"
 )
+
+var errOfficialSlowMode = errors.New("official topic slow mode is active")
 
 // officialTopicPolicy 是聊天运行时需要的官方 Topic 策略投影。
 type officialTopicPolicy struct {
@@ -35,6 +39,7 @@ type officialTopicPolicy struct {
 	AdminAssignPolicy   string `json:"admin_assign_policy"`
 	DirectMessagePolicy string `json:"dm_policy"`
 	AllMuted            bool   `json:"all_muted"`
+	SlowModeSeconds     int    `json:"slow_mode_seconds"`
 	ReactionsEnabled    bool   `json:"reactions_enabled"`
 	CreatedBy           string `json:"created_by"`
 }
@@ -70,6 +75,7 @@ func officialPolicyFromAdmin(topic admincontrol.OfficialTopic) officialTopicPoli
 		MemberLimit: topic.MemberLimit, JoinPolicy: topic.JoinPolicy,
 		AdminAssignPolicy:   topic.AdminAssignPolicy,
 		DirectMessagePolicy: topic.DirectMessagePolicy, AllMuted: topic.AllMuted,
+		SlowModeSeconds:  topic.SlowModeSeconds,
 		ReactionsEnabled: topic.ReactionsEnabled, CreatedBy: topic.CreatedBy,
 	}
 }
@@ -108,6 +114,7 @@ func officialPolicyFromAux(topic string, aux map[string]any) (*officialTopicPoli
 		MemberLimit: policy.MemberLimit, JoinPolicy: policy.JoinPolicy,
 		AdminAssignPolicy:   policy.AdminAssignPolicy,
 		DirectMessagePolicy: policy.DirectMessagePolicy, AllMuted: policy.AllMuted,
+		SlowModeSeconds:  policy.SlowModeSeconds,
 		ReactionsEnabled: policy.ReactionsEnabled, CreatedBy: policy.CreatedBy,
 	}
 	if err = admincontrol.ValidateOfficialTopic(adminTopic); err != nil {
@@ -388,6 +395,53 @@ func (t *Topic) checkOfficialPublish(uid types.Uid, scope string, now time.Time)
 		return types.ErrPermissionDenied
 	}
 	return nil
+}
+
+// enforceOfficialSlowMode 使用持久缓存 CAS 在多个 Topic 节点之间原子保留发布窗口。
+// 所有者和管理员不受慢速模式影响；通话信令不计入消息频率。
+func (t *Topic) enforceOfficialSlowMode(uid types.Uid, scope string, now time.Time) (time.Duration, error) {
+	if !t.isOfficialLargeGroup() || t.official == nil || t.official.SlowModeSeconds <= 0 || scope == "call" {
+		return 0, nil
+	}
+	pud, ok := t.perUser[uid]
+	if !ok {
+		return 0, types.ErrPermissionDenied
+	}
+	mode := pud.modeWant & pud.modeGiven
+	if mode.IsOwner() || mode.IsAdmin() {
+		return 0, nil
+	}
+	window := time.Duration(t.official.SlowModeSeconds) * time.Second
+	key := officialSlowModeKeyPrefix + t.name + ":" + uid.String()
+	newValue := now.UTC().Format(time.RFC3339Nano)
+	for attempt := 0; attempt < 8; attempt++ {
+		oldValue, err := store.PCache.Get(key)
+		if errors.Is(err, types.ErrNotFound) {
+			if err = store.PCache.Upsert(key, newValue, true); err == nil {
+				return 0, nil
+			}
+			continue
+		}
+		if err != nil {
+			return 0, err
+		}
+		last, err := time.Parse(time.RFC3339Nano, oldValue)
+		if err != nil {
+			return 0, err
+		}
+		availableAt := last.Add(window)
+		if now.Before(availableAt) {
+			return availableAt.Sub(now), errOfficialSlowMode
+		}
+		swapped, err := store.PCache.CompareAndSwap(key, oldValue, newValue)
+		if err != nil {
+			return 0, err
+		}
+		if swapped {
+			return 0, nil
+		}
+	}
+	return 0, errors.New("slow mode reservation conflicted")
 }
 
 // saveOfficialModeration 保存当前生效的成员治理状态。

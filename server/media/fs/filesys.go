@@ -57,6 +57,7 @@ type fshandler struct {
 
 var _ media.StreamingMultipartHandler = (*fshandler)(nil)
 var _ media.DirectUploadCapability = (*fshandler)(nil)
+var _ media.QuarantineHandler = (*fshandler)(nil)
 
 // Init 初始化本地文件系统媒体处理器。
 func (fh *fshandler) Init(jsconf string) error {
@@ -347,6 +348,61 @@ func (fh *fshandler) Delete(locations []string) error {
 				logs.Warn.Println("fs: 删除文件失败", loc, err)
 			}
 		}
+	}
+	return nil
+}
+
+func (fh *fshandler) quarantinePath(location string) (string, error) {
+	root, err := filepath.Abs(fh.FileUploadDirectory)
+	if err != nil {
+		return "", err
+	}
+	source, err := filepath.Abs(location)
+	if err != nil {
+		return "", err
+	}
+	relative, err := filepath.Rel(root, source)
+	if err != nil || relative == "." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) || relative == ".." {
+		return "", types.ErrPermissionDenied
+	}
+	quarantineRoot := filepath.Join(root, ".quarantine")
+	if err = os.MkdirAll(quarantineRoot, 0o700); err != nil {
+		return "", err
+	}
+	return filepath.Join(quarantineRoot, filepath.Base(source)), nil
+}
+
+// Quarantine 把恶意文件原子移动到上传根目录下不可公开访问的隔离目录。
+func (fh *fshandler) Quarantine(_ context.Context, location string) (string, error) {
+	target, err := fh.quarantinePath(location)
+	if err != nil {
+		return "", err
+	}
+	if err = os.Rename(location, target); err != nil {
+		return "", err
+	}
+	return target, nil
+}
+
+func (fh *fshandler) ReleaseQuarantine(_ context.Context, quarantineLocation, originalLocation string) error {
+	expected, err := fh.quarantinePath(originalLocation)
+	if err != nil || expected != quarantineLocation {
+		return types.ErrPermissionDenied
+	}
+	return os.Rename(quarantineLocation, originalLocation)
+}
+
+func (fh *fshandler) DeleteQuarantine(_ context.Context, quarantineLocation string) error {
+	root, err := filepath.Abs(filepath.Join(fh.FileUploadDirectory, ".quarantine"))
+	if err != nil {
+		return err
+	}
+	target, err := filepath.Abs(quarantineLocation)
+	if err != nil || filepath.Dir(target) != root {
+		return types.ErrPermissionDenied
+	}
+	if err = os.Remove(target); err != nil && !os.IsNotExist(err) {
+		return err
 	}
 	return nil
 }

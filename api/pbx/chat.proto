@@ -284,6 +284,17 @@ message GetQuery {
 }
 
 // SetQuery 定义 SetQuery 的 Protobuf 消息结构。
+message SetInvite {
+	int64 expires_in = 1;
+	int32 max_uses = 2;
+}
+
+message SetReport {
+	int32 seq_id = 1;
+	string reason = 2;
+	string note = 3;
+}
+
 message SetQuery {
 	// 主题元数据，仅在新建主题和新建订阅时使用
 	SetDesc desc = 1;
@@ -299,6 +310,10 @@ message SetQuery {
 	ContactMutation contact = 6;
 	// 素材包或素材管理操作
 	AssetMutation asset = 7;
+	// 生成可撤销、可限制使用次数的群邀请。
+	SetInvite invite = 8;
+	// 举报当前群内的一条消息。
+	SetReport report = 9;
 }
 
 // ResumeTopic 是快速恢复时需要重新订阅的 Topic 及客户端已落盘游标。

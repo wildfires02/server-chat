@@ -1,7 +1,10 @@
 // Package store 提供领域模型及持久化访问层。
 package store
 
-import "chat/server/store/types"
+import (
+	"chat/server/logs"
+	"chat/server/store/types"
+)
 
 // TopicsPersistenceInterface 定义 Topic 持久化存储的方法接口。
 type TopicsPersistenceInterface interface {
@@ -119,5 +122,13 @@ func (topicsMapper) OwnerChange(topic string, newOwner types.Uid) error {
 
 // Delete 删除 Topic、消息、附件和订阅。
 func (topicsMapper) Delete(topic string, isChan, hard bool) error {
-	return adp.TopicDelete(topic, isChan, hard)
+	if err := adp.TopicDelete(topic, isChan, hard); err != nil {
+		return err
+	}
+	if hard {
+		if err := RevokeFileTopicAccess(topic); err != nil {
+			logs.Warn.Printf("topic[%s]: failed to revoke attachment ACLs after topic deletion: %v", topic, err)
+		}
+	}
+	return nil
 }

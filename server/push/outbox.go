@@ -453,6 +453,7 @@ func movePushDeadLetter(provider, key, raw string) error {
 	}
 	// 统一使用结构化前缀，生产日志平台可直接为 PUSH_DLQ_ALERT 配置告警规则。
 	logs.Err.Printf("PUSH_DLQ_ALERT provider=%s id=%s", provider, suffix)
+	notifyPushDeadLetter(provider, suffix)
 	return nil
 }
 

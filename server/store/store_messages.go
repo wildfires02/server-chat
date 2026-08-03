@@ -99,7 +99,7 @@ func (messagesMapper) Save(msg *types.Message, attachmentURLs []string, readBySe
 				// 核心消息已经提交，不能再向发布方返回失败，否则旧客户端会重试并产生歧义。
 				logs.Warn.Printf("topic[%s]: failed to link attachments for message (seq: %d) - err: %+v",
 					msg.Topic, msg.SeqId, err)
-			} else if err := GrantFileAccess(msg.Topic, types.ZeroUid, attachmentURLs); err != nil {
+			} else if err := GrantFileMessageAccess(msg.Topic, msg.Uid(), attachmentURLs); err != nil {
 				logs.Warn.Printf("topic[%s]: failed to create attachment ACL for message (seq: %d) - err: %+v",
 					msg.Topic, msg.SeqId, err)
 			}
@@ -125,7 +125,33 @@ func (messagesMapper) DeleteList(topic string, delID int, forUser types.Uid, msg
 		}
 	}
 
-	return adp.MessageDeleteList(topic, toDel)
+	var messageIDs []types.Uid
+	if forUser.IsZero() && toDel != nil {
+		for _, seqRange := range ranges {
+			upper := seqRange.Hi
+			if upper == 0 {
+				upper = seqRange.Low + 1
+			}
+			for seq := seqRange.Low; seq < upper; seq++ {
+				message, getErr := adp.MessageGet(topic, seq)
+				if getErr != nil {
+					return getErr
+				}
+				if message != nil && !message.Uid().IsZero() {
+					messageIDs = append(messageIDs, message.Uid())
+				}
+			}
+		}
+	}
+	if err := adp.MessageDeleteList(topic, toDel); err != nil {
+		return err
+	}
+	for _, messageID := range messageIDs {
+		if err := RevokeFileMessageAccess(messageID); err != nil {
+			logs.Warn.Printf("topic[%s]: failed to revoke file ACL for hard-deleted message %s: %v", topic, messageID, err)
+		}
+	}
+	return nil
 }
 
 // GetAll 返回多条消息。

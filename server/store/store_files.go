@@ -90,6 +90,9 @@ func (fileMapper) LinkAttachments(topic string, msgId types.Uid, attachments []s
 		if err := adp.FileLinkAttachments(topic, userId, msgId, fids); err != nil {
 			return err
 		}
+		if !msgId.IsZero() {
+			return GrantFileMessageAccess(topic, msgId, attachments)
+		}
 		return GrantFileAccess(topic, userId, attachments)
 	}
 	return nil

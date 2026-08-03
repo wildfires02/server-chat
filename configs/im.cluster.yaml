@@ -135,6 +135,13 @@ acc_gc_config:
   gc_min_account_age: 30
 
 # 推送服务按实际生产 Provider 增补，默认不启用示例实现。
+push_alerts:
+  enabled: false
+  webhook_url: https://alerts.example.com/hooks/server-chat
+  bearer_token: ""
+  timeout_seconds: 5
+  max_attempts: 5
+  min_interval_seconds: 30
 push: []
 
 webrtc:

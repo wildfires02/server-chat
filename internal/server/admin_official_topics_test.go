@@ -52,6 +52,9 @@ func (fake officialManagerTopicStore) Update(topic string, update map[string]any
 	if public, ok := update["Public"]; ok {
 		current.Public = public
 	}
+	if access, ok := update["Access"].(types.DefaultAccess); ok {
+		current.Access = access
+	}
 	return nil
 }
 
@@ -143,7 +146,10 @@ func (cache *officialManagerCache) Get(key string) (string, error) {
 	return value, nil
 }
 
-func (cache *officialManagerCache) Upsert(key, value string, _ bool) error {
+func (cache *officialManagerCache) Upsert(key, value string, failOnDuplicate bool) error {
+	if _, exists := cache.values[key]; failOnDuplicate && exists {
+		return types.ErrDuplicate
+	}
 	cache.values[key] = value
 	return nil
 }

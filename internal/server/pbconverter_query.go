@@ -267,6 +267,16 @@ func pbSetQuerySerialize(in *MsgSetQuery) *pbx.SetQuery {
 	out.Aux = interfaceMapToByteMap(in.Aux)
 	out.Contact = pbContactMutationSerialize(in.Contact)
 	out.Asset = pbAssetMutationSerialize(in.Asset)
+	if in.Invite != nil {
+		out.Invite = &pbx.SetInvite{
+			ExpiresIn: in.Invite.ExpiresIn, MaxUses: int32(in.Invite.MaxUses),
+		}
+	}
+	if in.Report != nil {
+		out.Report = &pbx.SetReport{
+			SeqId: int32(in.Report.SeqID), Reason: in.Report.Reason, Note: in.Report.Note,
+		}
+	}
 
 	return out
 }
@@ -332,6 +342,22 @@ func pbSetQueryDeserialize(in *pbx.SetQuery) *MsgSetQuery {
 			msg = &MsgSetQuery{}
 		}
 		msg.Asset = pbAssetMutationDeserialize(asset)
+	}
+	if invite := in.GetInvite(); invite != nil {
+		if msg == nil {
+			msg = &MsgSetQuery{}
+		}
+		msg.Invite = &MsgSetInvite{
+			ExpiresIn: invite.GetExpiresIn(), MaxUses: int(invite.GetMaxUses()),
+		}
+	}
+	if report := in.GetReport(); report != nil {
+		if msg == nil {
+			msg = &MsgSetQuery{}
+		}
+		msg.Report = &MsgSetReport{
+			SeqID: int(report.GetSeqId()), Reason: report.GetReason(), Note: report.GetNote(),
+		}
 	}
 
 	return msg

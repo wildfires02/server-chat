@@ -174,6 +174,10 @@ func (handler *adminHTTPHandler) ServeHTTP(wrt http.ResponseWriter, req *http.Re
 		handler.pushDeadLetters(wrt, req, requestID)
 	case strings.HasPrefix(resource, "push/dlq/"):
 		handler.pushDeadLetterMutation(wrt, req, resource, requestID)
+	case resource == "files/quarantine" && req.Method == http.MethodGet:
+		handler.quarantinedFiles(wrt, req, requestID)
+	case strings.HasPrefix(resource, "files/quarantine/"):
+		handler.quarantinedFileMutation(wrt, req, resource, requestID)
 	case resource == "evaluate" && req.Method == http.MethodPost:
 		handler.evaluate(wrt, req, requestID)
 	case resource == "settings" && req.Method == http.MethodPut:
@@ -200,6 +204,58 @@ func (handler *adminHTTPHandler) ServeHTTP(wrt http.ResponseWriter, req *http.Re
 	default:
 		handler.writeError(wrt, http.StatusNotFound, "admin_route_not_found", requestID)
 	}
+}
+
+func (handler *adminHTTPHandler) quarantinedFiles(wrt http.ResponseWriter, req *http.Request, requestID string) {
+	limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
+	records, err := store.ListQuarantinedFiles(limit)
+	if err != nil {
+		handler.writeError(wrt, http.StatusServiceUnavailable, "file_quarantine_unavailable", requestID)
+		return
+	}
+	handler.writeData(wrt, http.StatusOK, records, requestID)
+}
+
+func (handler *adminHTTPHandler) quarantinedFileMutation(wrt http.ResponseWriter, req *http.Request,
+	resource, requestID string) {
+	path := strings.TrimPrefix(resource, "files/quarantine/")
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) == 0 || types.ParseUid(parts[0]).IsZero() {
+		handler.writeError(wrt, http.StatusBadRequest, "invalid_file_id", requestID)
+		return
+	}
+	action := ""
+	switch {
+	case req.Method == http.MethodPost && len(parts) == 2 && parts[1] == "release":
+		action = "release"
+	case req.Method == http.MethodDelete && len(parts) == 1:
+		action = "delete"
+	default:
+		handler.writeError(wrt, http.StatusMethodNotAllowed, "file_quarantine_method_not_allowed", requestID)
+		return
+	}
+	var payload struct {
+		Reason string `json:"reason"`
+	}
+	if req.Body != nil && req.ContentLength != 0 {
+		if err := json.NewDecoder(io.LimitReader(req.Body, 4096)).Decode(&payload); err != nil {
+			handler.writeError(wrt, http.StatusBadRequest, "invalid_review_reason", requestID)
+			return
+		}
+	}
+	state, err := store.ReviewQuarantinedFile(parts[0], action, "admin:"+requestID, payload.Reason)
+	if err != nil {
+		status := http.StatusConflict
+		if errors.Is(err, types.ErrNotFound) {
+			status = http.StatusNotFound
+		} else if errors.Is(err, types.ErrMalformed) {
+			status = http.StatusBadRequest
+		}
+		handler.writeError(wrt, status, "file_quarantine_review_failed", requestID)
+		return
+	}
+	logs.Warn.Printf("FILE_QUARANTINE_REVIEW action=%s file_id=%s request_id=%s", action, parts[0], requestID)
+	handler.writeData(wrt, http.StatusOK, state, requestID)
 }
 
 func (handler *adminHTTPHandler) pushOutbox(wrt http.ResponseWriter, requestID string) {

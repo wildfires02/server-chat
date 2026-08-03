@@ -15,6 +15,8 @@ func TestPbContactsAndAssetsRoundTrip(t *testing.T) {
 		Id:    "catalog-1",
 		Topic: "me",
 		MsgSetQuery: MsgSetQuery{
+			Invite: &MsgSetInvite{ExpiresIn: 3600, MaxUses: 25},
+			Report: &MsgSetReport{SeqID: 42, Reason: "spam", Note: "duplicate ads"},
 			Contact: &types.ContactMutation{
 				Op: "upsert_contact",
 				Contact: &types.AddressBookContact{
@@ -30,6 +32,10 @@ func TestPbContactsAndAssetsRoundTrip(t *testing.T) {
 	gotClient := pbCliDeserialize(pbCliSerialize(client))
 	if gotClient.Set == nil || gotClient.Set.Contact == nil ||
 		gotClient.Set.Contact.Contact == nil || gotClient.Set.Contact.Contact.Alias != "Peer" ||
+		gotClient.Set.Invite == nil || gotClient.Set.Invite.ExpiresIn != 3600 ||
+		gotClient.Set.Invite.MaxUses != 25 || gotClient.Set.Report == nil ||
+		gotClient.Set.Report.SeqID != 42 || gotClient.Set.Report.Reason != "spam" ||
+		gotClient.Set.Report.Note != "duplicate ads" ||
 		gotClient.Set.Asset == nil || gotClient.Set.Asset.Pack == nil ||
 		gotClient.Set.Asset.Pack.Id != "pack" {
 		t.Fatalf("contact/asset client round trip mismatch: %#v", gotClient.Set)

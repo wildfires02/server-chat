@@ -59,7 +59,7 @@ func Run() {
 
 	defer startServerMedia(&config)()
 	defer startAccountGarbageCollector(config.AccountGC)()
-	defer startServerPush(config.Push)()
+	defer startServerPush(config.Push, config.PushAlerts)()
 
 	if err := initVideoCalls(config.WebRTC); err != nil {
 		logs.Err.Fatalf("Failed to init video calls: %v", err)
