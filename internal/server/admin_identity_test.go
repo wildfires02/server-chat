@@ -56,13 +56,22 @@ func TestEnsureExternalIdentityCreatesUserWhenLookupReturnsZeroUID(t *testing.T)
 
 	input := adminIdentitySessionRequest{
 		Provider: "server", ExternalID: "77890",
-		ProfileVersion: 1, Profile: adminIdentityProfile{Name: "Test user"},
+		ProfileVersion: 1, Profile: adminIdentityProfile{
+			SchemaVersion: 2, ID: "77890", Phone: "84912345678",
+			InvitationCode: "INVITE88", NickName: "Test user", Name: "Test user",
+		},
 	}
 	expectedUID := types.Uid(77890)
 	users.EXPECT().GetAuthUniqueRecord(externalIdentityAuthScheme, gomock.Any()).
 		Return(types.ZeroUid, auth.LevelNone, nil, time.Time{}, nil)
 	users.EXPECT().Create(gomock.Any(), nil).
 		DoAndReturn(func(user *types.User, _ any) (*types.User, error) {
+			public := externalIdentityObject(user.Public)
+			trusted := externalIdentityObject(user.Trusted)
+			if public["id"] != "77890" || public["nick_name"] != "Test user" ||
+				trusted["phone"] != "84912345678" || trusted["invitation_code"] != "INVITE88" {
+				t.Fatalf("identity profile was not stored: public=%#v trusted=%#v", public, trusted)
+			}
 			user.SetUid(expectedUID)
 			return user, nil
 		})
@@ -96,6 +105,27 @@ func TestNormalizeAdminIdentityDeviceInput(t *testing.T) {
 	}
 }
 
+func TestNormalizeAdminIdentityProfileSupportsLegacyAndRejectsMismatchedID(t *testing.T) {
+	legacy := adminIdentitySessionRequest{
+		Provider: " Server ", ExternalID: " 45885384 ",
+		Profile: adminIdentityProfile{Name: " Reinhardtz "},
+	}
+	if !normalizeAdminIdentityInput(&legacy) {
+		t.Fatal("legacy identity profile must remain valid during rolling deployment")
+	}
+	if legacy.Profile.ID != "45885384" || legacy.Profile.NickName != "Reinhardtz" {
+		t.Fatalf("legacy profile was not normalized: %#v", legacy.Profile)
+	}
+
+	mismatched := adminIdentitySessionRequest{
+		Provider: "server", ExternalID: "45885384",
+		Profile: adminIdentityProfile{ID: "45885385", Name: "Reinhardtz"},
+	}
+	if normalizeAdminIdentityInput(&mismatched) {
+		t.Fatal("profile ID must match the authenticated external ID")
+	}
+}
+
 func TestExternalIdentityProfilePreservesUnmanagedFields(t *testing.T) {
 	users := &externalIdentityProfileTestStore{user: &types.User{
 		Public:  map[string]any{"fn": "Old", "photo": "old.jpg", "country": "VN"},
@@ -103,7 +133,10 @@ func TestExternalIdentityProfilePreservesUnmanagedFields(t *testing.T) {
 	}}
 	input := adminIdentitySessionRequest{
 		Provider: "server", ExternalID: "45885384", ProfileVersion: 11,
-		Profile: adminIdentityProfile{Name: "New Name", Avatar: "new.jpg"},
+		Profile: adminIdentityProfile{
+			SchemaVersion: 2, ID: "45885384", Phone: "84912345678",
+			InvitationCode: "INVITE88", NickName: "New Name", Name: "New Name", Avatar: "new.jpg",
+		},
 	}
 	if err := updateExternalIdentityProfileWithStore(users, types.Uid(1), input); err != nil {
 		t.Fatal(err)
@@ -116,6 +149,37 @@ func TestExternalIdentityProfilePreservesUnmanagedFields(t *testing.T) {
 	}
 	if trusted["profile_version"] != int64(11) || trusted["role"] != "customer" {
 		t.Fatalf("unexpected trusted profile: %#v", trusted)
+	}
+	if trusted["phone"] != "84912345678" || trusted["invitation_code"] != "INVITE88" ||
+		trusted["nick_name"] != "New Name" {
+		t.Fatalf("new identity fields were not synchronized: %#v", trusted)
+	}
+	clientTrusted := externalIdentityObject(externalIdentityClientTrusted(trusted))
+	if _, exists := clientTrusted["phone"]; exists {
+		t.Fatalf("phone leaked into client metadata: %#v", clientTrusted)
+	}
+	if _, exists := clientTrusted["invitation_code"]; exists {
+		t.Fatalf("invitation code leaked into client metadata: %#v", clientTrusted)
+	}
+}
+
+func TestExternalIdentityLegacyUpdateDoesNotClearSensitiveFields(t *testing.T) {
+	users := &externalIdentityProfileTestStore{user: &types.User{
+		Public: map[string]any{"fn": "Current"},
+		Trusted: map[string]any{
+			"profile_version": int64(10), "phone": "84912345678", "invitation_code": "INVITE88",
+		},
+	}}
+	input := adminIdentitySessionRequest{
+		Provider: "server", ExternalID: "45885384", ProfileVersion: 11,
+		Profile: adminIdentityProfile{ID: "45885384", NickName: "Current", Name: "Current"},
+	}
+	if err := updateExternalIdentityProfileWithStore(users, types.Uid(1), input); err != nil {
+		t.Fatal(err)
+	}
+	trusted := users.update["Trusted"].(map[string]any)
+	if trusted["phone"] != "84912345678" || trusted["invitation_code"] != "INVITE88" {
+		t.Fatalf("legacy update cleared sensitive fields: %#v", trusted)
 	}
 }
 
@@ -156,7 +220,7 @@ func TestExternalIdentityProfileCanClearAvatar(t *testing.T) {
 
 func TestAdminIdentityProfileRouteValidatesInput(t *testing.T) {
 	handler := newTestAdminHandler(t)
-	request := httptest.NewRequest(http.MethodPut, "/v0/identities/profile",
+	request := httptest.NewRequest(http.MethodPut, "/internal/identities/profile",
 		bytes.NewBufferString(`{"provider":"","external_id":""}`))
 	request.Header.Set("Authorization", "Bearer test-bootstrap-token")
 	request.Header.Set("Content-Type", "application/json")

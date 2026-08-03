@@ -25,7 +25,7 @@ type responses struct {
 	messages []any
 }
 
-//测试夹具。
+// 测试夹具。
 type TopicTestHelper struct {
 	// numUsers 保存numUsers。
 	numUsers int
@@ -299,9 +299,13 @@ func TestHandleBroadcastCall(t *testing.T) {
 	numUsers := 2
 	helper := TopicTestHelper{}
 	helper.setUp(t, numUsers, types.TopicCatP2P, "p2p-test" /*attach=*/, true)
-	globals.iceServers = []iceServer{{Username: "dummy"}}
+	previousAgora := globals.agora
+	globals.agora = &agoraProvider{channelPrefix: "im", maxParticipants: 128}
 	helper.topic.lastID = 5
-	defer helper.tearDown()
+	defer func() {
+		globals.agora = previousAgora
+		helper.tearDown()
+	}()
 	helper.mm.EXPECT().Save(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, true)
 
 	from := helper.uids[0].UserId()
@@ -323,8 +327,6 @@ func TestHandleBroadcastCall(t *testing.T) {
 	if errorMsgs, hasError := helper.hubMessages["__ERROR__"]; hasError {
 		t.Fatal(errorMsgs[0].Ctrl.Text)
 	}
-
-	globals.iceServers = nil
 
 	// 消息 uid1 -> uid2.
 	for i, m := range helper.results {
@@ -1680,7 +1682,7 @@ func TestReplyGetDescInvalidOpts(t *testing.T) {
 	}
 }
 
-//验证会话输出中的ctrl代码。
+// 验证会话输出中的ctrl代码。
 func registerSessionVerifyOutputs(t *testing.T, sessionOutput *responses, expectedCtrlCodes []int) {
 	t.Helper()
 	//会话输出。

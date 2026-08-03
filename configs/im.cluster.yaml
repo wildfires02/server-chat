@@ -1,110 +1,61 @@
-# IM 服务端三节点生产集群配置模板。
-#
-# 本文件是生产模板。部署前必须复制为每个节点的完整 im.yaml，并直接填写或通过
-# Secret 文件生成所有节点身份、密码、签名密钥和对象存储凭据。
-log_flags: stdFlags
+# server-chat 三节点生产集群模板。
+# 每个节点都使用一份完整 YAML；不读取环境变量覆盖。
+# 部署系统必须用 Secret 填充所有空值，再挂载为 /etc/im/im.yaml。
 
 runtime:
   environment: production
   deployment_mode: cluster
 
-# 客户端入口通常位于四层负载均衡或支持 WebSocket/gRPC 的网关后方。
+# 客户端通过负载均衡器连接此端口。
 listen: ":6060"
-api_path: /
-cache_control: 39600
-ws_compression_disabled: false
-static_mount: /
-static_data: "-"
-grpc_listen: ":16060"
-grpc_keepalive_enabled: true
-expvar: "-"
-server_status: "-"
-pprof: ""
-pprof_url: ""
-health:
-  live_path: /livez
-  ready_path: /readyz
-  drain_path: /drainz
-  topology_path: /clusterz
-  drain_timeout: 30s
+client_origins:
+  - https://chat.example.com
 use_x_forwarded_for: true
 x_frame_options: DENY
 default_country_code: CN
 
-# 下列空标量必须在部署生成的节点配置文件中填写。
+# 健康检查路径使用代码默认值：/livez、/readyz、/drainz 和 /clusterz。
+health:
+  drain_timeout: 30s
+
+# 必须为生产环境生成独立密钥；上线后不可修改。
 api_key_salt: ""
 max_message_size: 4194304
-# 仅限制普通群。平台认证且 scale_class=large 的官方大群固定使用 0（无产品
-# 人数上限）并采用冷成员、分页列表和 Push Topic 扇出，不受此值限制。
 max_subscriber_count: 10000
 max_tag_count: 32
-permanent_accounts: false
 p2p_delete_enabled: true
-msg_delete_age: 0
 alias_tag: alias
 
-# 聊天节点只消费独立 im-admin 写入共享数据库的翻译策略。
-translation:
-  enabled: false
-  refresh_interval: 5
-
-# 商城是客户归属和角色权限的唯一事实源。生产环境必须启用并通过内网访问。
+# 商城是客户归属、私聊和通话权限的事实源。
 business_policy:
-  # 部署生成器写入 endpoint 与 bearer_token 后必须改为 true。
-  enabled: false
+  enabled: true
   endpoint: http://server-user.internal:9889/v1/internal/im/policy/evaluate
   bearer_token: ""
-  timeout_ms: 1500
-  cache_ttl_seconds: 30
-  deny_ttl_seconds: 5
-  cache_max_entries: 200000
   audit_endpoint: http://server-user.internal:9889/v1/internal/im/audit/events
-  audit_poll_seconds: 2
 
-# 生产集群使用共享对象存储，不能把唯一媒体文件留在节点本地。
+# 集群必须使用共享对象存储，不能使用节点本地 fs。
 media:
   use_handler: s3
   max_size: 33554432
   gc_period: 60
   gc_block_size: 100
-  # 各节点都可运行处理 worker；ClamAV、FFmpeg 与 LibreOffice 必须在容器内可用。
-  processing:
-    enabled: true
-    workers: 2
-    queue_size: 256
-    timeout: 120
-    poll_interval: 2
-    max_attempts: 5
-    retry_base: 5
-    lease_seconds: 180
-    clamav_addr: "clamav:3310"
-    ffmpeg: /usr/bin/ffmpeg
-    libreoffice: /usr/bin/libreoffice
   handlers:
     s3:
       access_key_id: ""
       secret_access_key: ""
-      region: ""
+      region: auto
       bucket: ""
       endpoint: ""
-      disable_ssl: false
-      force_path_style: false
-      presign_ttl: 3600
       direct_upload: true
+      presign_ttl: 3600
+      # R2 Custom Domain 是公开配置；密钥仍由 Secret 注入。
+      cdn_base_url: "https://matesave.com"
       cache_control: max-age=86400
-      cors_origins: []
-      # 可选：下载通过服务端 ACL 后重定向到 CDN；边缘按 path + "\n" + expires 校验 HMAC-SHA256。
-      cdn_base_url: ""
-      cdn_key_id: ""
-      cdn_hmac_secret: ""
-      cdn_ttl: 3600
-
-# 客户端 TLS 建议在生产网关终止；集群内部 TLS 在 cluster_config.tls 配置。
-tls:
-  enabled: false
+      # 替换为真实的 Web HTTPS 域名，否则浏览器直传会被 CORS 拒绝。
+      cors_origins:
+        - https://chat.example.com
 
 auth_config:
-  logical_names: []
   basic:
     add_to_tags: true
     min_login_length: 3
@@ -114,10 +65,9 @@ auth_config:
     serial_num: 1
     key: ""
 
-# 首批生产认证数据库使用 PostgreSQL；Schema 升级必须由独立作业执行。
+# 生产集群默认使用 PostgreSQL。MySQL 和 MongoDB 配置见各自部署模板。
 store_config:
   uid_key: ""
-  max_results: 1024
   use_adapter: postgres
   adapters:
     postgres:
@@ -134,28 +84,18 @@ acc_gc_config:
   gc_block_size: 100
   gc_min_account_age: 30
 
-# 推送服务按实际生产 Provider 增补，默认不启用示例实现。
-push_alerts:
-  enabled: false
-  webhook_url: https://alerts.example.com/hooks/server-chat
-  bearer_token: ""
-  timeout_seconds: 5
-  max_attempts: 5
-  min_interval_seconds: 30
-push: []
+# Firebase Admin 凭据以 Secret 文件挂载，不再使用 push 列表。
+firebase:
+  enabled: true
+  credential_file: "/etc/im/firebase-adminsdk.json"
+  time_to_live: 3600
 
-webrtc:
-  enabled: false
-  require_turn: true
-  call_establishment_timeout: 30
-  ice_servers_file: ""
-  agora:
-    enabled: false
-    app_id: ""
-    app_certificate: ""
-    token_ttl: 3600
-    channel_prefix: im
-    max_participants: 128
+# 一对一和群组语音/视频全部使用 Agora，不配置 STUN/TURN。
+calls:
+  enabled: true
+  # 由 Secret 填入 Agora Console 中的 32 位 App ID 和 App Certificate。
+  app_id: ""
+  app_certificate: ""
 
 cluster_config:
   cluster_id: im-production
@@ -164,7 +104,8 @@ cluster_config:
     - im-0
     - im-1
     - im-2
-  # 每个节点的配置文件必须填写自己的名称和广播地址。
+
+  # 每个节点的最终 YAML 必须填写自己的 self 和与 nodes 一致的地址。
   self: ""
   advertise_addr: ""
   nodes:
@@ -174,10 +115,8 @@ cluster_config:
       addr: im-1.im.internal:12000
     - name: im-2
       addr: im-2.im.internal:12000
-    - name: im-3
-      addr: im-3.im.internal:12000
-    - name: im-4
-      addr: im-4.im.internal:12000
+
+  # etcd 负责节点租约和集群拓扑。
   control_plane:
     provider: etcd
     endpoints:
@@ -185,31 +124,18 @@ cluster_config:
       - https://etcd-1.etcd.internal:2379
       - https://etcd-2.etcd.internal:2379
     namespace: /im/production
-    lease_ttl: 10s
-    dial_timeout: 5s
-    username: ""
-    password: ""
     tls:
       ca_file: /etc/im/tls/etcd/ca.pem
       cert_file: /etc/im/tls/etcd/client.pem
       key_file: /etc/im/tls/etcd/client-key.pem
       server_name: etcd
+
+  # 只显式填写节点监听地址，队列、Lane、重试和去重窗口使用代码默认值。
   transport:
     listen: 0.0.0.0:12000
-    lane_count: 8
-    reliable_queue_capacity: 4096
-    pipeline_window: 32
-    ephemeral_queue_capacity: 1024
-    dial_timeout: 3s
-    request_timeout: 5s
-    max_retries: 2
-    retry_backoff: 100ms
-    dedupe_capacity: 65536
-    dedupe_ttl: 2m
+
+  # 节点间强制双向 TLS，每个节点的证书和私钥路径不同。
   tls:
     ca_file: /etc/im/tls/cluster/ca.pem
-    # 每个节点的配置文件必须填写自己的证书和私钥文件。
     cert_file: ""
     key_file: ""
-
-plugins: []

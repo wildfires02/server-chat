@@ -243,7 +243,21 @@ func (s *Session) dispatch(msg *ClientComMessage) {
 
 // subscribe 处理订阅 Topic 请求。
 func (s *Session) subscribe(msg *ClientComMessage) {
-	if strings.HasPrefix(msg.Original, "new") || strings.HasPrefix(msg.Original, "nch") {
+	isTopicCreation := strings.HasPrefix(msg.Original, "new") || strings.HasPrefix(msg.Original, "nch")
+	if isTopicCreation && s.authLvl != auth.LevelRoot {
+		allowed, err := canCreateManagedTopic(s.uid)
+		if err != nil {
+			logs.Err.Printf("s.subscribe: unable to verify topic creation permission for %s: %v", s.uid.UserId(), err)
+			s.queueOut(ErrServiceUnavailableReply(msg, types.TimeNow()))
+			return
+		}
+		if !allowed {
+			s.queueOut(ErrPermissionDeniedReply(msg, types.TimeNow()))
+			return
+		}
+	}
+
+	if isTopicCreation {
 		// 请求创建新的群组/频道 Topic。集群模式下确保新 Topic 属于当前节点。
 		msg.RcptTo = globals.cluster.genLocalTopicName()
 	} else {

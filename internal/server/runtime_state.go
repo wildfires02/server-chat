@@ -18,8 +18,6 @@ import (
 	_ "chat/server/media/fs"
 	_ "chat/server/media/s3"
 	_ "chat/server/push/fcm"
-	_ "chat/server/push/stdout"
-	_ "chat/server/push/tnpg"
 	"chat/server/store/types"
 	_ "chat/server/validate/email"
 	_ "chat/server/validate/tel"
@@ -113,10 +111,7 @@ var globals struct {
 	// 通话未接听前超时时间
 	callEstablishmentTimeout int
 
-	// ICE 服务器配置（视频通话）
-	iceServers []iceServer
-
-	// Agora 群组语音和视频通话服务端配置；nil 表示未启用。
+	// Agora 语音和视频通话服务端配置；nil 表示未启用。
 	agora *agoraProvider
 
 	// 是否启用 WebSocket 每消息压缩协商

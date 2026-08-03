@@ -50,9 +50,6 @@ media:
       cors_origins:
         - http://127.0.0.1:${IM0_HTTP_PORT}
 
-tls:
-  enabled: false
-
 auth_config:
   logical_names: []
   basic:
@@ -88,19 +85,15 @@ acc_gc_config:
   gc_block_size: 10
   gc_min_account_age: 30
 
-push: []
-
-webrtc:
+firebase:
   enabled: false
-  call_establishment_timeout: 30
-  ice_servers_file: ""
-  agora:
-    enabled: false
-    app_id: ""
-    app_certificate: ""
-    token_ttl: 3600
-    channel_prefix: im
-    max_participants: 128
+  credential_file: "./firebase-adminsdk.json"
+  time_to_live: 3600
+
+calls:
+  enabled: false
+  app_id: ""
+  app_certificate: ""
 
 cluster_config:
   cluster_id: im-process-certification

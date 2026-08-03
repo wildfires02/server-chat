@@ -51,12 +51,12 @@ func (t *Topic) replyGetDesc(sess *Session, asUid types.Uid, _ bool, opts *MsgGe
 			p2pOther := t.p2pOtherUser(asUid)
 			if suser, err := store.Users.Get(p2pOther); err == nil && suser != nil {
 				desc.Public = suser.Public
-				desc.Trusted = suser.Trusted
+				desc.Trusted = externalIdentityClientTrusted(suser.Trusted)
 				pud.public = suser.Public
-				pud.trusted = suser.Trusted
+				pud.trusted = externalIdentityClientTrusted(suser.Trusted)
 			} else {
 				desc.Public = pud.public
-				desc.Trusted = pud.trusted
+				desc.Trusted = externalIdentityClientTrusted(pud.trusted)
 			}
 		}
 	}

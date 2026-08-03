@@ -4,6 +4,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -61,6 +62,9 @@ func validateDeploymentConfig(config *configType, clusterSelfOverride, pprofURL 
 	}
 	config.Runtime.Environment = environment
 	config.Runtime.DeploymentMode = mode
+	if err := validateClientOrigins(config.ClientOrigins, environment); err != nil {
+		return err
+	}
 	if config.Translation != nil && config.Translation.Enabled &&
 		(config.Translation.RefreshInterval < 1 || config.Translation.RefreshInterval > 300) {
 		return fmt.Errorf("translation.refresh_interval 必须在 1..300 秒之间")
@@ -105,6 +109,26 @@ func validateDeploymentConfig(config *configType, clusterSelfOverride, pprofURL 
 	}
 	if environment == environmentProduction && strings.TrimSpace(pprofURL) != "" {
 		return fmt.Errorf("production 环境禁止通过 pprof_url 暴露性能分析接口")
+	}
+	return nil
+}
+
+func validateClientOrigins(origins []string, environment string) error {
+	for index, rawOrigin := range origins {
+		origin := strings.TrimRight(strings.TrimSpace(rawOrigin), "/")
+		if origin == "" || origin == "*" {
+			return fmt.Errorf("client_origins[%d] 必须是明确的浏览器来源，不能使用通配符", index)
+		}
+		parsed, err := url.Parse(origin)
+		if err != nil || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" ||
+			parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
+			return fmt.Errorf("client_origins[%d] 不是有效的浏览器来源", index)
+		}
+		if parsed.Scheme != "https" &&
+			!((environment == environmentDevelopment || environment == environmentTest) &&
+				parsed.Scheme == "http") {
+			return fmt.Errorf("client_origins[%d] 必须使用 HTTPS", index)
+		}
 	}
 	return nil
 }

@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  *  描述 :
- *    Agora 群组通话配置、凭证签发和参与者生命周期。
+ *    Agora 音视频通话凭证签发和参与者生命周期。
  *
  *****************************************************************************/
 package server
@@ -33,8 +33,6 @@ const (
 
 // agoraConfig 保存 Agora RTC 服务端接入参数。
 type agoraConfig struct {
-	// Enabled 控制群组 Topic 是否允许创建 Agora 通话。
-	Enabled bool `json:"enabled"`
 	// AppID 是 Agora Console 分配的公开项目标识。
 	AppID string `json:"app_id"`
 	// AppCertificate 是仅可保存在服务端的 Token 签名证书。
@@ -43,7 +41,7 @@ type agoraConfig struct {
 	TokenTTL int `json:"token_ttl"`
 	// ChannelPrefix 是服务端生成频道名时使用的前缀。
 	ChannelPrefix string `json:"channel_prefix"`
-	// MaxParticipants 是单次群组通话的最大在线 Session 数。
+	// MaxParticipants 是单次通话的最大在线 Session 数。
 	MaxParticipants int `json:"max_participants"`
 }
 
@@ -61,7 +59,7 @@ type agoraProvider struct {
 	maxParticipants int
 }
 
-// agoraCallData 保存一次群组通话的频道级状态。
+// agoraCallData 保存一次通话的频道级状态。
 type agoraCallData struct {
 	// channel 是本次通话独占的 Agora RTC 频道。
 	channel string
@@ -102,29 +100,29 @@ func newAgoraProvider(config agoraConfig) (*agoraProvider, error) {
 	appID := strings.TrimSpace(config.AppID)
 	appCertificate := strings.TrimSpace(config.AppCertificate)
 	if !isAgoraHexIdentifier(appID) {
-		return nil, errors.New("Agora app_id 必须是 32 位十六进制字符串")
+		return nil, errors.New("Agora app_id must be a 32-character hexadecimal string")
 	}
 	if !isAgoraHexIdentifier(appCertificate) {
-		return nil, errors.New("Agora app_certificate 必须是 32 位十六进制字符串")
+		return nil, errors.New("Agora app_certificate must be a 32-character hexadecimal string")
 	}
 
 	if config.TokenTTL == 0 {
 		config.TokenTTL = 3600
 	}
 	if config.TokenTTL < 60 || config.TokenTTL > 24*60*60 {
-		return nil, errors.New("Agora token_ttl 必须在 60 到 86400 秒之间")
+		return nil, errors.New("Agora token_ttl must be between 60 and 86400 seconds")
 	}
 	if config.ChannelPrefix == "" {
 		config.ChannelPrefix = "im"
 	}
 	if len(config.ChannelPrefix) > 24 || !isSafeAgoraChannelPrefix(config.ChannelPrefix) {
-		return nil, errors.New("Agora channel_prefix 只能包含字母、数字、横线和下划线，且最长 24 字节")
+		return nil, errors.New("Agora channel_prefix must contain only letters, digits, hyphens, or underscores and be at most 24 bytes")
 	}
 	if config.MaxParticipants == 0 {
 		config.MaxParticipants = 128
 	}
 	if config.MaxParticipants < 2 || config.MaxParticipants > 10_000 {
-		return nil, errors.New("Agora max_participants 必须在 2 到 10000 之间")
+		return nil, errors.New("Agora max_participants must be between 2 and 10000")
 	}
 
 	return &agoraProvider{
@@ -190,7 +188,7 @@ func (provider *agoraProvider) credentials(
 	role agoraParticipantRole,
 ) (*agoraCallCredentials, error) {
 	if call.agora == nil || call.agora.channel == "" {
-		return nil, errors.New("Agora 通话缺少频道状态")
+		return nil, errors.New("Agora call is missing channel state")
 	}
 
 	channel := call.agora.channel
@@ -224,7 +222,7 @@ func (provider *agoraProvider) credentials(
 	}, nil
 }
 
-// handleAgoraCallEvent 处理群组通话的加入、离开、续期和结束。
+// handleAgoraCallEvent 处理 Agora 通话的加入、离开、续期和结束。
 func (t *Topic) handleAgoraCallEvent(msg *ClientComMessage, asUid types.Uid) {
 	userData := t.perUser[asUid]
 	mode := userData.modeGiven & userData.modeWant
@@ -247,7 +245,7 @@ func (t *Topic) handleAgoraCallEvent(msg *ClientComMessage, asUid types.Uid) {
 		t.leaveAgoraCall(msg, asUid)
 	case constCallEventHangUp:
 		if t.cat == types.TopicCatP2P {
-			if t.canHangUpWebRTCCall(msg, asUid) {
+			if t.canHangUpP2PCall(msg, asUid) {
 				t.maybeEndCallInProgress(msg.AsUser, msg, false)
 			}
 			return
@@ -262,21 +260,76 @@ func (t *Topic) handleAgoraCallEvent(msg *ClientComMessage, asUid types.Uid) {
 		t.maybeEndCallInProgress(msg.AsUser, msg, false)
 	case constCallEventRinging, constCallEventAccept:
 		if t.cat == types.TopicCatP2P {
-			t.handleWebRTCCallAnswer(msg, asUid)
+			t.handleP2PCallAnswer(msg, asUid)
 			return
 		}
-		fallthrough
-	case constCallEventOffer, constCallEventAnswer, constCallEventIceCandidate:
-		// Agora RTC 不通过业务 WebSocket 交换 SDP 或 ICE。
 		if msg.Id != "" {
 			msg.sess.queueOut(ErrOperationNotAllowedReply(msg, types.TimeNow()))
 		}
 	default:
-		logs.Warn.Printf("topic[%s]: Agora 群组通话 seq %d 收到未知事件 %q",
+		logs.Warn.Printf("topic[%s]: Agora call seq %d received unknown event %q",
 			t.name, t.currentCall.seq, msg.Note.Event)
 		if msg.Id != "" {
 			msg.sess.queueOut(ErrMalformedReply(msg, types.TimeNow()))
 		}
+	}
+}
+
+// handleP2PCallAnswer 处理点对点 Agora 通话的振铃和接听状态。
+func (t *Topic) handleP2PCallAnswer(msg *ClientComMessage, asUid types.Uid) {
+	if len(t.currentCall.parties) != 1 {
+		return
+	}
+
+	originatorUID, originator := t.getCallOriginator()
+	if originator == nil {
+		t.terminateCallInProgress(false)
+		return
+	}
+	if originator.sid == msg.sess.sid || originatorUID == asUid {
+		return
+	}
+
+	forward := t.currentCall.infoMessage(msg.Note.Event)
+	forward.Info.From = msg.AsUser
+	forward.Info.Topic = t.original(originatorUID)
+	if msg.Note.Event == constCallEventAccept {
+		if err := t.persistCallState(msg, constCallMsgAccepted, 0); err != nil {
+			return
+		}
+		t.currentCall.parties[msg.sess.sid] = callPartyData{
+			uid:  asUid,
+			sess: callPartySession(msg.sess),
+		}
+		t.currentCall.acceptedAt = time.Now()
+		t.infoCallSubsOffline(
+			msg.AsUser,
+			asUid,
+			msg.Note.Event,
+			t.currentCall.seq,
+			msg.Note.Payload,
+			msg.sess.sid,
+			false,
+		)
+		t.callEstablishmentTimer.Stop()
+	}
+	originator.queueOut(forward)
+}
+
+// canHangUpP2PCall 校验点对点通话挂断请求是否来自合法参与者。
+func (t *Topic) canHangUpP2PCall(msg *ClientComMessage, asUid types.Uid) bool {
+	switch len(t.currentCall.parties) {
+	case 2:
+		_, found := t.currentCall.parties[msg.sess.sid]
+		return found
+	case 1:
+		originatorUID, originator := t.getCallOriginator()
+		if originator == nil {
+			return false
+		}
+		return asUid != originatorUID || originator.sid == msg.sess.sid
+	default:
+		return true
 	}
 }
 
@@ -317,7 +370,7 @@ func (t *Topic) issueAgoraCallCredentials(
 		role,
 	)
 	if err != nil {
-		logs.Err.Printf("topic[%s]: 签发 Agora Token 失败: %v", t.name, err)
+		logs.Err.Printf("topic[%s]: failed to issue Agora token: %v", t.name, err)
 		if msg.Id != "" {
 			msg.sess.queueOut(ErrServiceUnavailableReply(msg, types.TimeNow()))
 		}
@@ -325,7 +378,7 @@ func (t *Topic) issueAgoraCallCredentials(
 	}
 	payload, err := json.Marshal(credentials)
 	if err != nil {
-		logs.Err.Printf("topic[%s]: 序列化 Agora 加入凭证失败: %v", t.name, err)
+		logs.Err.Printf("topic[%s]: failed to encode Agora join credentials: %v", t.name, err)
 		if msg.Id != "" {
 			msg.sess.queueOut(ErrServiceUnavailableReply(msg, types.TimeNow()))
 		}
@@ -417,7 +470,7 @@ func (t *Topic) removeAgoraParty(sessionID string, fromDisconnect bool) {
 	t.broadcastToSessions(notification)
 
 	if fromDisconnect {
-		logs.Info.Printf("topic[%s]: Agora 参与者 %s 因 Session 断开离开通话",
+		logs.Info.Printf("topic[%s]: Agora participant %s left after the session disconnected",
 			t.name, party.uid.UserId())
 	}
 }

@@ -123,7 +123,7 @@ func searchPeerToProtocol(sub *types.Subscription) MsgTopicSub {
 		Topic:     sub.Topic,
 		UpdatedAt: &sub.UpdatedAt,
 		Public:    sub.GetPublic(),
-		Trusted:   sub.GetTrusted(),
+		Trusted:   externalIdentityClientTrusted(sub.GetTrusted()),
 		Private:   sub.Private,
 		SubCnt:    sub.GetSubCnt(),
 	}

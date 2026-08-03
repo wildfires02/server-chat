@@ -97,6 +97,8 @@ func registerServerHTTPRoutes(
 		registerGinSubtree(router, config.ApiPath+"v0/file/direct/", directFileHTTP)
 		logs.Info.Println("Large media handling enabled", config.Media.UseHandler)
 	}
+	registerInternalWorkspaceHTTPRoutes(
+		mux, config.ApiPath, config.ClientOrigins, globals.adminControl)
 	if staticMountPoint != "/" {
 		router.NoRoute(gin.WrapF(serve404))
 	}

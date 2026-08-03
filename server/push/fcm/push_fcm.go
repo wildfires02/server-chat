@@ -91,7 +91,8 @@ func (Handler) Init(jsonconf json.RawMessage) (bool, error) {
 		return false, nil
 	}
 
-	if config.Credentials == nil && config.CredentialsFile != "" {
+	// 显式配置文件优先，避免示例或历史内联占位值遮蔽真实服务账号文件。
+	if config.CredentialsFile != "" {
 		config.Credentials, err = os.ReadFile(config.CredentialsFile)
 		if err != nil {
 			return false, err

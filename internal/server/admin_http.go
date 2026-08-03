@@ -99,11 +99,9 @@ func registerAdminHTTPRoutes(mux *http.ServeMux, apiPath string, config configTy
 	if err != nil {
 		logs.Err.Fatalf("Failed to initialize admin control plane: %v", err)
 	}
-	globals.adminControl = control
-	basePath := apiPath + "v0/"
+	basePath := apiPath + "internal/"
 	handler := newAdminHTTPHandler(basePath, *config.Admin, config, control)
 	mux.Handle(basePath, handler)
-	registerInternalWorkspaceHTTPRoutes(mux, apiPath, *config.Admin, control)
 	logs.Info.Printf("Admin API served from '%s'", basePath)
 }
 
@@ -259,7 +257,7 @@ func (handler *adminHTTPHandler) quarantinedFileMutation(wrt http.ResponseWriter
 }
 
 func (handler *adminHTTPHandler) pushOutbox(wrt http.ResponseWriter, requestID string) {
-	providers := []string{"fcm", "tnpg"}
+	providers := []string{"fcm"}
 	result := make([]push.DurableOutboxStats, 0, len(providers))
 	for _, provider := range providers {
 		stats, err := push.GetDurableOutboxStats(provider)
@@ -279,7 +277,7 @@ func (handler *adminHTTPHandler) pushDeadLetters(wrt http.ResponseWriter,
 	if limit <= 0 {
 		limit = 100
 	}
-	providers := []string{"fcm", "tnpg"}
+	providers := []string{"fcm"}
 	if provider := strings.TrimSpace(req.URL.Query().Get("provider")); provider != "" {
 		providers = []string{provider}
 	}

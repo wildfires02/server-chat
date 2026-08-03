@@ -1,6 +1,9 @@
 package server
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestBusinessPolicyAction(t *testing.T) {
 	tests := []struct {
@@ -31,5 +34,22 @@ func TestAuditPlainText(t *testing.T) {
 	}
 	if _, ok := auditPlainText(map[string]any{"mime": "image/jpeg"}, "ignored"); ok {
 		t.Fatal("媒体正文不应进入文字审计")
+	}
+}
+
+func TestBusinessAuditOutboxKeyFitsPersistentCache(t *testing.T) {
+	eventID := strings.Repeat("a", 64)
+	key := businessAuditOutboxKey(eventID)
+	if len(key) > 64 {
+		t.Fatalf("审计 outbox 键长度 = %d，超过 kvmeta.key 的 64 字节限制", len(key))
+	}
+	if !strings.HasPrefix(key, businessAuditOutboxPrefix) {
+		t.Fatalf("审计 outbox 键缺少前缀：%q", key)
+	}
+	if key != businessAuditOutboxKey(eventID) {
+		t.Fatal("同一个事件 ID 必须生成稳定的 outbox 键")
+	}
+	if key == businessAuditOutboxKey(strings.Repeat("b", 64)) {
+		t.Fatal("不同事件 ID 不应生成相同的 outbox 键")
 	}
 }

@@ -78,9 +78,8 @@ Topic 内存状态只能由 Topic 主循环修改。后台任务和连接处理�
 ### 2.4 音视频通话
 
 - `calls.go`：公共状态、生命周期和提供方分发。
-- `calls_config.go`：ICE 与 Agora 配置。
-- `calls_webrtc.go`：WebRTC P2P 信令。
-- `calls_agora.go`：Agora 群组通话、ACL 角色和 Token。
+- `calls_config.go`：统一的 Agora 配置。
+- `calls_agora.go`：Agora 一对一/群组通话、ACL 角色和 Token。
 - `server/agora/`：独立的 AccessToken2 编码与签名。
 
 新增媒体提供方时，应增加提供方专属状态和处理文件，不把 SDK 字段继续加入公共参与者结构。

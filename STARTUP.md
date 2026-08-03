@@ -84,7 +84,7 @@ curl --fail http://127.0.0.1:6060/readyz
 curl --fail http://127.0.0.1:6060/debug/vars
 curl --fail \
   -H 'Authorization: Bearer dev-only-change-this-admin-token' \
-  http://127.0.0.1:6061/v0/health
+  http://127.0.0.1:6061/internal/health
 ```
 
 使用示例账号通过 gRPC 登录：

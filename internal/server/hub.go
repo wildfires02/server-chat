@@ -761,7 +761,7 @@ func replyOfflineTopicGetDesc(sess *Session, msg *ClientComMessage) {
 		desc.CreatedAt = &suser.CreatedAt
 		desc.UpdatedAt = &suser.UpdatedAt
 		desc.Public = suser.Public
-		desc.Trusted = suser.Trusted
+		desc.Trusted = externalIdentityClientTrusted(suser.Trusted)
 		if sess.authLvl == auth.LevelRoot {
 			desc.State = suser.State.String()
 		}

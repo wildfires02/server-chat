@@ -53,15 +53,16 @@ func Run() {
 	defer startServerProfiler(curwd, config.PprofFile)()
 	defer openServerStore(workerID, config.Store)()
 	defer startServerHealth(mux, config.Health)()
+	initializeServerControlPlane()
 
 	initServerAuthAndTags(&config)
 	applyServerRuntimeConfig(config)
 
 	defer startServerMedia(&config)()
 	defer startAccountGarbageCollector(config.AccountGC)()
-	defer startServerPush(config.Push, config.PushAlerts)()
+	defer startServerPush(config.Firebase, config.PushAlerts)()
 
-	if err := initVideoCalls(config.WebRTC); err != nil {
+	if err := initVideoCalls(config.Calls); err != nil {
 		logs.Err.Fatalf("Failed to init video calls: %v", err)
 	}
 	defer startCoreRuntime()()

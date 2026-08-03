@@ -328,19 +328,12 @@ func (t *Topic) handlePubBroadcast(msg *ClientComMessage) {
 			msg.sess.queueOut(ErrPermissionDeniedReply(msg, types.TimeNow()))
 			return
 		}
-		switch t.cat {
-		case types.TopicCatP2P:
-			if len(globals.iceServers) == 0 {
-				msg.sess.queueOut(ErrNotImplementedReply(msg, types.TimeNow()))
-				return
-			}
-		case types.TopicCatGrp:
-			if globals.agora == nil {
-				msg.sess.queueOut(ErrNotImplementedReply(msg, types.TimeNow()))
-				return
-			}
-		default:
+		if t.cat != types.TopicCatP2P && t.cat != types.TopicCatGrp {
 			msg.sess.queueOut(ErrPermissionDeniedReply(msg, types.TimeNow()))
+			return
+		}
+		if globals.agora == nil {
+			msg.sess.queueOut(ErrNotImplementedReply(msg, types.TimeNow()))
 			return
 		}
 		if t.currentCall != nil {
@@ -377,12 +370,8 @@ func (t *Topic) handlePubBroadcast(msg *ClientComMessage) {
 		if head == nil {
 			head = make(map[string]any)
 		}
-		if globals.agora != nil {
-			// 服务端统一决定 Agora 通话提供方，忽略客户端伪造的 provider。
-			head["call-provider"] = constCallProviderAgora
-		} else {
-			head["call-provider"] = constCallProviderWebRTC
-		}
+		// 服务端统一决定 Agora 通话提供方，忽略客户端伪造的 provider。
+		head["call-provider"] = constCallProviderAgora
 		content = msg.Pub.Content
 		if msg.Extra != nil {
 			attachments = msg.Extra.Attachments

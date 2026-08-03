@@ -204,13 +204,13 @@ func ensureBusinessP2P(actor, target types.Uid) error {
 		ModeWant: actorGranted, ModeGiven: targetGranted,
 	}
 	actorSub.SetPublic(targetUser.Public)
-	actorSub.SetTrusted(targetUser.Trusted)
+	actorSub.SetTrusted(externalIdentityClientTrusted(targetUser.Trusted))
 	targetSub := &types.Subscription{
 		User: target.String(), Topic: topic,
 		ModeWant: targetGranted, ModeGiven: actorGranted,
 	}
 	targetSub.SetPublic(actorUser.Public)
-	targetSub.SetTrusted(actorUser.Trusted)
+	targetSub.SetTrusted(externalIdentityClientTrusted(actorUser.Trusted))
 	if err = store.Topics.CreateP2P(actorSub, targetSub); err == nil {
 		return nil
 	}
@@ -254,7 +254,7 @@ func ensureBusinessP2PSubscriptions(topic string, actor, target types.Uid) error
 				ModeGiven: peer.Access.Auth&globals.typesModeCP2P | types.ModeApprove,
 			}
 			created.SetPublic(peer.Public)
-			created.SetTrusted(peer.Trusted)
+			created.SetTrusted(externalIdentityClientTrusted(peer.Trusted))
 			if createErr := store.Subs.Create(created); createErr != nil {
 				// 跨节点同时恢复订阅时，重新读取确认另一节点已经完成。
 				latest, lookupErr := store.Subs.Get(topic, uid, false)

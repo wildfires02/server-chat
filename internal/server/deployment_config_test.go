@@ -349,6 +349,33 @@ func TestValidateTranslationRefreshInterval(t *testing.T) {
 	}
 }
 
+func TestValidateClientOrigins(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		environment string
+		origins     []string
+		wantError   bool
+	}{
+		{name: "开发环境允许 HTTP", environment: environmentDevelopment,
+			origins: []string{"http://localhost:3000"}},
+		{name: "生产环境允许 HTTPS", environment: environmentProduction,
+			origins: []string{"https://chat.example.com"}},
+		{name: "拒绝通配符", environment: environmentDevelopment,
+			origins: []string{"*"}, wantError: true},
+		{name: "生产环境拒绝 HTTP", environment: environmentProduction,
+			origins: []string{"http://chat.example.com"}, wantError: true},
+		{name: "拒绝带路径的来源", environment: environmentDevelopment,
+			origins: []string{"http://localhost:3000/chat"}, wantError: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := validateClientOrigins(test.origins, test.environment)
+			if (err != nil) != test.wantError {
+				t.Fatalf("validateClientOrigins() error=%v, wantError=%v", err, test.wantError)
+			}
+		})
+	}
+}
+
 // validClusterStoreConfig 返回支持数据库原子 fencing 的最小 PostgreSQL 配置。
 func validClusterStoreConfig() json.RawMessage {
 	return json.RawMessage(`{"use_adapter":"postgres","adapters":{"postgres":{}}}`)

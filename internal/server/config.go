@@ -44,6 +44,13 @@ type mediaConfig struct {
 	Processing *mediaProcessingConfig `json:"processing,omitempty"`
 }
 
+// firebaseConfig 与 Groupbuying server 使用相同的 Firebase Admin 文件配置结构。
+type firebaseConfig struct {
+	Enabled        bool   `json:"enabled"`
+	CredentialFile string `json:"credential_file"`
+	TimeToLive     int    `json:"time_to_live"`
+}
+
 type mediaProcessingConfig struct {
 	Enabled      bool   `json:"enabled"`
 	Workers      int    `json:"workers"`
@@ -90,6 +97,9 @@ type configType struct {
 	ExtUrl string `json:"ext_url"`
 	// 流式和大文件 API 调用的基础 URL 路径，默认为 '/'
 	ApiPath string `json:"api_path"`
+	// ClientOrigins 是允许调用 im-server 浏览器 HTTP API 的前端来源。
+	// 同源请求不需要配置；跨域部署时填写完整来源，不得包含路径。
+	ClientOrigins []string `json:"client_origins"`
 	// 静态内容的 Cache-Control 值
 	CacheControl int `json:"cache_control"`
 	// 如果为 true，不尝试协商 WebSocket 每消息压缩（RFC 7692.4）
@@ -155,8 +165,8 @@ type configType struct {
 	Plugin json.RawMessage `json:"plugins"`
 	// Store 保存存储。
 	Store json.RawMessage `json:"store_config"`
-	// Push 保存Push。
-	Push json.RawMessage `json:"push"`
+	// Firebase 保存 Firebase Admin 服务账号文件路径。
+	Firebase firebaseConfig `json:"firebase"`
 	// PushAlerts 把持久死信以通用 Webhook 推送到外部告警平台。
 	PushAlerts *push.DLQAlertConfig `json:"push_alerts,omitempty"`
 	// TLS 保存TLS。
@@ -169,9 +179,9 @@ type configType struct {
 	AccountGC *accountGcConfig `json:"acc_gc_config"`
 	// Media 保存媒体。
 	Media *mediaConfig `json:"media"`
-	// WebRTC 保存WebRTC。
-	WebRTC json.RawMessage `json:"webrtc"`
-	//管理员仅由独立的im-admin入口点消耗。
+	// Calls 保存 Agora 音视频通话配置。
+	Calls callConfig `json:"calls"`
+	// Admin 仅由独立的 im-admin 入口点读取。
 	Admin *adminAPIConfig `json:"admin,omitempty"`
 	//翻译启用了im-admin翻译设置的聊天端消费者。
 	Translation *translationConsumerConfig `json:"translation,omitempty"`

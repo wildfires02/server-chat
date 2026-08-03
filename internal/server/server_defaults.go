@@ -15,8 +15,6 @@ import (
 	_ "chat/server/media/fs"
 	_ "chat/server/media/s3"
 	_ "chat/server/push/fcm"
-	_ "chat/server/push/stdout"
-	_ "chat/server/push/tnpg"
 	_ "chat/server/validate/email"
 	_ "chat/server/validate/tel"
 )

@@ -91,7 +91,7 @@ func StartDLQAlerts(config *DLQAlertConfig) (func(), error) {
 	dlqAlerts.runtime = runtime
 	dlqAlerts.Unlock()
 	go runtime.run()
-	for _, provider := range []string{"fcm", "tnpg"} {
+	for _, provider := range []string{"fcm"} {
 		if stats, statsErr := GetDurableOutboxStats(provider); statsErr == nil && stats.DLQ > 0 {
 			runtime.enqueue(dlqAlertEvent{
 				Event: "push_dlq_startup", Severity: stats.Alert, Provider: provider,

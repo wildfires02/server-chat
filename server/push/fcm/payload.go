@@ -146,7 +146,7 @@ func PrepareV1NotificationsWithError(rcpt *push.Receipt,
 	}
 
 	if config == nil {
-		// config 在从 tnpg 适配器调用时为 nil；提供一个空白配置以简化处理。
+		// 测试或内部调用未传入平台配置时使用默认值。
 		config = &configType{}
 	}
 

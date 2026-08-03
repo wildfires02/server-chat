@@ -46,3 +46,6 @@ chatbot/chatbot.exe
 assets/
 
 uploads
+
+# 本地 Firebase Admin 私钥不得提交到仓库。
+/firebase-adminsdk.json

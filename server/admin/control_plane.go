@@ -262,6 +262,40 @@ func (control *ControlPlane) Snapshot() Snapshot {
 	return snapshotOf(control.document)
 }
 
+// Refresh 从共享存储重新加载较新的控制面文档。
+// im-server 使用该方法消费由独立 im-admin 写入的权限策略。
+func (control *ControlPlane) Refresh() error {
+	document, err := control.repo.Load()
+	if err != nil {
+		return err
+	}
+	if document == nil {
+		return ErrNotFound
+	}
+	if err = normalizeDocument(document); err != nil {
+		return err
+	}
+
+	control.mu.RLock()
+	currentVersion := control.document.Version
+	control.mu.RUnlock()
+	if document.Version <= currentVersion {
+		return nil
+	}
+
+	enforcer, err := buildEnforcer(document)
+	if err != nil {
+		return err
+	}
+	control.mu.Lock()
+	defer control.mu.Unlock()
+	if document.Version > control.document.Version {
+		control.document = document
+		control.enforcer = enforcer
+	}
+	return nil
+}
+
 func snapshotOf(document *Document) Snapshot {
 	return Snapshot{
 		Version: document.Version, Permissions: PermissionCatalog(),

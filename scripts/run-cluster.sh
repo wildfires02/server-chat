@@ -10,13 +10,16 @@ REPO_ROOT="$(im_repo_root "${SCRIPT_DIR}")"
 
 SERVER="${IM_SERVER_BIN:-${REPO_ROOT}/bin/im-server}"
 CONFIG_FILE="${IM_CLUSTER_DEV_CONFIG:-${REPO_ROOT}/configs/im.cluster-dev.yaml}"
-STATIC_DIR="${IM_STATIC_DIR:-${REPO_ROOT}/web/static}"
 RUN_DIR="${REPO_ROOT}/.local/run/cluster"
 LOG_DIR="${REPO_ROOT}/.local/logs/cluster"
 NODE_NAMES=(one two three)
 HTTP_BASE_PORT=6060
-CLIENT_GRPC_BASE_PORT=16060
 CLUSTER_BASE_PORT=12000
+ETCD_ENDPOINTS=(
+  http://127.0.0.1:2379
+  http://127.0.0.1:22379
+  http://127.0.0.1:32379
+)
 
 usage() {
   echo "用法：$0 {start|stop|status}"
@@ -52,8 +55,11 @@ start_cluster() {
   im_require_command curl
   [[ -x "${SERVER}" ]] || im_die "服务端二进制不存在或不可执行：${SERVER}"
   [[ -r "${CONFIG_FILE}" ]] || im_die "配置文件不可读：${CONFIG_FILE}"
-  curl -fsS http://127.0.0.1:2379/health >/dev/null ||
-    im_die "本机 etcd 未就绪：http://127.0.0.1:2379"
+  local etcd_endpoint
+  for etcd_endpoint in "${ETCD_ENDPOINTS[@]}"; do
+    curl -fsS "${etcd_endpoint}/health" >/dev/null ||
+      im_die "本机 etcd 集群成员未就绪：${etcd_endpoint}"
+  done
 
   mkdir -p "${RUN_DIR}" "${LOG_DIR}"
   local index node_name process_id node_dir node_config
@@ -67,8 +73,6 @@ start_cluster() {
     mkdir -p "${node_dir}/configs"
     sed \
       -e "s|^listen:.*|listen: \":$((HTTP_BASE_PORT + index))\"|" \
-      -e "s|^grpc_listen:.*|grpc_listen: \":$((CLIENT_GRPC_BASE_PORT + index))\"|" \
-      -e "s|^static_data:.*|static_data: \"${STATIC_DIR}\"|" \
       -e "s|^  self:.*|  self: ${node_name}|" \
       -e "s|^  advertise_addr:.*|  advertise_addr: \"127.0.0.1:$((CLUSTER_BASE_PORT + index))\"|" \
       -e "s|^    listen:.*|    listen: \"127.0.0.1:$((CLUSTER_BASE_PORT + index))\"|" \
@@ -87,7 +91,7 @@ start_cluster() {
       im_die "${NODE_NAMES[index]} 未在 30s 内通过 Liveness"
     fi
   done
-  echo "开发集群已启动：HTTP 6060-6062，客户端 gRPC 16060-16062"
+  echo "开发集群已启动：HTTP/WebSocket 6060-6062"
 }
 
 stop_cluster() {

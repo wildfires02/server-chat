@@ -58,7 +58,7 @@ curl --fail http://127.0.0.1:6060/readyz
 - 消息编辑、撤回、回复、转发、反应、置顶和定时消息。
 - 100 人以内普通群的逐消息 Seen by 成员与阅读时间查询。
 - 本地文件系统与 S3 兼容对象存储。
-- WebRTC 点对点信令和 Agora 群组通话服务端令牌。
+- Agora 一对一/群组语音视频通话和服务端短期 Token。
 - 独立 `im-admin` 进程：Casbin 角色权限、Domain 绑定、翻译策略、基础产品策略和
   操作审计。
 - MySQL、PostgreSQL、MongoDB 和 RethinkDB 存储适配器。

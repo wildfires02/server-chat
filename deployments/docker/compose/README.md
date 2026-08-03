@@ -3,7 +3,7 @@
 这里提供两个入口：
 
 - `single-instance.yml`：单机开发服务。
-- `cluster.yml`：三 IM 节点 + etcd 的开发集群，使用正式的 Lease、fencing、
+- `cluster.yml`：三 IM 节点 + 三成员 etcd 的开发集群，使用正式的 Lease、fencing、
   gRPC Lane 和 Readiness 代码路径，但不启用生产 mTLS。
 
 Compose 不是生产交付物。生产要求见
@@ -24,6 +24,9 @@ docker compose -f single-instance.yml up -d
 # MySQL 三节点开发集群。
 docker compose -f cluster.yml up -d
 
+# 只启动三成员 etcd，供仓库根目录 scripts/run-cluster.sh 使用。
+docker compose -f cluster.yml up -d etcd-0 etcd-1 etcd-2
+
 # PostgreSQL。
 docker compose \
   -f single-instance.yml \
@@ -36,6 +39,12 @@ docker compose \
   -f cluster.mongodb.yml \
   up -d
 ```
+
+三个 etcd 成员的客户端端口分别映射为 `127.0.0.1:2379`、
+`127.0.0.1:22379` 和 `127.0.0.1:32379`。`configs/im.cluster-dev.yaml`
+会同时配置这三个端点；Docker 内的 IM 节点则使用 `etcd-0:2379`、
+`etcd-1:2379` 和 `etcd-2:2379`。`2380` 是 etcd 成员间 Peer 端口，不能写入
+server-chat 的 `control_plane.endpoints`。
 
 RethinkDB 使用同名 `.rethinkdb.yml` 覆盖。Exporter 位于 `observability` profile：
 

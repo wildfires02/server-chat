@@ -20,20 +20,14 @@ const (
 	constCallEventRinging = "ringing"
 	// 被呼叫方已接听。
 	constCallEventAccept = "accept"
-	// WebRTC SDP 和 ICE 协商事件。
-	constCallEventOffer        = "offer"
-	constCallEventAnswer       = "answer"
-	constCallEventIceCandidate = "ice-candidate"
 	// 任意参与者或服务器结束通话。
 	constCallEventHangUp = "hang-up"
-	// Agora 群组通话的加入、离开和 Token 续期事件。
+	// Agora 通话的加入、离开和 Token 续期事件。
 	constCallEventJoin    = "join"
 	constCallEventLeave   = "leave"
 	constCallEventRefresh = "refresh"
 
-	// WebRTC 表示端到端媒体协商通话提供方。
-	constCallProviderWebRTC = "webrtc"
-	// Agora 表示由 Agora RTC SDK 承载媒体流的群组通话提供方。
+	// Agora 表示由 Agora RTC SDK 承载所有媒体流。
 	constCallProviderAgora = "agora"
 
 	// 通话已建立。
@@ -59,7 +53,7 @@ type callPartyData struct {
 	isOriginator bool
 	// sess 是接收通话事件的客户端会话。
 	sess *Session
-	// agora 仅保存 Agora 群组通话的参与者状态。
+	// agora 保存 Agora 通话的参与者状态。
 	agora *agoraPartyData
 }
 
@@ -75,9 +69,9 @@ type videoCall struct {
 	contentMime any
 	// acceptedAt 是通话首次接通的时间。
 	acceptedAt time.Time
-	// provider 区分 WebRTC P2P 与 Agora 群组通话。
+	// provider 标识媒体由 Agora RTC SDK 承载。
 	provider callProvider
-	// agora 仅保存 Agora 群组通话的频道级状态。
+	// agora 保存 Agora 通话的频道级状态。
 	agora *agoraCallData
 	// originatorUid 在发起者离线后继续保存其身份。
 	originatorUid types.Uid
@@ -156,15 +150,10 @@ func (t *Topic) getCallOriginator() (types.Uid, *Session) {
 	return types.ZeroUid, nil
 }
 
-// handleCallInvite 根据 Topic 类型创建 P2P 或群组通话。
+// handleCallInvite 创建使用 Agora 的 P2P 或群组通话。
 func (t *Topic) handleCallInvite(msg *ClientComMessage, asUid types.Uid) {
-	provider := callProvider(constCallProviderWebRTC)
-	var agoraState *agoraCallData
-	if globals.agora != nil {
-		provider = callProvider(constCallProviderAgora)
-		agoraState = &agoraCallData{
-			channel: globals.agora.channelName(t.name, t.lastID),
-		}
+	agoraState := &agoraCallData{
+		channel: globals.agora.channelName(t.name, t.lastID),
 	}
 
 	originatorSession := callPartySession(msg.sess)
@@ -173,7 +162,7 @@ func (t *Topic) handleCallInvite(msg *ClientComMessage, asUid types.Uid) {
 		seq:            t.lastID,
 		content:        msg.Pub.Content,
 		contentMime:    msg.Pub.Head["mime"],
-		provider:       provider,
+		provider:       callProvider(constCallProviderAgora),
 		agora:          agoraState,
 		originatorUid:  asUid,
 		originatorSess: originatorSession,
@@ -189,7 +178,7 @@ func (t *Topic) handleCallInvite(msg *ClientComMessage, asUid types.Uid) {
 // handleCallEvent 校验公共事件字段，然后交给对应媒体提供方处理。
 func (t *Topic) handleCallEvent(msg *ClientComMessage) {
 	if t.currentCall == nil {
-		logs.Warn.Printf("topic[%s]: 当前无正在进行的音视频通话", t.name)
+		logs.Warn.Printf("topic[%s]: no audio or video call is in progress", t.name)
 		return
 	}
 	if t.isInactive() {
@@ -198,14 +187,14 @@ func (t *Topic) handleCallEvent(msg *ClientComMessage) {
 
 	call := msg.Note
 	if t.currentCall.seq != call.SeqId {
-		logs.Info.Printf("topic[%s]: 通话 seq id 不匹配 - 当前 (%d) vs 收到 (%d)",
+		logs.Info.Printf("topic[%s]: call seq id mismatch - current (%d) vs received (%d)",
 			t.name, t.currentCall.seq, call.SeqId)
 		return
 	}
 
 	asUid := types.ParseUserId(msg.AsUser)
 	if _, found := t.perUser[asUid]; !found {
-		logs.Warn.Printf("topic[%s]: 未找到用户 %s", t.name, asUid.UserId())
+		logs.Warn.Printf("topic[%s]: user %s was not found", t.name, asUid.UserId())
 		return
 	}
 	if err := t.checkOfficialPublish(asUid, "call", types.TimeNow()); err != nil {
@@ -214,7 +203,7 @@ func (t *Topic) handleCallEvent(msg *ClientComMessage) {
 		}
 		return
 	}
-	// P2P 接听、媒体协商、加入和 Token 续期都重新检查业务关系。
+	// P2P 接听、加入和 Token 续期都重新检查业务关系。
 	// 挂断始终允许，避免客户转移或账号停用后残留无法结束的通话。
 	if t.cat == types.TopicCatP2P && msg.Note.Event != constCallEventHangUp && globals.businessPolicy != nil {
 		if err := globals.businessPolicy.authorizeUIDs(asUid, t.p2pOtherUser(asUid), "call", t.name); err != nil {
@@ -225,15 +214,12 @@ func (t *Topic) handleCallEvent(msg *ClientComMessage) {
 		}
 	}
 
-	switch t.currentCall.provider {
-	case callProvider(constCallProviderAgora):
-		t.handleAgoraCallEvent(msg, asUid)
-	case "", callProvider(constCallProviderWebRTC):
-		t.handleWebRTCCallEvent(msg, asUid)
-	default:
-		logs.Warn.Printf("topic[%s]: 通话 seq %d 使用未知提供方 %q",
+	if t.currentCall.provider != callProvider(constCallProviderAgora) {
+		logs.Warn.Printf("topic[%s]: call seq %d uses unknown provider %q",
 			t.name, t.currentCall.seq, t.currentCall.provider)
+		return
 	}
+	t.handleAgoraCallEvent(msg, asUid)
 }
 
 // persistCallState 保存并广播替换原通话邀请的状态消息。
@@ -255,7 +241,7 @@ func (t *Topic) persistCallState(msg *ClientComMessage, state string, duration i
 		head,
 		t.currentCall.content,
 	); err != nil {
-		logs.Err.Printf("topic[%s]: 保存通话状态 %q 失败 (seq %d): %v",
+		logs.Err.Printf("topic[%s]: failed to save call state %q (seq %d): %v",
 			t.name, state, t.currentCall.seq, err)
 		return err
 	}
@@ -287,7 +273,7 @@ func (t *Topic) maybeEndCallInProgress(from string, msg *ClientComMessage, callD
 
 	if err := t.persistCallState(msg, state, int(duration)); err != nil {
 		// 状态写入失败不应阻止释放内存中的通话和通知在线客户端。
-		logs.Warn.Printf("topic[%s]: 通话 seq %d 将在状态保存失败后继续结束",
+		logs.Warn.Printf("topic[%s]: call seq %d will terminate after its state failed to persist",
 			t.name, t.currentCall.seq)
 	}
 
@@ -307,7 +293,7 @@ func (t *Topic) terminateCallInProgress(callDidTimeout bool) {
 	}
 	uid, sess := t.getCallOriginator()
 	if sess == nil || uid.IsZero() {
-		logs.Warn.Printf("topic[%s]: 音视频通话 seq %d 缺少发起人，强制终止",
+		logs.Warn.Printf("topic[%s]: audio or video call seq %d has no originator and will be terminated",
 			t.name, t.currentCall.seq)
 		t.currentCall = nil
 		return
@@ -320,7 +306,7 @@ func (t *Topic) terminateCallInProgress(callDidTimeout bool) {
 		Timestamp: types.TimeNow(),
 		sess:      sess,
 	}
-	logs.Info.Printf("topic[%s]: 正在终止通话 seq %d, 是否超时: %t",
+	logs.Info.Printf("topic[%s]: terminating call seq %d, timed out: %t",
 		t.name, t.currentCall.seq, callDidTimeout)
 	t.maybeEndCallInProgress("", dummy, callDidTimeout)
 }

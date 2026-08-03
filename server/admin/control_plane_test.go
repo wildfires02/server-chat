@@ -124,6 +124,40 @@ func TestEmployeeRoleScopesInternalWorkspacePermissions(t *testing.T) {
 	}
 }
 
+func TestControlPlaneRefreshLoadsAdminChanges(t *testing.T) {
+	repository := &memoryRepository{}
+	adminControl, err := NewControlPlane(repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverControl, err := NewControlPlane(repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	snapshot := adminControl.Snapshot()
+	_, err = adminControl.UpsertBinding(snapshot.Version, Binding{
+		ID: "employee-refresh", Subject: "im:usrRefresh",
+		RoleID: "employee", Domain: "channel:org-refresh",
+	}, Actor{Subject: "test-admin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := serverControl.Evaluate(
+		"im:usrRefresh", "channel:org-refresh", "workspace.pins.read", time.Now())
+	if err != nil || before.Allowed {
+		t.Fatalf("stale server policy should deny before refresh: evaluation=%+v err=%v", before, err)
+	}
+	if err = serverControl.Refresh(); err != nil {
+		t.Fatal(err)
+	}
+	after, err := serverControl.Evaluate(
+		"im:usrRefresh", "channel:org-refresh", "workspace.pins.read", time.Now())
+	if err != nil || !after.Allowed {
+		t.Fatalf("refreshed server policy should allow: evaluation=%+v err=%v", after, err)
+	}
+}
+
 func TestControlPlaneAuditAndSettingsValidation(t *testing.T) {
 	control, err := NewControlPlane(&memoryRepository{})
 	if err != nil {

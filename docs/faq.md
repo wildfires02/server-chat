@@ -42,9 +42,9 @@ docker cp <容器名称>:/var/log/im.log ./im.log
 或者，也可以在 `docker run` 命令中映射宿主机目录 `-v /path/to/logs:/var/log`，将日志直接持久化保存至宿主机。
 
 ## 问：开启离线 Push 消息推送有哪些方案？
-**答**：可使用 **[IM Push Gateway (TNPG)](../server/push/tnpg/)** 或 **[Google FCM](../server/push/fcm/)**：
-- **IM Push Gateway (TNPG)**：由 IM 网关代表发送推送，配置极其简便，无需开发者自行申请和维护证书。
-- **Google FCM**：基于 Google FCM 原生推送，需要开发者自行打包和发布移动端 App。
+**答**：服务端只使用 **[Google FCM](../server/push/fcm/)** 发送离线通知。
+在 `firebase` 节点启用功能并配置 Firebase Admin 服务账号文件，不再使用
+通用 `push` 列表或 TNPG 适配器。
 
 ## 问：如何添加新用户？
 **答**：创建用户账号有三种途径：

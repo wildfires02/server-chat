@@ -44,7 +44,7 @@
 1. server-chat 独立仓库不包含客户端；Groupbuying 集成工程已有 ecommerce Web 与 Flutter mall_app，桌面端仍缺失。
 2. 基础消息交互、当前会话全文搜索和服务端素材目录已经补齐；投票、草稿、跨会话搜索、用户素材生态等高级消息能力仍未形成完整模型。
 3. 群组与广播频道基础权限边界已经完成；容量、社区治理和频道运营能力仍与 Telegram 相差较大。
-4. 音视频已经具备 P2P WebRTC、Agora Web/Flutter 原生客户端、双码流和弱网 ABR；语音聊天室、直播、录制和完整质量运营体系仍未完成。
+4. 音视频已经具备 Agora 一对一/群组通话、Web/Flutter 原生客户端、双码流和弱网 ABR；语音聊天室、直播、录制和完整质量运营体系仍未完成。
 5. 缺少 Secret Chat、端到端加密、2FA、Passkey、自毁消息和成熟反滥用体系。
 6. 缺少 Telegram Bot API、Mini Apps、支付、Stories、商业账号和内容生态。
 
@@ -88,7 +88,7 @@
 |---|---|---|
 | 群组与频道 | 基础 ACL、成员管理、只读频道、官方群无限产品上限、邀请、审批和 Slow Mode 已完成 | 目标硬件容量验收、Forum 和高级运营能力 |
 | 搜索 | Peer 发现和当前会话搜索已完成 | 跨会话、公共帖子、结果上下文、分词排序、独立检索服务 |
-| 音视频 | P2P WebRTC、Agora 服务端、Web SDK、Flutter 原生 SDK、双码流和弱网 ABR | Agora 真实项目联调、TURN 生产验证、Voice Chat、直播、录制和集中质量运营 |
+| 音视频 | Agora 一对一/群组服务端、Web SDK、Flutter 原生 SDK、双码流和弱网 ABR | Agora 真实项目联调、Voice Chat、直播、录制和集中质量运营 |
 | 安全与隐私 | TLS 配置、密码/Token/验证码认证 | E2EE、Secret Chat、2FA、Passkey、自毁消息和隐私控制 |
 | Bot | gRPC Plugin、FireHose、示例机器人 | Telegram 风格公共 Bot API、Webhook、Inline Bot 和键盘 |
 | 集群与运维 | 分片、故障转移、监控、压测脚本、Docker | CI/CD、Kubernetes、灾备演练、可复现容量报告 |
@@ -96,7 +96,7 @@
 | 联系人与好友 | CRUD、分组、双边状态、CAS、事务日志、配额、拉黑和增量同步 | 通讯录匹配、隐私控制和高级推荐策略 |
 | 文件处理 | 持久任务、Worker 租约、ClamAV、物理隔离、人工审核、多规格转码、同用户安全去重、跨节点续传和 S3 Multipart | ACL 引用回收、外链代理治理和目标硬件故障/容量验证 |
 | 贴纸、动态 Emoji 与 GIF | root 管理的素材包、发布控制、本地关键词查询和消息引用校验 | 用户安装/收藏/最近使用、创作者流程、外部 GIF 搜索、热门排序、格式审核和内容治理 |
-| 推送与外部服务 | 通知偏好、FCM/TNPG 持久 Outbox、重试、DLQ、管理页和 Webhook 告警 | 供应商送达率 SLO 和生产告警平台验收 |
+| 推送与外部服务 | 通知偏好、FCM 持久 Outbox、重试、DLQ、管理页和 Webhook 告警 | 供应商送达率 SLO 和生产告警平台验收 |
 | 官方频道与官方大群 | 官方频道/大群、冷成员 ACL、角色治理、禁言、审批、托管邀请、举报、分页和审计 | 目标硬件容量验收、自动内容审核与高级运营 |
 | 客户内部工作区 | 结构化客户资料、不可变团队备注、范围复核、客户/会话/消息置顶和增量同步 | 自定义字段模板、批量导入和高级 CRM 自动化 |
 
@@ -132,7 +132,7 @@
 | ✅ | 消息连接与同步 | 三种传输共用同步语义；支持快照水位升序追赶、删除游标、持久化发布幂等、多端回执 | 100%（本仓库服务端范围） |
 | ✅ | 基础消息 | 服务端校验文本/Drafty/图片/视频/语音/音频/文件；编辑、回复、转发、相册、反应、置顶、定时发送、双方删除 | 100%（本次列出的服务端范围） |
 | 🟡 | 群组与频道 | 基础 ACL、成员管理、普通群双向发言和只读频道已实现；高级社区与频道运营未实现 | 100%（本次基础范围）；45%–50%（Telegram 完整范围） |
-| 🟡 | 媒体与通话 | FS/S3、P2P WebRTC、Agora Web/Flutter 客户端、双码流和弱网 ABR 已实现；真实项目联调与高级实时媒体能力未完成 | 50%–60% |
+| 🟡 | 媒体与通话 | FS/S3、Agora 一对一/群组 Web/Flutter 客户端、双码流和弱网 ABR 已实现；真实项目联调与高级实时媒体能力未完成 | 50%–60% |
 | 🟡 | 安全与隐私 | 密码、Token、REST、验证码认证和 TLS 配置已实现；E2EE 与高级隐私未实现 | 10%–15% |
 | 🟡 | 搜索与发现 | 基础 Peer 发现和当前会话搜索已实现；全局搜索与公共帖子搜索未实现 | 100%（本次基础范围）；35%–40%（Telegram 完整范围） |
 | 🟡 | 联系人、文件与素材 | 联系人 CAS/事务日志、可靠文件任务、隔离审核、多规格转码和跨节点续传已实现；正式关系表和完整用户素材生态未完成 | 80%–85%（本次服务端范围） |
@@ -495,22 +495,21 @@ Telegram 群组可达到 20 万成员，频道面向无限订阅者。当前项�
 官方只读频道与无固定产品人数上限的可写大群已形成服务端闭环；大群生产容量、批量
 Push、客户策略、内部工作区、翻译投影和全部支付能力仍未完成。
 
-### 4.5 🟡 P2P WebRTC 与 Agora 群组通话服务端已实现
+### 4.5 🟡 Agora 一对一与群组通话服务端已实现
 
-当前 P2P 音视频实现负责：
+当前 Agora 一对一音视频实现负责：
 
 - 呼叫邀请。
 - 响铃和接听。
-- SDP Offer/Answer 转发。
-- ICE Candidate 转发。
+- 按 Topic ACL 签发 Agora 加入和续期 Token。
 - 挂断和通话状态持久化。
 
-群组语音/视频通话已经新增 Agora 服务端实现：
+群组语音/视频通话使用相同的 Agora 服务端实现：
 
 - 仅群组写成员可创建通话，具有 `J+R` ACL 的成员可加入。
 - 写成员签发 publisher Token，只读成员签发 subscriber Token。
 - 使用 Agora AccessToken2，Token 绑定不可逆频道名和 Session 唯一数字 UID。
-- App Certificate 只在服务端使用，支持 `AGORA_APP_ID`、`AGORA_APP_CERTIFICATE` 环境变量。
+- App Certificate 只在服务端使用，并且只从 `calls` YAML 节点读取。
 - Token 有效期限制在 60 秒至 Agora 官方上限 24 小时。
 - 支持 `join`、`leave`、`refresh`、管理员/发起人 `hang-up`。
 - 支持多端独立 UID、最大人数限制、Session 断线清理和最后成员离开自动结束。
@@ -522,12 +521,11 @@ Push、客户策略、内部工作区、翻译投影和全部支付能力仍未�
 - [`internal/server/topic_msg.go`](../../internal/server/topic_msg.go)
 - [`internal/server/calls.go`](../../internal/server/calls.go)
 - [`internal/server/calls_config.go`](../../internal/server/calls_config.go)
-- [`internal/server/calls_webrtc.go`](../../internal/server/calls_webrtc.go)
 - [`internal/server/calls_agora.go`](../../internal/server/calls_agora.go)
 - [`server/agora/token.go`](../../server/agora/token.go)
 - [`api/pbx/model.proto`](../../api/pbx/model.proto)
 
-默认配置仍关闭通话。P2P 需要外部 STUN/TURN；群组通话需要 Agora 项目 App ID 和 App Certificate。Groupbuying 集成工程的 ecommerce 使用 Agora Web SDK，mall_app 使用 `agora_rtc_engine` 原生 SDK 和 JS Bridge。按照 Agora 官方要求，要严格强制只读成员不能发布媒体，还应在 Agora Console 开启 Co-host Token Authentication。自动化测试覆盖 Token、HMAC、ACL、协议转换和服务端流程，但尚未使用正式 Agora 项目完成跨区域网络联调。
+一对一和群组通话都需要 Agora 项目 App ID 和 App Certificate，不再配置 STUN/TURN。Groupbuying 集成工程的 ecommerce 使用 Agora Web SDK，mall_app 使用 `agora_rtc_engine` 原生 SDK 和 JS Bridge。按照 Agora 官方要求，要严格强制只读成员不能发布媒体，还应在 Agora Console 开启 Co-host Token Authentication。自动化测试覆盖 Token、HMAC、ACL、协议转换和服务端流程，但尚未使用正式 Agora 项目完成跨区域网络联调。
 
 本仓库没有自建 SFU/MCU，以下完整产品能力仍为 ❌ **未实现**：
 
@@ -686,14 +684,14 @@ Telegram Bot Platform 和 Mini Apps 的当前能力参见 [Telegram Bot Features
 
 ### 4.11 🟡 推送可靠投递已实现，供应商 SLO 待生产验收
 
-当前 FCM/TNPG 推送支持新消息、订阅变化、已读同步、静默推送和失效 Token 清理，
+当前 FCM 推送支持新消息、订阅变化、已读同步、静默推送和失效 Token 清理，
 并已提供独立通知偏好、持久 Outbox、指数退避、DLQ、人工重放/删除、管理页面和
 带签名 HTTPS Webhook 告警。
 
 以下功能仍未实现：
 
 - 关键词提醒、自定义声音和细粒度通知预览策略。
-- FCM/TNPG 供应商真实送达率、延迟和 Token 健康度 SLO 报表。
+- FCM 真实送达率、延迟和 Token 健康度 SLO 报表。
 - PagerDuty/飞书等生产告警平台的演练和告警升级策略。
 
 ## 5. ❌ 正式客户端未实现
@@ -784,7 +782,7 @@ go test -tags rethinkdb ./internal/server ./server/db/rethinkdb
 - 邮箱固定调试验证码为 `123456`。
 - 手机固定调试验证码为 `123456`。
 - FCM 默认关闭。
-- WebRTC 默认关闭。
+- Agora 通话在生产模板中默认关闭。
 - 插件默认关闭。
 - 集群默认未启用。
 - `/debug/vars` 默认暴露。
@@ -845,7 +843,7 @@ README 声明项目采用 GPL-3.0，但仓库没有发现 `LICENSE`、`COPYING` 
 4. ❌ 增加 API、登录、注册、上传和发消息限流。
 5. ❌ 增加账号锁定和登录爆破防护。
 6. ❌ 接入真实短信、邮件和 FCM。
-7. ❌ 部署 TURN 服务并验证 P2P 通话。
+7. ❌ 完成 Agora 一对一/群组通话的跨端、弱网和跨区域验证。
 8. ❌ 建立 CI、代码检查和四数据库集成测试。
 9. ❌ 建立数据库迁移、备份、恢复和灾备演练。
 10. ❌ 增加关键路径指标、Tracing 和告警。
@@ -865,7 +863,7 @@ README 声明项目采用 GPL-3.0，但仓库没有发现 `LICENSE`、`COPYING` 
 - ✅ 文本、Drafty 富文本、图片、视频、语音、音频、文件及双方删除的服务端校验与生命周期管理。
 - ✅ 群组/频道角色、在线/离线成员管理、普通群双向发言和服务端强制只读广播频道。
 - ✅ 用户公开 alias、群组/频道 Tag 与名称发现，以及当前会话消息全文搜索和过滤。
-- ✅ Agora 群组语音/视频通话服务端、短期 AccessToken2、ACL 角色和 Token 续期协议。
+- ✅ Agora 一对一/群组语音视频通话服务端、短期 AccessToken2、ACL 角色和 Token 续期协议。
 - ✅ 联系人/分组 CRUD、好友申请与接受、共同好友推荐和版本化多设备同步。
 - ✅ 文件 ACL、安全扫描状态、预览/转码调度、元数据查询和节点内断点续传。
 - ✅ root 管理的贴纸、动态 Emoji、GIF 素材目录及消息引用校验。
@@ -894,7 +892,7 @@ README 声明项目采用 GPL-3.0，但仓库没有发现 `LICENSE`、`COPYING` 
 3. 🟡 Slow Mode 已实现；成熟自动反垃圾仍未实现。
 4. ❌ 频道统计和运营后台。
 5. ❌ 独立搜索服务。
-6. ✅ Agora 群组语音和视频通话服务端、ACL 与 Token 生命周期。
+6. ✅ Agora 一对一和群组语音视频通话服务端、ACL 与 Token 生命周期。
 7. 🟡 Web/Flutter Agora SDK、通话 UI、双码流与弱网 ABR 已实现；正式项目端到端网络测试待完成。
 8. ❌ Voice Chat。
 9. ❌ 屏幕共享和录制。

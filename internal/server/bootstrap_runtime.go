@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
+	admincontrol "chat/server/admin"
 	"chat/server/logs"
 	"chat/server/push"
 	"chat/server/store"
@@ -65,6 +66,14 @@ func applyServerRuntimeConfig(config configType) {
 	}
 }
 
+func initializeServerControlPlane() {
+	control, err := admincontrol.NewControlPlane(persistentAdminRepository{})
+	if err != nil {
+		logs.Err.Fatalf("Failed to initialize server policy control plane: %v", err)
+	}
+	globals.adminControl = control
+}
+
 func startServerMedia(config *configType) func() {
 	if config.Media == nil {
 		return func() {}
@@ -114,8 +123,16 @@ func startAccountGarbageCollector(config *accountGcConfig) func() {
 	}
 }
 
-func startServerPush(config json.RawMessage, alertConfig *push.DLQAlertConfig) func() {
-	handlers, err := push.Init(config)
+func startServerPush(firebase firebaseConfig, alertConfig *push.DLQAlertConfig) func() {
+	config, err := json.Marshal(map[string]any{
+		"enabled":          firebase.Enabled,
+		"credentials_file": firebase.CredentialFile,
+		"time_to_live":     firebase.TimeToLive,
+	})
+	if err != nil {
+		logs.Err.Fatal("Failed to encode Firebase configuration:", err)
+	}
+	enabled, err := push.Init("fcm", config)
 	if err != nil {
 		logs.Err.Fatal("Failed to initialize push notifications:", err)
 	}
@@ -123,7 +140,7 @@ func startServerPush(config json.RawMessage, alertConfig *push.DLQAlertConfig) f
 	if err != nil {
 		logs.Err.Fatal("Failed to initialize push DLQ alerts:", err)
 	}
-	logs.Info.Println("Push handlers configured:", handlers)
+	logs.Info.Println("Firebase push enabled:", enabled)
 	return func() {
 		stopAlerts()
 		push.Stop()

@@ -7,6 +7,8 @@ runtime:
   deployment_mode: cluster
 
 listen: ":6060"
+client_origins:
+  - https://chat.example.com
 api_path: /
 cache_control: 39600
 ws_compression_disabled: false
@@ -90,19 +92,15 @@ acc_gc_config:
   gc_block_size: 100
   gc_min_account_age: 30
 
-push: []
+firebase:
+  enabled: true
+  credential_file: "/etc/im/firebase-adminsdk.json"
+  time_to_live: 3600
 
-webrtc:
-  enabled: false
-  call_establishment_timeout: 30
-  ice_servers_file: ""
-  agora:
-    enabled: false
-    app_id: ""
-    app_certificate: ""
-    token_ttl: 3600
-    channel_prefix: im
-    max_participants: 128
+calls:
+  enabled: true
+  app_id: ""
+  app_certificate: ""
 
 cluster_config:
   cluster_id: im-production

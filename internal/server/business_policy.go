@@ -117,7 +117,18 @@ func newBusinessPolicyClient(config businessPolicyConfig) (*businessPolicyClient
 	}, nil
 }
 
-const businessAuditOutboxPrefix = "business:audit:text:v1:"
+const (
+	businessAuditOutboxPrefix    = "business:audit:text:v1:"
+	businessAuditOutboxHashBytes = 20
+)
+
+// businessAuditOutboxKey 将完整事件 ID 再散列为固定长度键。
+// MySQL kvmeta.key 最长 64 字节，前缀加 20 字节摘要的十六进制形式共 63 字节。
+// 事件正文仍保留完整 EventID，不影响下游审计服务的幂等判断。
+func businessAuditOutboxKey(eventID string) string {
+	digest := sha256.Sum256([]byte(eventID))
+	return fmt.Sprintf("%s%x", businessAuditOutboxPrefix, digest[:businessAuditOutboxHashBytes])
+}
 
 type businessTextAuditEvent struct {
 	EventID             string `json:"event_id"`
@@ -173,7 +184,7 @@ func (client *businessPolicyClient) archiveTextMessage(stored *types.Message,
 	if err != nil {
 		return err
 	}
-	return store.PCache.Upsert(businessAuditOutboxPrefix+event.EventID, string(raw), false)
+	return store.PCache.Upsert(businessAuditOutboxKey(event.EventID), string(raw), false)
 }
 
 func auditPlainText(head map[string]any, content any) (string, bool) {

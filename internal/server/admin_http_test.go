@@ -34,7 +34,7 @@ func newTestAdminHandler(t *testing.T) *adminHTTPHandler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return newAdminHTTPHandler("/v0/", adminAPIConfig{
+	return newAdminHTTPHandler("/internal/", adminAPIConfig{
 		Enabled: true, BootstrapToken: "test-bootstrap-token",
 		AllowedOrigins: []string{"http://localhost:4173"},
 	}, configType{
@@ -45,14 +45,14 @@ func newTestAdminHandler(t *testing.T) *adminHTTPHandler {
 
 func TestAdminHTTPAuthenticationAndBootstrap(t *testing.T) {
 	handler := newTestAdminHandler(t)
-	request := httptest.NewRequest(http.MethodGet, "/v0/bootstrap", nil)
+	request := httptest.NewRequest(http.MethodGet, "/internal/bootstrap", nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d", response.Code)
 	}
 
-	request = httptest.NewRequest(http.MethodGet, "/v0/bootstrap", nil)
+	request = httptest.NewRequest(http.MethodGet, "/internal/bootstrap", nil)
 	request.Header.Set("Authorization", "Bearer test-bootstrap-token")
 	request.Header.Set("Origin", "http://localhost:4173")
 	response = httptest.NewRecorder()
@@ -70,7 +70,7 @@ func TestAdminHTTPMutationRequiresVersion(t *testing.T) {
 	body, _ := json.Marshal(admincontrol.Role{
 		ID: "support", Name: "Support", Permissions: []string{"assets.read"},
 	})
-	request := httptest.NewRequest(http.MethodPut, "/v0/roles/support", bytes.NewReader(body))
+	request := httptest.NewRequest(http.MethodPut, "/internal/roles/support", bytes.NewReader(body))
 	request.Header.Set("Authorization", "Bearer test-bootstrap-token")
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
@@ -79,7 +79,7 @@ func TestAdminHTTPMutationRequiresVersion(t *testing.T) {
 		t.Fatalf("expected 428, got %d: %s", response.Code, response.Body.String())
 	}
 
-	request = httptest.NewRequest(http.MethodPut, "/v0/roles/support", bytes.NewReader(body))
+	request = httptest.NewRequest(http.MethodPut, "/internal/roles/support", bytes.NewReader(body))
 	request.Header.Set("Authorization", "Bearer test-bootstrap-token")
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("If-Match", `"1"`)
@@ -95,7 +95,7 @@ func TestAdminHTTPMutationRequiresVersion(t *testing.T) {
 
 func TestAdminHTTPRejectsUnknownOrigin(t *testing.T) {
 	handler := newTestAdminHandler(t)
-	request := httptest.NewRequest(http.MethodGet, "/v0/bootstrap", nil)
+	request := httptest.NewRequest(http.MethodGet, "/internal/bootstrap", nil)
 	request.Header.Set("Authorization", "Bearer test-bootstrap-token")
 	request.Header.Set("Origin", "https://attacker.invalid")
 	response := httptest.NewRecorder()
@@ -111,7 +111,7 @@ func TestAdminHTTPPushDeadLetterRoutes(t *testing.T) {
 	t.Cleanup(func() { store.PCache = previous })
 	handler := newTestAdminHandler(t)
 
-	request := httptest.NewRequest(http.MethodGet, "/v0/push/dlq?provider=fcm", nil)
+	request := httptest.NewRequest(http.MethodGet, "/internal/push/dlq?provider=fcm", nil)
 	request.Header.Set("Authorization", "Bearer test-bootstrap-token")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
@@ -120,7 +120,7 @@ func TestAdminHTTPPushDeadLetterRoutes(t *testing.T) {
 	}
 
 	request = httptest.NewRequest(http.MethodPost,
-		"/v0/push/dlq/fcm/missing/replay", nil)
+		"/internal/push/dlq/fcm/missing/replay", nil)
 	request.Header.Set("Authorization", "Bearer test-bootstrap-token")
 	response = httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
@@ -134,7 +134,7 @@ func TestAdminHTTPTranslationProviderTestReturnsNotFound(t *testing.T) {
 	body := bytes.NewBufferString(
 		`{"text":"你好","source_language":"zh","target_language":"en"}`)
 	request := httptest.NewRequest(http.MethodPost,
-		"/v0/translation/providers/missing/test", body)
+		"/internal/translation/providers/missing/test", body)
 	request.Header.Set("Authorization", "Bearer test-bootstrap-token")
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
@@ -146,7 +146,7 @@ func TestAdminHTTPTranslationProviderTestReturnsNotFound(t *testing.T) {
 
 func TestAdminBusinessMessageRejectsUntrustedPayload(t *testing.T) {
 	handler := newTestAdminHandler(t)
-	request := httptest.NewRequest(http.MethodPost, "/v0/business/messages",
+	request := httptest.NewRequest(http.MethodPost, "/internal/business/messages",
 		bytes.NewBufferString(`{"provider":"server","actor_external_id":"1","target_external_id":"2","action":"message","text":"hello","client_id":"client-123"}`))
 	request.Header.Set("Authorization", "Bearer test-bootstrap-token")
 	request.Header.Set("Content-Type", "application/json")
@@ -179,6 +179,39 @@ func TestAdminConfigValidation(t *testing.T) {
 	}
 }
 
+func TestAdminRouteRegistrationUsesInternalPrefix(t *testing.T) {
+	previousCache := store.PCache
+	store.PCache = &resumableTestCache{values: make(map[string]string)}
+	t.Cleanup(func() { store.PCache = previousCache })
+
+	mux := http.NewServeMux()
+	config := configType{
+		Runtime: runtimeConfig{
+			Environment: environmentTest, DeploymentMode: deploymentModeStandalone,
+		},
+		Admin: &adminAPIConfig{
+			Enabled: true, BootstrapToken: "test-bootstrap-token",
+		},
+	}
+	registerAdminHTTPRoutes(mux, "/", config)
+
+	request := httptest.NewRequest(http.MethodGet, "/internal/health", nil)
+	request.Header.Set("Authorization", "Bearer test-bootstrap-token")
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected /internal/health to be registered, got %d: %s",
+			response.Code, response.Body.String())
+	}
+
+	request = httptest.NewRequest(http.MethodGet, "/v0/health", nil)
+	response = httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("legacy admin /v0 route is still exposed: status=%d", response.Code)
+	}
+}
+
 func TestChatHTTPRoutesDoNotExposeAdminAPI(t *testing.T) {
 	mux := http.NewServeMux()
 	config := configType{
@@ -191,11 +224,34 @@ func TestChatHTTPRoutesDoNotExposeAdminAPI(t *testing.T) {
 	config.ServerStatusPath = "-"
 	registerServerHTTPRoutes(mux, "", &config, nil)
 
-	request := httptest.NewRequest(http.MethodGet, "/v0/health", nil)
+	request := httptest.NewRequest(http.MethodGet, "/internal/health", nil)
 	response := httptest.NewRecorder()
 	mux.ServeHTTP(response, request)
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("im-server exposed an admin route: status=%d", response.Code)
+	}
+}
+
+func TestChatHTTPRoutesExposeWorkspaceWithoutInternalSegment(t *testing.T) {
+	mux := http.NewServeMux()
+	config := configType{Listen: ":6060", ApiPath: "/", StaticData: "-", ServerStatusPath: "-"}
+	previousControl := globals.adminControl
+	globals.adminControl = nil
+	t.Cleanup(func() { globals.adminControl = previousControl })
+	registerServerHTTPRoutes(mux, "", &config, nil)
+
+	request := httptest.NewRequest(http.MethodGet, "/v0/workspace", nil)
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected client workspace route to exist, got %d", response.Code)
+	}
+
+	request = httptest.NewRequest(http.MethodGet, "/v0/internal/workspace", nil)
+	response = httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("legacy internal client route is still exposed: status=%d", response.Code)
 	}
 }
 
@@ -321,7 +377,7 @@ func TestAdminOfficialTopicCreateAndRoleAssignment(t *testing.T) {
 		"owner":"` + owner.UserId() + `",
 		"public":{"fn":"官方公告"}
 	}`)
-	request := httptest.NewRequest(http.MethodPost, "/v0/official-topics",
+	request := httptest.NewRequest(http.MethodPost, "/internal/official-topics",
 		bytes.NewReader(createBody))
 	request.Header.Set("Authorization", "Bearer test-bootstrap-token")
 	request.Header.Set("Content-Type", "application/json")
@@ -346,7 +402,7 @@ func TestAdminOfficialTopicCreateAndRoleAssignment(t *testing.T) {
 
 	roleBody := []byte(`{"role":"publisher"}`)
 	request = httptest.NewRequest(http.MethodPut,
-		"/v0/official-topics/grpOfficial01/members/"+publisher.UserId()+"/role",
+		"/internal/official-topics/grpOfficial01/members/"+publisher.UserId()+"/role",
 		bytes.NewReader(roleBody))
 	request.Header.Set("Authorization", "Bearer test-bootstrap-token")
 	request.Header.Set("Content-Type", "application/json")
@@ -363,7 +419,7 @@ func TestAdminOfficialTopicCreateAndRoleAssignment(t *testing.T) {
 
 	roleBody = []byte(`{"role":"subscriber"}`)
 	request = httptest.NewRequest(http.MethodPut,
-		"/v0/official-topics/grpOfficial01/members/"+publisher.UserId()+"/role",
+		"/internal/official-topics/grpOfficial01/members/"+publisher.UserId()+"/role",
 		bytes.NewReader(roleBody))
 	request.Header.Set("Authorization", "Bearer test-bootstrap-token")
 	request.Header.Set("Content-Type", "application/json")

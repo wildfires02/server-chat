@@ -164,7 +164,7 @@ func initTopicMe(t *Topic, sreg *ClientComMessage) error {
 	}
 
 	t.public = user.Public
-	t.trusted = user.Trusted
+	t.trusted = externalIdentityClientTrusted(user.Trusted)
 
 	t.created = user.CreatedAt
 	t.updated = user.UpdatedAt
@@ -386,7 +386,7 @@ func initTopicP2P(t *Topic, sreg *ClientComMessage) error {
 
 			// 交换 Public+Trusted 以匹配从存储.Topic.GetSubs 返回的订阅中交换的 Public+Trusted
 			sub2.SetPublic(users[u1].Public)
-			sub2.SetTrusted(users[u1].Trusted)
+			sub2.SetTrusted(externalIdentityClientTrusted(users[u1].Trusted))
 
 			// 将整个 Topic 标记为新。
 			pktsub.Created = true
@@ -446,7 +446,7 @@ func initTopicP2P(t *Topic, sreg *ClientComMessage) error {
 			}
 			// 交换 Public+Trusted 以匹配从存储.Topic.GetSubs 返回的订阅中交换的 Public+Trusted
 			sub1.SetPublic(users[u2].Public)
-			sub1.SetTrusted(users[u2].Trusted)
+			sub1.SetTrusted(externalIdentityClientTrusted(users[u2].Trusted))
 
 			// 将此订阅标记为新
 			pktsub.Newsub = true

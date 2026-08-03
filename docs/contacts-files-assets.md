@@ -284,7 +284,7 @@ Animated Noto Emoji 按 CC BY 4.0 许可，分发时必须保留目录中的归�
 
 ### 相关公共缺口
 
-- 推送已有独立通知偏好、FCM/TNPG 持久 Outbox、指数退避、DLQ、人工重放/删除、后台
+- 推送已有独立通知偏好、FCM 持久 Outbox、指数退避、DLQ、人工重放/删除、后台
   页面和 HTTPS Webhook 告警；供应商真实送达率与告警平台联调仍需生产验收。
 - 群组通话的服务端控制面使用 Agora，项目自身没有 SFU/MCU；屏幕共享、录制、直播、
   频道 Voice Chat 仍未实现。Web 端已监听 Agora 网络质量；Flutter App 使用原生

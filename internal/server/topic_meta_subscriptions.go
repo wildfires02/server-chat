@@ -362,7 +362,7 @@ func (t *Topic) replyGetSub(sess *Session, asUid types.Uid, authLevel auth.Level
 			if sendPubPriv {
 				// 'sub' 在 P2P Topic 中有 nil 'public'/'trusted'，这是正常的。
 				mts.Public = sub.GetPublic()
-				mts.Trusted = sub.GetTrusted()
+				mts.Trusted = externalIdentityClientTrusted(sub.GetTrusted())
 				// 仅当是用户自己的订阅时才汇报 'private'。
 				if uid == asUid {
 					mts.Private = sub.Private

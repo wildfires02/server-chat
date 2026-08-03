@@ -67,11 +67,8 @@ func (s *Session) hello(msg *ClientComMessage) {
 		}
 		params["fileUploadStreaming"] = streamingUpload
 		params["fileUploadDirect"] = directUpload
-		if len(globals.iceServers) > 0 {
-			params["iceServers"] = globals.iceServers
-		}
 		if globals.agora != nil {
-			// 仅通告群组通话能力；App ID、频道和短期 Token 会在
+			// 通告 Agora 通话能力；App ID、频道和短期 Token 会在
 			// 成员通过 ACL 校验并发送 call/join 后单独下发。
 			params["groupCallProvider"] = constCallProviderAgora
 		}

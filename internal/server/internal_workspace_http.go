@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	admincontrol "chat/server/admin"
@@ -17,7 +18,10 @@ import (
 	"chat/server/store/types"
 )
 
-const internalWorkspaceMaxBodySize = 16 << 10
+const (
+	internalWorkspaceMaxBodySize      = 16 << 10
+	internalWorkspacePolicyRefreshAge = 5 * time.Second
+)
 
 var internalWorkspaceOrgPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$`)
 
@@ -25,6 +29,8 @@ type internalWorkspaceHTTPHandler struct {
 	basePath       string
 	allowedOrigins map[string]struct{}
 	control        *admincontrol.ControlPlane
+	refreshMu      sync.Mutex
+	lastRefresh    time.Time
 }
 
 type internalWorkspaceHTTPResponse struct {
@@ -39,18 +45,21 @@ type internalWorkspacePinWrite struct {
 }
 
 func registerInternalWorkspaceHTTPRoutes(mux *http.ServeMux, apiPath string,
-	config adminAPIConfig, control *admincontrol.ControlPlane) {
-	basePath := apiPath + "v0/internal/"
-	origins := make(map[string]struct{}, len(config.AllowedOrigins))
-	for _, origin := range config.AllowedOrigins {
+	allowedOrigins []string, control *admincontrol.ControlPlane) {
+	basePath := apiPath + "v0/"
+	origins := make(map[string]struct{}, len(allowedOrigins))
+	for _, origin := range allowedOrigins {
 		if origin = strings.TrimRight(strings.TrimSpace(origin), "/"); origin != "" {
 			origins[origin] = struct{}{}
 		}
 	}
-	mux.Handle(basePath, &internalWorkspaceHTTPHandler{
+	handler := &internalWorkspaceHTTPHandler{
 		basePath: basePath, allowedOrigins: origins, control: control,
-	})
-	logs.Info.Printf("Internal workspace API served from '%s'", basePath)
+	}
+	// 只注册工作区的具体路由，不能用 /v0/ 子树覆盖 WebSocket 和文件接口。
+	mux.Handle(basePath+"workspace", handler)
+	mux.Handle(basePath+"pins/", handler)
+	logs.Info.Printf("Client workspace API served from '%sworkspace' and '%spins/'", basePath, basePath)
 }
 
 func (handler *internalWorkspaceHTTPHandler) ServeHTTP(wrt http.ResponseWriter, req *http.Request) {
@@ -130,6 +139,11 @@ func (handler *internalWorkspaceHTTPHandler) authorize(wrt http.ResponseWriter, 
 		handler.writeError(wrt, http.StatusServiceUnavailable, "employee_policy_unavailable", requestID)
 		return types.ZeroUid, "", false
 	}
+	if err = handler.refreshPolicy(); err != nil {
+		logs.Warn.Printf("internal workspace policy refresh failed: %v", err)
+		handler.writeError(wrt, http.StatusServiceUnavailable, "employee_policy_unavailable", requestID)
+		return types.ZeroUid, "", false
+	}
 	evaluation, err := handler.control.Evaluate(
 		"im:"+uid.UserId(), "channel:"+org, permission, time.Now().UTC())
 	if err != nil {
@@ -142,6 +156,20 @@ func (handler *internalWorkspaceHTTPHandler) authorize(wrt http.ResponseWriter, 
 		return types.ZeroUid, "", false
 	}
 	return uid, org, true
+}
+
+func (handler *internalWorkspaceHTTPHandler) refreshPolicy() error {
+	handler.refreshMu.Lock()
+	defer handler.refreshMu.Unlock()
+	if !handler.lastRefresh.IsZero() &&
+		time.Since(handler.lastRefresh) < internalWorkspacePolicyRefreshAge {
+		return nil
+	}
+	if err := handler.control.Refresh(); err != nil {
+		return err
+	}
+	handler.lastRefresh = time.Now()
+	return nil
 }
 
 func (handler *internalWorkspaceHTTPHandler) sync(wrt http.ResponseWriter, req *http.Request,

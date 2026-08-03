@@ -21,9 +21,9 @@ go build -tags mysql -o bin/im-admin ./cmd/im-admin
 ```
 
 管理请求发送到 `im-admin`（开发默认 `http://127.0.0.1:6061`）。先读取
-`GET /v0/bootstrap`，修改响应中的
+`GET /internal/bootstrap`，修改响应中的
 `control_plane.settings.translation`，再把完整的 `settings` 对象通过
-`PUT /v0/settings` 写回，并使用当前版本作为 `If-Match`。
+`PUT /internal/settings` 写回，并使用当前版本作为 `If-Match`。
 
 ```json
 {
@@ -117,7 +117,7 @@ Azure、Google、AWS 和 DeepL 有默认官方 API 地址；LibreTranslate 必�
 或日志中输出密钥。
 
 ```http
-POST /v0/translation/providers/azure-primary/test
+POST /internal/translation/providers/azure-primary/test
 Authorization: Bearer <admin-token>
 Content-Type: application/json
 
@@ -162,4 +162,3 @@ fail-closed 行为：接收方不会看到未翻译原文。数据库中出现�
 ### 生产环境推荐组合策略
 - **主用 (Priority 10)**：配置 DeepL 或 Azure AI Translator，利用其免费额度获得高质量翻译。
 - **备用 (Priority 20)**：部署本地 LibreTranslate Docker 容器。一旦云端 API 额度耗尽或网络异常，系统自动无缝降级到本地 LibreTranslate 兜底，保证聊天功能服务永不断线。
-

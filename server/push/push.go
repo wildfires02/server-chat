@@ -3,7 +3,7 @@ package push
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 	"time"
 
 	"chat/server/logs"
@@ -93,7 +93,7 @@ type Payload struct {
 	ModeGiven t.AccessMode `json:"given,omitempty"`
 }
 
-// Handler 所有推送提供者插件（如 FCM、TNPG、Stdout 等）必须实现的接口。
+// Handler 定义 FCM 推送处理器需要实现的接口。
 type Handler interface {
 	// Init 初始化推送处理器
 	Init(jsonconf json.RawMessage) (bool, error)
@@ -109,14 +109,6 @@ type Handler interface {
 
 	// Stop 终止推送处理器的 Worker 协程并停止发送推送
 	Stop()
-}
-
-// configType 保存配置Type的数据和运行状态。
-type configType struct {
-	// Name 保存名称。
-	Name string `json:"name"`
-	// Config 保存配置。
-	Config json.RawMessage `json:"config"`
 }
 
 // handlers 保存handlers的共享实例或运行状态。
@@ -137,26 +129,13 @@ func Register(name string, hnd Handler) {
 	handlers[name] = hnd
 }
 
-// Init 初始化所有已注册的推送处理器。
-func Init(jsconfig json.RawMessage) ([]string, error) {
-	var config []configType
-
-	if err := json.Unmarshal(jsconfig, &config); err != nil {
-		return nil, errors.New("解析推送配置失败: " + err.Error())
+// Init 直接初始化指定的推送处理器。
+func Init(name string, config json.RawMessage) (bool, error) {
+	handler := handlers[name]
+	if handler == nil {
+		return false, fmt.Errorf("push handler %q is not registered", name)
 	}
-
-	var enabled []string
-	for _, cc := range config {
-		if hnd := handlers[cc.Name]; hnd != nil {
-			if ok, err := hnd.Init(cc.Config); err != nil {
-				return nil, err
-			} else if ok {
-				enabled = append(enabled, cc.Name)
-			}
-		}
-	}
-
-	return enabled, nil
+	return handler.Init(config)
 }
 
 // Push 向用户设备发送单条推送消息。

@@ -51,19 +51,20 @@ HTTP(S) 服务对外暴露以下接口端点：
 * `/v0/file/resumable/`：共享 tus 断点续传端点；S3 下每个 PATCH 直接流入原生 Multipart Part。
 * `/v0/file/direct/`：可选的浏览器预签名 S3 Multipart 直传端点。
 * `/v0/file/meta/`：文件摘要、安全扫描、预览/转码及可靠任务状态查询端点。
+* `/v0/workspace`、`/v0/pins/`：登录用户的员工工作区同步与置顶端点。
 
-独立启动的 `im-admin` 提供 `/v0/`（开发默认端口 `6061`），该路由不会挂载到
+独立启动的 `im-admin` 提供 `/internal/`（开发默认端口 `6061`），该路由不会挂载到
 `im-server`。管理接口使用独立 Bearer 令牌，所有写请求必须携带当前控制面版本
 `If-Match`，成功后通过 `ETag` 返回新版本。
 
 ### 员工内部三级置顶
 
-启用管理控制面后同时提供 `/v0/internal/`。该接口使用普通 IM 用户凭证和 API Key，
+`im-server` 提供 `/v0/workspace` 和 `/v0/pins/`。这些接口使用普通 IM 用户凭证和 API Key，
 并要求 `X-IM-Org` 指定机构。服务端只允许在对应 `channel:{org}` Domain 中绑定
 `employee`（或含相同权限的自定义角色）的主体访问：
 
 ```http
-PUT /v0/bindings/employee-alice
+PUT /internal/bindings/employee-alice
 Authorization: Bearer <管理令牌>
 Content-Type: application/json
 If-Match: "1"
@@ -78,20 +79,20 @@ If-Match: "1"
 内部置顶与公开的 `{note what:"pin"}` 完全隔离。客户、会话和消息分别使用以下地址：
 
 ```text
-PUT    /v0/internal/pins/customer/{customer_uid}
-DELETE /v0/internal/pins/customer/{customer_uid}
-PUT    /v0/internal/pins/conversation/{topic_or_peer_uid}
-DELETE /v0/internal/pins/conversation/{topic_or_peer_uid}
-PUT    /v0/internal/pins/message/{topic_or_peer_uid}/{seq_id}
-DELETE /v0/internal/pins/message/{topic_or_peer_uid}/{seq_id}
-GET    /v0/internal/workspace?since={version}&limit=200
+PUT    /v0/pins/customer/{customer_uid}
+DELETE /v0/pins/customer/{customer_uid}
+PUT    /v0/pins/conversation/{topic_or_peer_uid}
+DELETE /v0/pins/conversation/{topic_or_peer_uid}
+PUT    /v0/pins/message/{topic_or_peer_uid}/{seq_id}
+DELETE /v0/pins/message/{topic_or_peer_uid}/{seq_id}
+GET    /v0/workspace?since={version}&limit=200
 ```
 
 PUT 请求体中的 `expected_version` 是该目标当前版本；首次置顶为 `0`。DELETE 使用
 `If-Match` 携带同一版本：
 
 ```http
-PUT /v0/internal/pins/message/grpYiqEXb4QY6s/42
+PUT /v0/pins/message/grpYiqEXb4QY6s/42
 X-IM-APIKey: <应用密钥>
 X-IM-Auth: token <base64凭证>
 X-IM-Org: org-main
@@ -110,7 +111,7 @@ Content-Type: application/json
 官方频道只能由管理接口创建和认证，不能通过普通聊天协议把普通频道伪装成官方频道。
 
 ```http
-POST /v0/official-topics
+POST /internal/official-topics
 Authorization: Bearer <管理令牌>
 Content-Type: application/json
 If-Match: "1"
@@ -126,7 +127,7 @@ If-Match: "1"
 加入、读取和接收 Presence。平台通过以下接口分配角色：
 
 ```http
-PUT /v0/official-topics/grpYiqEXb4QY6s/members/usrTarget/role
+PUT /internal/official-topics/grpYiqEXb4QY6s/members/usrTarget/role
 Authorization: Bearer <管理令牌>
 Content-Type: application/json
 If-Match: "2"
@@ -144,7 +145,7 @@ If-Match: "2"
 表示没有产品固定人数上限；全量成员保存在订阅索引中，不常驻单个 Topic Actor。
 
 ```http
-POST /v0/official-topics
+POST /internal/official-topics
 Authorization: Bearer <管理令牌>
 Content-Type: application/json
 If-Match: "3"
@@ -162,7 +163,7 @@ If-Match: "3"
 全员禁言通过策略更新：
 
 ```http
-PATCH /v0/official-topics/grpYiqEXb4QY6s
+PATCH /internal/official-topics/grpYiqEXb4QY6s
 Authorization: Bearer <管理令牌>
 Content-Type: application/json
 If-Match: "4"
@@ -173,12 +174,12 @@ If-Match: "4"
 单人/批量禁言、解禁、移出、封禁和解封接口如下：
 
 ```text
-POST   /v0/official-topics/{topic}/moderation/mutes
-DELETE /v0/official-topics/{topic}/moderation/mutes/{uid}
-DELETE /v0/official-topics/{topic}/members/{uid}?reason_code=spam&note=...
-POST   /v0/official-topics/{topic}/bans
-DELETE /v0/official-topics/{topic}/bans/{uid}
-GET    /v0/official-topics/{topic}/audit?limit=100
+POST   /internal/official-topics/{topic}/moderation/mutes
+DELETE /internal/official-topics/{topic}/moderation/mutes/{uid}
+DELETE /internal/official-topics/{topic}/members/{uid}?reason_code=spam&note=...
+POST   /internal/official-topics/{topic}/bans
+DELETE /internal/official-topics/{topic}/bans/{uid}
+GET    /internal/official-topics/{topic}/audit?limit=100
 ```
 
 禁言请求可提供 `user` 或最多 100 个 `users`、`scope=message|media|call|all`、
@@ -520,21 +521,20 @@ get --search=release --scope=peers --limit=20 fnd
 
 ## 音视频通话 (Video Calls)
 
-协议 `0.30` 同时保留两种媒体通话路径：
-
-- P2P Topic 使用原有 WebRTC 信令，由业务 WebSocket 转发 `ringing`、`accept`、`offer`、`answer`、`ice-candidate` 和 `hang-up`。
-- 普通群组 Topic 使用 Agora RTC。业务服务端只负责邀请、ACL、短期 AccessToken2、参与状态和通话日志，音频和视频媒体流由 Agora SDK 传输。
+一对一和群组的语音、视频媒体流全部由 Agora RTC 传输。IM 服务端只负责邀请、
+ACL、短期 AccessToken2、参与状态和通话日志，不交换 SDP 或 ICE Candidate。
 
 当前交付状态：
 
 | 范围 | 状态 | 说明 |
 |---|---|---|
-| P2P WebRTC 服务端信令 | ✅ 已实现 | 需要部署真实 STUN/TURN 并进行生产网络验证 |
-| Agora 群组通话服务端 | ✅ 已实现 | 已实现 Token、ACL、加入、离开、续期、断线清理和状态持久化 |
+| Agora 一对一/群组通话服务端 | ✅ 已实现 | 已实现 Token、ACL、加入、离开、续期、断线清理和状态持久化 |
 | 正式客户端 Agora SDK | 🟡 部分完成 | `web-chat` 已接入语音/视频 SDK、续期和通话 UI；Android、iOS 待接入 |
 | Agora 真实项目跨端联调 | 🟡 待验证 | 当前仓库测试不连接外部 Agora 网络 |
 
-服务端 `{hi}` 响应中的 `groupCallProvider: "agora"` 表示已启用群组通话。群组邀请仍使用兼容的 `webrtc` 消息头，服务端会写入可信的 `call-provider: "agora"`：
+服务端 `{hi}` 响应中的 `groupCallProvider: "agora"` 表示已启用 Agora 通话。邀请沿用
+通话协议的 `webrtc` 状态消息头，但它不表示底层使用 WebRTC；服务端会写入可信的
+`call-provider: "agora"`：
 
 ```json
 {
@@ -553,7 +553,7 @@ get --search=release --scope=peers --limit=20 fnd
 }
 ```
 
-只有群组 `W` 权限成员可以创建通话。收到邀请后，具有 `J+R` 权限的成员发送 `join`：
+只有 Topic `W` 权限成员可以创建通话。收到邀请后，具有 `J+R` 权限的成员发送 `join`：
 
 ```json
 {
@@ -594,11 +594,11 @@ get --search=release --scope=peers --limit=20 fnd
 
 客户端必须用响应中的同一组 `app_id + channel + uid + token` 加入 Agora 频道：
 
-- `publisher` 对应群组可写成员，可发布音频、视频和数据流。
+- `publisher` 对应可写成员，可发布音频、视频和数据流。
 - `subscriber` 对应只读成员，只获取加入频道权限。生产项目应在 Agora Console 开启 Co-host Token Authentication，确保发布权限在 Agora 网络侧强制生效。
 - Agora SDK 在 Token 即将过期时会触发 `onTokenPrivilegeWillExpire`。客户端发送 `event: "refresh"` 获取新 Token，然后调用 SDK 的 `renewToken`。
-- 客户端离开时发送 `event: "leave"`；最后一个在线参与者离开会结束当前群组通话。
-- 发起人或群管理员可以发送 `event: "hang-up"` 结束整个群组通话。
+- 客户端离开时发送 `event: "leave"`；最后一个在线参与者离开会结束当前通话。
+- 一对一通话任一合法参与者都可挂断；群组通话由发起人或群管理员结束。
 - 服务端为每个 Session 分配独立数字 UID，同一账号可以通过多个设备同时加入。
 
 续期和离开示例：
@@ -609,22 +609,20 @@ get --search=release --scope=peers --limit=20 fnd
 { "note": { "id": "call-end-1", "topic": "grpYiqEXb4QY6s", "what": "call", "seq": 120, "event": "hang-up" } }
 ```
 
-服务端配置位于 `webrtc.agora`。生产环境建议不在配置文件保存证书，而是设置 `AGORA_APP_ID` 和 `AGORA_APP_CERTIFICATE`。`token_ttl` 范围为 60–86400 秒，默认 3600 秒：
+服务端配置位于 `calls`。`token_ttl` 范围为 60–86400 秒，默认 3600 秒：
 
 ```yaml
-webrtc:
+calls:
   enabled: true
-  call_establishment_timeout: 30
-  agora:
-    enabled: true
-    app_id: ""
-    app_certificate: ""
-    token_ttl: 3600
-    channel_prefix: im
-    max_participants: 128
+  app_id: ""
+  app_certificate: ""
+  token_ttl: 3600
+  channel_prefix: im
+  max_participants: 128
 ```
 
-`app_certificate` 是服务端密钥，不得写入客户端、下发协议或业务日志。群组通话不使用业务服务端 ICE 配置；`ice_servers` 只服务于兼容的 P2P WebRTC 通话。
+`app_certificate` 是服务端密钥，不得写入客户端、下发协议或业务日志。server-chat
+不再读取 STUN、TURN 或 ICE 配置。
 
 ## 消息报文详细规范
 

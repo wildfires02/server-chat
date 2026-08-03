@@ -34,26 +34,39 @@ type adminIdentitySessionRequest struct {
 }
 
 type adminIdentityProfile struct {
-	Name          string `json:"name"`
-	Avatar        string `json:"avatar"`
-	Role          string `json:"role,omitempty"`
-	Badge         string `json:"badge,omitempty"`
-	ChannelID     uint   `json:"channel_id,omitempty"`
-	Staff         bool   `json:"staff,omitempty"`
-	AgentVerified bool   `json:"agent_verified,omitempty"`
+	SchemaVersion  int    `json:"schema_version,omitempty"`
+	ID             string `json:"id"`
+	Phone          string `json:"phone"`
+	InvitationCode string `json:"invitation_code"`
+	NickName       string `json:"nick_name"`
+	Name           string `json:"name"`
+	Avatar         string `json:"avatar"`
+	Role           string `json:"role,omitempty"`
+	Badge          string `json:"badge,omitempty"`
+	ChannelID      uint   `json:"channel_id,omitempty"`
+	Staff          bool   `json:"staff,omitempty"`
+	AgentVerified  bool   `json:"agent_verified,omitempty"`
 }
 
 type adminIdentitySessionResponse struct {
-	IMUID     string `json:"im_uid"`
-	Token     []byte `json:"token"`
-	ExpiresAt int64  `json:"expires_at"`
-	Name      string `json:"name"`
-	Avatar    string `json:"avatar"`
+	IMUID          string `json:"im_uid"`
+	Token          []byte `json:"token"`
+	ExpiresAt      int64  `json:"expires_at"`
+	ID             string `json:"id"`
+	Phone          string `json:"phone"`
+	InvitationCode string `json:"invitation_code"`
+	NickName       string `json:"nick_name"`
+	Name           string `json:"name"`
+	Avatar         string `json:"avatar"`
 }
 
 type adminIdentityProfileResponse struct {
 	IMUID          string `json:"im_uid"`
 	ProfileVersion int64  `json:"profile_version"`
+	ID             string `json:"id"`
+	Phone          string `json:"phone"`
+	InvitationCode string `json:"invitation_code"`
+	NickName       string `json:"nick_name"`
 	Name           string `json:"name"`
 	Avatar         string `json:"avatar"`
 }
@@ -76,11 +89,29 @@ type adminIdentityDeviceResponse struct {
 func normalizeAdminIdentityInput(input *adminIdentitySessionRequest) bool {
 	input.Provider = strings.ToLower(strings.TrimSpace(input.Provider))
 	input.ExternalID = strings.TrimSpace(input.ExternalID)
+	input.Profile.ID = strings.TrimSpace(input.Profile.ID)
+	input.Profile.Phone = strings.TrimSpace(input.Profile.Phone)
+	input.Profile.InvitationCode = strings.TrimSpace(input.Profile.InvitationCode)
+	input.Profile.NickName = strings.TrimSpace(input.Profile.NickName)
 	input.Profile.Name = strings.TrimSpace(input.Profile.Name)
 	input.Profile.Avatar = strings.TrimSpace(input.Profile.Avatar)
+	if input.Profile.ID == "" {
+		input.Profile.ID = input.ExternalID
+	}
+	if input.Profile.NickName == "" {
+		input.Profile.NickName = input.Profile.Name
+	}
+	if input.Profile.Name == "" {
+		input.Profile.Name = input.Profile.NickName
+	}
 	return externalIdentityProviderPattern.MatchString(input.Provider) &&
 		externalIdentityIDPattern.MatchString(input.ExternalID) &&
+		input.Profile.ID == input.ExternalID &&
+		len([]rune(input.Profile.Phone)) <= 64 &&
+		len([]rune(input.Profile.InvitationCode)) <= 160 &&
+		len([]rune(input.Profile.NickName)) <= 160 &&
 		len([]rune(input.Profile.Name)) <= 160 && len(input.Profile.Avatar) <= 4096 &&
+		input.Profile.SchemaVersion >= 0 &&
 		input.ProfileVersion >= 0
 }
 
@@ -201,7 +232,8 @@ func (handler *adminHTTPHandler) createIdentitySession(wrt http.ResponseWriter, 
 	profile := externalIdentityProfileFromUser(user)
 	handler.writeData(wrt, http.StatusOK, adminIdentitySessionResponse{
 		IMUID: uid.UserId(), Token: token, ExpiresAt: expires.Unix(),
-		Name: profile.Name, Avatar: profile.Avatar,
+		ID: profile.ID, Phone: profile.Phone, InvitationCode: profile.InvitationCode,
+		NickName: profile.NickName, Name: profile.Name, Avatar: profile.Avatar,
 	}, requestID)
 }
 
@@ -237,7 +269,8 @@ func (handler *adminHTTPHandler) updateIdentityProfile(wrt http.ResponseWriter, 
 	profile := externalIdentityProfileFromUser(user)
 	handler.writeData(wrt, http.StatusOK, adminIdentityProfileResponse{
 		IMUID: uid.UserId(), ProfileVersion: externalIdentityProfileVersion(user.Trusted),
-		Name: profile.Name, Avatar: profile.Avatar,
+		ID: profile.ID, Phone: profile.Phone, InvitationCode: profile.InvitationCode,
+		NickName: profile.NickName, Name: profile.Name, Avatar: profile.Avatar,
 	}, requestID)
 }
 
@@ -255,6 +288,8 @@ func ensureExternalIdentity(input adminIdentitySessionRequest) (types.Uid, error
 
 	public := map[string]any{
 		"fn":              input.Profile.Name,
+		"id":              input.Profile.ID,
+		"nick_name":       input.Profile.NickName,
 		"external_id":     input.ExternalID,
 		"user_id":         input.ExternalID,
 		"payment_user_id": input.ExternalID,
@@ -271,6 +306,11 @@ func ensureExternalIdentity(input adminIdentitySessionRequest) (types.Uid, error
 	trusted := map[string]any{
 		"identity_provider": input.Provider,
 		"external_id":       input.ExternalID,
+		"id":                input.Profile.ID,
+		"user_id":           input.Profile.ID,
+		"phone":             input.Profile.Phone,
+		"invitation_code":   input.Profile.InvitationCode,
+		"nick_name":         input.Profile.NickName,
 		"profile_version":   input.ProfileVersion,
 		"role":              input.Profile.Role,
 		"badge":             input.Profile.Badge,
@@ -316,8 +356,28 @@ func externalIdentityUnique(provider, externalID string) string {
 func updateExternalIdentityProfile(uid types.Uid, input adminIdentitySessionRequest) error {
 	lock := &externalIdentityProfileLocks[uint64(uid)%uint64(len(externalIdentityProfileLocks))]
 	lock.Lock()
-	defer lock.Unlock()
-	return updateExternalIdentityProfileWithStore(store.Users, uid, input)
+	err := updateExternalIdentityProfileWithStore(store.Users, uid, input)
+	lock.Unlock()
+	if err == nil {
+		// 管理接口绕过了客户端的 set.desc 流程，因此需要主动通知在线联系人刷新资料。
+		// 通知异步执行，避免联系人较多时阻塞商城资料保存接口。
+		go notifyExternalIdentityProfileUpdated(uid)
+	}
+	return err
+}
+
+// notifyExternalIdentityProfileUpdated 向该用户的 P2P 联系人和共同群组发布资料更新事件。
+// 客户端收到 upd 后重新读取 Topic 描述，从数据库获得最新昵称和头像。
+func notifyExternalIdentityProfileUpdated(uid types.Uid) {
+	if uid.IsZero() || globals.hub == nil {
+		return
+	}
+	subs, err := store.Users.GetSubs(uid)
+	if err != nil {
+		logs.Warn.Printf("external identity profile notification failed for %s: %v", uid.UserId(), err)
+		return
+	}
+	presUsersOfInterestOffline(uid, subs, "upd")
 }
 
 type externalIdentityProfileStore interface {
@@ -340,6 +400,8 @@ func updateExternalIdentityProfileWithStore(users externalIdentityProfileStore, 
 
 	public := externalIdentityObject(user.Public)
 	public["fn"] = input.Profile.Name
+	public["id"] = input.Profile.ID
+	public["nick_name"] = input.Profile.NickName
 	public["external_id"] = input.ExternalID
 	public["user_id"] = input.ExternalID
 	public["payment_user_id"] = input.ExternalID
@@ -359,6 +421,13 @@ func updateExternalIdentityProfileWithStore(users externalIdentityProfileStore, 
 	trusted := externalIdentityObject(user.Trusted)
 	trusted["identity_provider"] = input.Provider
 	trusted["external_id"] = input.ExternalID
+	trusted["id"] = input.Profile.ID
+	trusted["user_id"] = input.Profile.ID
+	if input.Profile.SchemaVersion >= 2 {
+		trusted["phone"] = input.Profile.Phone
+		trusted["invitation_code"] = input.Profile.InvitationCode
+	}
+	trusted["nick_name"] = input.Profile.NickName
 	trusted["profile_version"] = input.ProfileVersion
 	if input.Profile.Role != "" {
 		trusted["role"] = input.Profile.Role
@@ -387,6 +456,19 @@ func externalIdentityObject(value any) map[string]any {
 	return result
 }
 
+// externalIdentityClientTrusted 过滤仅供可信服务使用的身份字段，禁止通过客户端元数据泄露。
+func externalIdentityClientTrusted(value any) any {
+	object := externalIdentityObject(value)
+	_, hasPhone := object["phone"]
+	_, hasInvitationCode := object["invitation_code"]
+	if !hasPhone && !hasInvitationCode {
+		return value
+	}
+	delete(object, "phone")
+	delete(object, "invitation_code")
+	return object
+}
+
 func externalIdentityProfileVersion(trusted any) int64 {
 	value := externalIdentityObject(trusted)["profile_version"]
 	switch typed := value.(type) {
@@ -408,7 +490,21 @@ func externalIdentityProfileFromUser(user *types.User) adminIdentityProfile {
 		return adminIdentityProfile{}
 	}
 	public := externalIdentityObject(user.Public)
+	trusted := externalIdentityObject(user.Trusted)
 	name, _ := public["fn"].(string)
+	id, _ := public["id"].(string)
+	if id == "" {
+		id, _ = public["user_id"].(string)
+	}
+	nickname, _ := public["nick_name"].(string)
+	if nickname == "" {
+		nickname = name
+	}
 	avatar, _ := public["photo"].(string)
-	return adminIdentityProfile{Name: name, Avatar: avatar}
+	phone, _ := trusted["phone"].(string)
+	invitationCode, _ := trusted["invitation_code"].(string)
+	return adminIdentityProfile{
+		ID: id, Phone: phone, InvitationCode: invitationCode,
+		NickName: nickname, Name: name, Avatar: avatar,
+	}
 }

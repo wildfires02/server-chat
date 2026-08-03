@@ -130,7 +130,7 @@
 服务端需求：
 
 - 支持 P2P 和多人音视频通话的创建、邀请、响铃、接听、拒绝、离开和结束。
-- P2P 使用 WebRTC 信令并配置生产 TURN；多人通话使用受支持的 RTC 服务。
+- 一对一和多人语音/视频通话统一使用 Agora RTC，服务端签发短期 Token。
 - Token 必须短期有效并绑定用户、通话、角色和设备 Session。
 - 只有有权成员可以加入，群组只读成员默认只能订阅媒体，不能发布音视频。
 - 支持断线清理、Token 续期、通话状态持久化、并发通话限制和滥用控制。
@@ -138,8 +138,8 @@
 
 当前边界：
 
-- P2P WebRTC 信令和 Agora 群通话服务端已有基础实现。
-- 正式 Web/移动客户端、真实 Agora 项目联调、TURN 生产验证、屏幕共享、录制、
+- Agora 一对一和群通话服务端已有基础实现。
+- 正式 Web/移动客户端、真实 Agora 项目联调、屏幕共享、录制、
   Voice Chat 和频道直播尚未完成。
 
 ### 1.6 FR-04 至 FR-06 群组、官方频道和官方大群
@@ -232,7 +232,7 @@ URL/代码/金额/账号占位保护。客户归属身份接入、机构词库�
 - 使用持久推送队列、幂等键、优先级、指数退避、死信和 Token 健康管理。
 - 监控推送接受、送达、失败、延迟、重试和死信。
 
-当前已有 FCM/TNPG 推送入口和失效 Token 清理；独立通知偏好、可靠队列、失败重试和
+当前已有 FCM 推送入口和失效 Token 清理；独立通知偏好、可靠队列、失败重试和
 送达监控尚未完成。
 
 ### 1.12 FR-14 与 FR-15 红包和转账
@@ -379,7 +379,7 @@ Topic 查询。但当前联系人状态按用户聚合存放在 PCache 中，没
 
 当前实现状态：
 
-- `POST /v0/official-topics` 使用 `scale_class=large` 创建官方大群，
+- `POST /internal/official-topics` 使用 `scale_class=large` 创建官方大群，
   `member_limit` 固定为 `0`，可在创建时由平台批量分配管理员。
 - 全量成员关系继续使用数据库 `subscriptions(topic, userid)` 唯一索引；Topic Actor
   仅缓存所有者、管理员、在线与近期活跃成员，普通成员最后一个 Session 离开后释放快照。
@@ -528,7 +528,7 @@ Groupbuying 用户停用、渠道变化、员工角色变化或删除时，通�
 配置权限目录、角色模板、主体绑定、基础产品策略和审计记录：
 
 - 管理端：`/Users/wildfire/github/im/im/web-admin`
-- 服务端入口：`/v0/*`
+- 服务端入口：`/internal/*`
 - 权限执行：本地 Casbin，支持 `subject + domain + object + action`
 - 配置存储：IM 持久缓存中的单一版本化文档，写操作必须携带 `If-Match`
 - 临时身份：独立 Bootstrap 管理令牌，只保存在浏览器 Session Storage
@@ -621,16 +621,16 @@ IM 管理接口完成委派。
 
 | 接口 | 用途 |
 | --- | --- |
-| `GET /v0/official-topics` | 列出官方频道 |
-| `POST /v0/official-topics` | 创建并认证官方只读频道 |
-| `PATCH /v0/official-topics/{topic}` | 修改官方策略 |
-| `PUT /v0/official-topics/{topic}/members/{uid}/role` | 分配管理员、发布者或订阅者角色 |
-| `GET /v0/official-topics/{topic}/audit` | 查询官方频道管理审计 |
-| `POST /v0/official-topics/{topic}/moderation/mutes` | 单人或批量禁言 |
-| `DELETE /v0/official-topics/{topic}/moderation/mutes/{uid}` | 解除禁言 |
-| `DELETE /v0/official-topics/{topic}/members/{uid}` | 移出成员 |
-| `POST /v0/official-topics/{topic}/bans` | 封禁并阻止重新加入 |
-| `DELETE /v0/official-topics/{topic}/bans/{uid}` | 解除封禁 |
+| `GET /internal/official-topics` | 列出官方频道 |
+| `POST /internal/official-topics` | 创建并认证官方只读频道 |
+| `PATCH /internal/official-topics/{topic}` | 修改官方策略 |
+| `PUT /internal/official-topics/{topic}/members/{uid}/role` | 分配管理员、发布者或订阅者角色 |
+| `GET /internal/official-topics/{topic}/audit` | 查询官方频道管理审计 |
+| `POST /internal/official-topics/{topic}/moderation/mutes` | 单人或批量禁言 |
+| `DELETE /internal/official-topics/{topic}/moderation/mutes/{uid}` | 解除禁言 |
+| `DELETE /internal/official-topics/{topic}/members/{uid}` | 移出成员 |
+| `POST /internal/official-topics/{topic}/bans` | 封禁并阻止重新加入 |
+| `DELETE /internal/official-topics/{topic}/bans/{uid}` | 解除封禁 |
 
 普通成员邀请、离开和读取仍可复用现有 Topic 协议。
 
@@ -1108,22 +1108,22 @@ pinned DESC, rank ASC, pinned_at DESC, last_activity_at DESC
 
 | 接口 | 用途 |
 | --- | --- |
-| `GET /v0/internal/customers/{uid}` | 获取按员工权限裁剪的客户内部资料 |
-| `PATCH /v0/internal/customers/{uid}` | 更新客户结构化资料 |
-| `POST /v0/internal/customers/{uid}/notes` | 新增内部备注 |
-| `PATCH /v0/internal/customers/{uid}/notes/{note}` | 修改本人有权编辑的备注 |
-| `DELETE /v0/internal/customers/{uid}/notes/{note}` | 软删除备注 |
-| `PUT /v0/internal/pins/{type}/{target}` | 置顶或调整顺序 |
-| `DELETE /v0/internal/pins/{type}/{target}` | 取消置顶 |
-| `GET /v0/internal/workspace?since={version}` | 增量同步资料、备注和置顶 |
-| `POST /v0/internal/translations/{topic}/{seq}/retry` | 重试失败翻译 |
+| `GET /v0/customers/{uid}` | 获取按员工权限裁剪的客户内部资料 |
+| `PATCH /v0/customers/{uid}` | 更新客户结构化资料 |
+| `POST /v0/customers/{uid}/notes` | 新增内部备注 |
+| `PATCH /v0/customers/{uid}/notes/{note}` | 修改本人有权编辑的备注 |
+| `DELETE /v0/customers/{uid}/notes/{note}` | 软删除备注 |
+| `PUT /v0/pins/{type}/{target}` | 置顶或调整顺序 |
+| `DELETE /v0/pins/{type}/{target}` | 取消置顶 |
+| `GET /v0/workspace?since={version}` | 增量同步资料、备注和置顶 |
+| `POST /v0/translations/{topic}/{seq}/retry` | 重试失败翻译 |
 
 写入使用 `expected_version` 做乐观并发控制。变更通过员工自己的内部同步 Topic 或
 可靠事件流发送到其它设备；不得向客户的 `me` Topic、P2P Topic 或外部 Push 发送
 备注和置顶事件。
 
 普通聊天协议继续返回客户可见消息。只有经过内部身份验证的员工客户端可以调用
-`/v0/internal/`，网关还应校验客户端应用类型和设备策略。
+`/v0/` 下对应的受保护接口，网关还应校验客户端应用类型和设备策略。
 
 ## 8. 红包与转账
 
@@ -1335,17 +1335,17 @@ IM 已消费的非敏感快照快速首屏显示。钱包余额、支付机构�
 
 | 接口 | 用途 |
 | --- | --- |
-| `GET /v0/bootstrap` | 权限目录、角色、绑定、基础配置、运行快照和集成状态 |
-| `PUT/DELETE /v0/roles/{id}` | 创建、修改或删除自定义角色 |
-| `PUT/DELETE /v0/bindings/{id}` | 管理主体—角色—Domain 绑定 |
-| `PUT /v0/settings` | 保存基础产品策略 |
-| `GET/POST /v0/official-topics` | 查询或创建认证官方频道 |
-| `GET/PATCH /v0/official-topics/{topic}` | 查询或修改官方频道策略 |
-| `PUT /v0/official-topics/{topic}/members/{uid}/role` | 分配管理员、发布者或订阅者 |
-| `GET /v0/official-topics/{topic}/audit` | 查询官方频道管理审计 |
-| `POST /v0/evaluate` | 使用当前 Casbin 策略试算权限 |
-| `GET /v0/audit` | 查询最近的管理操作审计 |
-| `GET /v0/health` | 查询管理控制面状态和版本 |
+| `GET /internal/bootstrap` | 权限目录、角色、绑定、基础配置、运行快照和集成状态 |
+| `PUT/DELETE /internal/roles/{id}` | 创建、修改或删除自定义角色 |
+| `PUT/DELETE /internal/bindings/{id}` | 管理主体—角色—Domain 绑定 |
+| `PUT /internal/settings` | 保存基础产品策略 |
+| `GET/POST /internal/official-topics` | 查询或创建认证官方频道 |
+| `GET/PATCH /internal/official-topics/{topic}` | 查询或修改官方频道策略 |
+| `PUT /internal/official-topics/{topic}/members/{uid}/role` | 分配管理员、发布者或订阅者 |
+| `GET /internal/official-topics/{topic}/audit` | 查询官方频道管理审计 |
+| `POST /internal/evaluate` | 使用当前 Casbin 策略试算权限 |
+| `GET /internal/audit` | 查询最近的管理操作审计 |
+| `GET /internal/health` | 查询管理控制面状态和版本 |
 
 当前开发配置允许 `http://localhost:4173`；生产环境禁止通配 CORS，令牌至少 32 字符，
 并应通过 Secret 注入。
@@ -1372,9 +1372,9 @@ Groupbuying 现有 `/v1/red-packet` 保持营销红包语义，不与上述聊�
 
 | 接口/事件 | 用途 |
 | --- | --- |
-| `POST /v0/internal/groupbuying/events` | 接收签名事件；也可由事件总线消费者替代 |
-| `POST /v0/internal/topics/{topic}/members:check` | Groupbuying 创建/领取时核对 Topic 成员 |
-| `GET /v0/internal/groupbuying/projections/{id}` | 运维补偿时查询 IM 当前投影版本 |
+| `POST /internal/groupbuying/events` | 接收签名事件；也可由事件总线消费者替代 |
+| `POST /internal/topics/{topic}/members:check` | Groupbuying 创建/领取时核对 Topic 成员 |
+| `GET /internal/groupbuying/projections/{id}` | 运维补偿时查询 IM 当前投影版本 |
 | `identity.changed` | 停用账号或更新安全资料投影 |
 | `permission.changed` | 失效 Casbin 和业务权限缓存 |
 | `chat.payment.*` | 创建/状态变化/领取/关闭事件 |

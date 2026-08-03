@@ -1,20 +1,17 @@
 # 独立 im-admin 开发配置。它必须与 im-server 连接同一个数据库。
-log_flags: stdFlags
 
 runtime:
   environment: development
   deployment_mode: standalone
 
 listen: ":6061"
-api_path: /
 
-# 必须与聊天服务使用相同的 API Key 盐值，供内部工作区接口验证请求。
+# 必须与聊天服务使用相同的 API Key 盐值，供身份会话接口签发客户端凭证。
 api_key_salt: T713/rYYgW7g4m3vG6zGRh7+FM1t0T8j13koXScOAj4=
 
 # Token 密钥和序列号必须与 im-server 一致。身份接口会为每次请求签发
 # 有效期更短的令牌，默认有效期为 15 分钟。
 auth_config:
-  logical_names: []
   token:
     expire_in: 900
     serial_num: 1
@@ -28,13 +25,9 @@ admin:
   allowed_origins:
     - http://localhost:4173
 
-tls:
-  enabled: false
-
 store_config:
   # 源码开发启动命令：go run -tags mysql cmd/im-admin/main.go
   uid_key: la6YsO+bNX/+XIkOqc5Svw==
-  max_results: 1024
   use_adapter: mysql
   adapters:
     mysql:
@@ -65,6 +58,3 @@ store_config:
       addresses: localhost:27017
       database: im
       replica_set: rs0
-    rethinkdb:
-      addresses: localhost:28015
-      database: im

@@ -13,7 +13,6 @@ import (
 // 凭据格式和有效期。
 func TestNewAgoraProviderDefaults(t *testing.T) {
 	provider, err := newAgoraProvider(agoraConfig{
-		Enabled:        true,
 		AppID:          "0123456789abcdef0123456789abcdef",
 		AppCertificate: "abcdef0123456789abcdef0123456789",
 	})
@@ -31,20 +30,17 @@ func TestNewAgoraProviderDefaults(t *testing.T) {
 	}
 
 	invalid := []agoraConfig{
-		{Enabled: true, AppID: "bad", AppCertificate: "abcdef0123456789abcdef0123456789"},
+		{AppID: "bad", AppCertificate: "abcdef0123456789abcdef0123456789"},
 		{
-			Enabled:        true,
 			AppID:          "0123456789abcdef0123456789abcdef",
 			AppCertificate: "bad",
 		},
 		{
-			Enabled:        true,
 			AppID:          "0123456789abcdef0123456789abcdef",
 			AppCertificate: "abcdef0123456789abcdef0123456789",
 			TokenTTL:       86401,
 		},
 		{
-			Enabled:        true,
 			AppID:          "0123456789abcdef0123456789abcdef",
 			AppCertificate: "abcdef0123456789abcdef0123456789",
 			ChannelPrefix:  "unsafe prefix",

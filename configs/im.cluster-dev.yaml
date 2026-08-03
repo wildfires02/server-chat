@@ -1,81 +1,47 @@
-# IM 服务端本机三节点开发集群配置。
-#
-# 本文件用于开发调试，使用单个无 TLS etcd 和本机 MySQL；不能用于 staging
-# 或 production。生产环境必须使用 im.cluster.yaml。
-log_flags: stdFlags
+# server-chat 本机三节点开发集群配置。
+# scripts/run-cluster.sh 会为每个进程生成 self、advertise_addr 和监听端口。
 
 runtime:
   environment: development
   deployment_mode: cluster
 
 listen: ":6060"
-api_path: /
-cache_control: 39600
-ws_compression_disabled: false
-static_mount: /
-static_data: "-"
-grpc_listen: ":16060"
-grpc_keepalive_enabled: true
+client_origins:
+  - http://localhost:3000
 expvar: /debug/vars
-server_status: "-"
-pprof: ""
-pprof_url: ""
-health:
-  live_path: /livez
-  ready_path: /readyz
-  drain_path: /drainz
-  topology_path: /clusterz
-  drain_timeout: 15s
-use_x_forwarded_for: false
-x_frame_options: SAMEORIGIN
 default_country_code: CN
+health:
+  drain_timeout: 15s
 
-# 仅限开发使用的固定密钥。
+# 仅限本地开发，不得用于生产环境。
 api_key_salt: T713/rYYgW7g4m3vG6zGRh7+FM1t0T8j13koXScOAj4=
 max_message_size: 4194304
 max_subscriber_count: 1000
 max_tag_count: 32
-permanent_accounts: false
 p2p_delete_enabled: true
-msg_delete_age: 0
 alias_tag: alias
 
-# 每个聊天节点从共享数据库读取 im-admin 写入的翻译策略。
-translation:
-  enabled: false
-  refresh_interval: 5
-
+# 本地集群与单机配置使用同一个 Cloudflare R2 桶，避免节点本地文件不一致。
 media:
-  use_handler: fs
+  use_handler: s3
   max_size: 33554432
   gc_period: 60
   gc_block_size: 100
-  processing:
-    enabled: false
-    workers: 2
-    queue_size: 256
-    timeout: 120
-    poll_interval: 2
-    max_attempts: 5
-    retry_base: 5
-    lease_seconds: 180
-    clamav_addr: ""
-    ffmpeg: /usr/bin/ffmpeg
-    libreoffice: /usr/bin/libreoffice
   handlers:
-    fs:
-      upload_dir: .local/uploads
+    s3:
+      access_key_id: "37af66e492edbf7bc7d5c1e2bc02229f"
+      secret_access_key: "90e03d46b9cc8513ef3cc18f52eb1e012e605687fe53896b4d139d09e7f1b97d"
+      region: auto
+      bucket: "prod"
+      endpoint: "https://03e94ef5ea50cc774ac54c4ab911db8a.r2.cloudflarestorage.com"
+      presign_ttl: 3600
+      direct_upload: true
+      cdn_base_url: "https://matesave.com"
       cache_control: max-age=86400
       cors_origins:
-        - http://localhost:6060
-        - http://localhost:6061
-        - http://localhost:6062
-
-tls:
-  enabled: false
+        - "*"
 
 auth_config:
-  logical_names: []
   basic:
     add_to_tags: true
     min_login_length: 3
@@ -87,7 +53,6 @@ auth_config:
 
 store_config:
   uid_key: la6YsO+bNX/+XIkOqc5Svw==
-  max_results: 1024
   use_adapter: mysql
   adapters:
     mysql:
@@ -97,34 +62,17 @@ store_config:
       conn_max_lifetime: 60
       sql_timeout: 10
 
-acc_gc_config:
+# 本地未启用 FCM，但保留统一节点以明确功能状态。
+firebase:
   enabled: false
-  gc_period: 3600
-  gc_block_size: 10
-  gc_min_account_age: 30
+  credential_file: "./firebase-adminsdk.json"
+  time_to_live: 3600
 
-push_alerts:
-  enabled: false
-  webhook_url: https://alerts.example.com/hooks/server-chat
-  bearer_token: ""
-  timeout_seconds: 5
-  max_attempts: 3
-  min_interval_seconds: 10
-  allow_insecure: true
-push: []
-
-webrtc:
-  enabled: false
-  require_turn: false
-  call_establishment_timeout: 30
-  ice_servers_file: ""
-  agora:
-    enabled: false
-    app_id: ""
-    app_certificate: ""
-    token_ttl: 3600
-    channel_prefix: im
-    max_participants: 128
+# 开发集群的一对一和群组通话全部使用 Agora。
+calls:
+  enabled: true
+  app_id: "b547e4eff8274ca5ab14b4015f3b0105"
+  app_certificate: "74e69faed5d143df9ad4850e1fd542a0"
 
 cluster_config:
   cluster_id: im-local-development
@@ -133,7 +81,6 @@ cluster_config:
     - one
     - two
     - three
-  # scripts/run-cluster.sh 为每个进程生成完整节点 YAML。
   self: ""
   advertise_addr: ""
   nodes:
@@ -145,22 +92,11 @@ cluster_config:
       addr: 127.0.0.1:12002
   control_plane:
     provider: etcd
+    # 对应 Docker 三成员 etcd 映射到宿主机的客户端端口。
     endpoints:
       - http://127.0.0.1:2379
+      - http://127.0.0.1:22379
+      - http://127.0.0.1:32379
     namespace: /im/local-development
-    lease_ttl: 10s
-    dial_timeout: 3s
   transport:
     listen: 127.0.0.1:12000
-    lane_count: 4
-    reliable_queue_capacity: 1024
-    pipeline_window: 16
-    ephemeral_queue_capacity: 256
-    dial_timeout: 2s
-    request_timeout: 5s
-    max_retries: 2
-    retry_backoff: 100ms
-    dedupe_capacity: 16384
-    dedupe_ttl: 2m
-
-plugins: []
