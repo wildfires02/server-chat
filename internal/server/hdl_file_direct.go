@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	"chat/server/logs"
 	"chat/server/media"
@@ -41,6 +42,7 @@ type directUploadState struct {
 type directUploadCreateRequest struct {
 	Size     int64  `json:"size"`
 	MimeType string `json:"mime"`
+	Name     string `json:"name"`
 }
 
 type directUploadCompleteRequest struct {
@@ -112,6 +114,58 @@ func normalizeDirectUploadMIME(value string) string {
 		}
 	}
 	return "application/octet-stream"
+}
+
+func directUploadCategory(mimeType string) string {
+	switch {
+	case strings.HasPrefix(mimeType, "image/"):
+		return "images"
+	case strings.HasPrefix(mimeType, "video/"):
+		return "videos"
+	case strings.HasPrefix(mimeType, "audio/"):
+		return "audio"
+	case mimeType == "application/pdf" || strings.HasPrefix(mimeType, "text/"):
+		return "documents"
+	default:
+		return "files"
+	}
+}
+
+func sanitizeDirectUploadName(value, mimeType string) string {
+	value = strings.ReplaceAll(value, "\\", "/")
+	base := strings.TrimSpace(path.Base(value))
+	var builder strings.Builder
+	for _, char := range base {
+		switch {
+		case unicode.IsLetter(char), unicode.IsDigit(char), strings.ContainsRune("._-", char):
+			builder.WriteRune(char)
+		case unicode.IsSpace(char):
+			builder.WriteByte('_')
+		default:
+			builder.WriteByte('_')
+		}
+	}
+	name := strings.Trim(builder.String(), "._-")
+	if name == "" {
+		name = "file"
+		if extensions, _ := mime.ExtensionsByType(mimeType); len(extensions) > 0 {
+			name += extensions[0]
+		}
+	}
+	runes := []rune(name)
+	if len(runes) > 160 {
+		name = string(runes[:160])
+	}
+	return name
+}
+
+func directUploadObjectKey(id, name, mimeType string) string {
+	return path.Join(
+		"chat",
+		directUploadCategory(mimeType),
+		id,
+		sanitizeDirectUploadName(name, mimeType),
+	)
 }
 
 // directFileHTTP 创建、完成或取消浏览器到对象存储的 Multipart 直传。
@@ -225,6 +279,7 @@ func createDirectUpload(
 		ObjHeader: types.ObjHeader{Id: store.Store.GetUidString()},
 		User:      uid.String(), MimeType: normalizeDirectUploadMIME(input.MimeType),
 	}
+	definition.Location = directUploadObjectKey(definition.Id, input.Name, definition.MimeType)
 	definition.InitTimes()
 	if err := store.Files.StartUpload(definition); err != nil {
 		writeResumableError(wrt, decodeStoreError(err, "", now, nil))
@@ -288,16 +343,14 @@ func completeDirectUpload(
 		writeResumableError(wrt, ErrMalformed("", "", now))
 		return
 	}
-	sort.Slice(input.Parts, func(i, j int) bool { return input.Parts[i].PartNumber < input.Parts[j].PartNumber })
-	for index, part := range input.Parts {
-		if part.PartNumber != index+1 || strings.TrimSpace(part.ETag) == "" {
-			writeResumableError(wrt, ErrMalformed("", "", now))
-			return
-		}
+	parts, err := resolveDirectUploadParts(req.Context(), handler, directUploadDefinition(state), state, input.Parts)
+	if err != nil {
+		writeResumableError(wrt, decodeStoreError(err, "", now, nil))
+		return
 	}
 	definition := directUploadDefinition(state)
 	rawURL, size, err := handler.CompleteMultipartUpload(
-		req.Context(), definition, state.UploadID, input.Parts,
+		req.Context(), definition, state.UploadID, parts,
 	)
 	if err != nil {
 		writeResumableError(wrt, decodeStoreError(err, "", now, nil))
@@ -326,6 +379,52 @@ func completeDirectUpload(
 	}
 	queueFileProcessing(completed, rawURL)
 	_ = json.NewEncoder(wrt).Encode(directUploadResponse{ID: state.ID, URL: rawURL})
+}
+
+func resolveDirectUploadParts(
+	ctx context.Context,
+	handler media.MultipartHandler,
+	definition *types.FileDef,
+	state *directUploadState,
+	clientParts []media.MultipartPart,
+) ([]media.MultipartPart, error) {
+	if state == nil || state.PartCount <= 0 || len(clientParts) != state.PartCount {
+		return nil, types.ErrMalformed
+	}
+	sort.Slice(clientParts, func(i, j int) bool {
+		return clientParts[i].PartNumber < clientParts[j].PartNumber
+	})
+	for index, part := range clientParts {
+		if part.PartNumber != index+1 {
+			return nil, types.ErrMalformed
+		}
+	}
+
+	if lister, ok := handler.(media.MultipartPartLister); ok {
+		storedParts, err := lister.ListMultipartParts(ctx, definition, state.UploadID)
+		if err != nil {
+			return nil, err
+		}
+		if len(storedParts) != state.PartCount {
+			return nil, types.ErrMalformed
+		}
+		sort.Slice(storedParts, func(i, j int) bool {
+			return storedParts[i].PartNumber < storedParts[j].PartNumber
+		})
+		for index, part := range storedParts {
+			if part.PartNumber != index+1 || strings.TrimSpace(part.ETag) == "" {
+				return nil, types.ErrMalformed
+			}
+		}
+		return storedParts, nil
+	}
+
+	for _, part := range clientParts {
+		if strings.TrimSpace(part.ETag) == "" {
+			return nil, types.ErrMalformed
+		}
+	}
+	return clientParts, nil
 }
 
 func abortDirectUpload(ctx context.Context, state *directUploadState, handler media.MultipartHandler) {

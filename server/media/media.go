@@ -69,6 +69,12 @@ type MultipartHandler interface {
 	AbortMultipartUpload(context.Context, *types.FileDef, string) error
 }
 
+// MultipartPartLister 允许服务端从对象存储读取已上传的真实分片。
+// 浏览器直传不应依赖 JavaScript 能否读取 CORS 响应中的 ETag。
+type MultipartPartLister interface {
+	ListMultipartParts(context.Context, *types.FileDef, string) ([]MultipartPart, error)
+}
+
 // StreamingMultipartHandler lets the application server stream a tus chunk directly
 // into one object-storage multipart part without persisting and re-reading it.
 type StreamingMultipartHandler interface {

@@ -13,6 +13,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -350,7 +351,10 @@ func (ah *awshandler) CreateMultipartUpload(
 	ctx context.Context,
 	fdef *types.FileDef,
 ) (string, error) {
-	key := fdef.Uid().String32()
+	key := strings.TrimLeft(fdef.Location, "/")
+	if key == "" {
+		key = fdef.Uid().String32()
+	}
 	result, err := ah.svc.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
 		Bucket: aws.String(ah.conf.BucketName), Key: aws.String(key),
 		ContentType: aws.String(fdef.MimeType), CacheControl: aws.String(ah.conf.CacheControl),
@@ -411,6 +415,44 @@ func (ah *awshandler) PresignMultipartPart(
 		return nil, err
 	}
 	return &media.PresignedPart{PartNumber: partNumber, URL: result.URL}, nil
+}
+
+// ListMultipartParts 从 R2/S3 查询真实分片，避免依赖浏览器暴露 ETag 响应头。
+func (ah *awshandler) ListMultipartParts(
+	ctx context.Context,
+	fdef *types.FileDef,
+	uploadID string,
+) ([]media.MultipartPart, error) {
+	if fdef == nil || fdef.Location == "" || uploadID == "" {
+		return nil, types.ErrMalformed
+	}
+	paginator := s3.NewListPartsPaginator(ah.svc, &s3.ListPartsInput{
+		Bucket:   aws.String(ah.conf.BucketName),
+		Key:      aws.String(fdef.Location),
+		UploadId: aws.String(uploadID),
+	})
+	parts := make([]media.MultipartPart, 0)
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, part := range page.Parts {
+			partNumber := int(aws.ToInt32(part.PartNumber))
+			etag := strings.TrimSpace(aws.ToString(part.ETag))
+			if partNumber <= 0 || etag == "" {
+				return nil, types.ErrMalformed
+			}
+			parts = append(parts, media.MultipartPart{
+				PartNumber: partNumber,
+				ETag:       etag,
+			})
+		}
+	}
+	sort.Slice(parts, func(i, j int) bool {
+		return parts[i].PartNumber < parts[j].PartNumber
+	})
+	return parts, nil
 }
 
 // CompleteMultipartUpload 合并已确认分块并用 HeadObject 校验最终大小。

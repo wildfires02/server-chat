@@ -377,7 +377,36 @@ func (s *Session) onLogin(msgID string, timestamp time.Time, rec *auth.Rec, miss
 
 	rec.Features = features
 	params["token"], params["expires"], _ = store.Store.GetLogicalAuthHandler("token").GenSecret(rec)
+	addSessionIdentityCapabilities(params, rec.Uid)
 
 	reply.Ctrl.Params = params
 	return reply
+}
+
+// addSessionIdentityCapabilities 将服务端可信身份转换为客户端可直接使用的能力位。
+// 客户端不得根据联系人角色或过期的本地缓存猜测发送权限。
+func addSessionIdentityCapabilities(params map[string]any, uid types.Uid) {
+	staff := false
+	agentVerified := false
+	role := "customer"
+	badge := ""
+	if store.Users != nil {
+		user, err := store.Users.Get(uid)
+		if err == nil && user != nil {
+			trusted := externalIdentityObject(user.Trusted)
+			staff = trustedBoolean(trusted["staff"])
+			agentVerified = trustedBoolean(trusted["agent_verified"])
+			if value, ok := trusted["role"].(string); ok && value != "" {
+				role = value
+			}
+			if value, ok := trusted["badge"].(string); ok {
+				badge = value
+			}
+		}
+	}
+	params["staff"] = staff
+	params["agentVerified"] = agentVerified
+	params["role"] = role
+	params["badge"] = badge
+	params["canSendDocuments"] = globals.businessPolicy == nil || staff || agentVerified
 }
