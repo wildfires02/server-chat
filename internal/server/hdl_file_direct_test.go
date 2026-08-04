@@ -2,12 +2,30 @@ package server
 
 import (
 	"context"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"chat/server/media"
 	"chat/server/store/types"
 )
+
+func TestDirectUploadResultURLUsesBrowserOrigin(t *testing.T) {
+	request := httptest.NewRequest("POST", "http://127.0.0.1:6060/v0/file/direct/id/complete", nil)
+	request.Header.Set("Origin", "http://192.168.1.190:4000")
+	got := directUploadResultURL(request, "/v0/file/s/file.xlsx")
+	if got != "http://192.168.1.190:4000/v0/file/s/file.xlsx" {
+		t.Fatalf("unexpected direct upload result URL: %q", got)
+	}
+}
+
+func TestDirectUploadResultURLPreservesAbsoluteURL(t *testing.T) {
+	request := httptest.NewRequest("POST", "http://127.0.0.1:6060/v0/file/direct/id/complete", nil)
+	const rawURL = "https://media.example.com/chat/files/file.xlsx"
+	if got := directUploadResultURL(request, rawURL); got != rawURL {
+		t.Fatalf("absolute URL changed: %q", got)
+	}
+}
 
 func TestDirectUploadObjectKeyUsesChatTypeAndFileName(t *testing.T) {
 	key := directUploadObjectKey(

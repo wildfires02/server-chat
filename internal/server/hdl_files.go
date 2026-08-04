@@ -101,12 +101,38 @@ func largeFileServeHTTP(wrt http.ResponseWriter, req *http.Request) {
 	}
 
 	// 文件级 ACL 必须在 S3/代理处理器生成重定向签名之前完成校验。
-	_, accessTopic, err := store.AuthorizeFileDownloadContext(uid, req.URL.String())
+	fileDefinition, accessTopic, err := store.AuthorizeFileDownloadContext(uid, req.URL.String())
 	if err == nil {
 		err = authorizeBusinessFileTopic(uid, accessTopic)
 	}
 	if err != nil {
 		writeHttpResponse(decodeStoreError(err, "", now, nil), err)
+		return
+	}
+
+	// 浏览器内文档预览需要读取响应正文。对象存储重定向会触发跨域读取限制，
+	// 因此在完成文件 ACL 校验后，由 IM 服务端代为读取并同源流式返回。
+	if req.Method == http.MethodGet && req.URL.Query().Get("proxy") == "1" {
+		contentType := "application/octet-stream"
+		if fileDefinition != nil && fileDefinition.MimeType != "" {
+			contentType = fileDefinition.MimeType
+		}
+		wrt.Header().Set("Content-Type", contentType)
+		wrt.Header().Set("Cache-Control", "private, no-store")
+		wrt.Header().Set("X-Content-Type-Options", "nosniff")
+		if fileDefinition != nil && fileDefinition.Size > 0 {
+			wrt.Header().Set("Content-Length", strconv.FormatInt(fileDefinition.Size, 10))
+		}
+		written, proxyErr := copyStoredMediaURL(mh, req.URL.String(), wrt, 90*time.Second)
+		if proxyErr != nil {
+			logs.Warn.Println("media serve: proxy download failed", proxyErr, "uid=", uid, "written=", written)
+			if written == 0 {
+				wrt.Header().Del("Content-Length")
+				http.Error(wrt, "Unable to read attachment", http.StatusBadGateway)
+			}
+			return
+		}
+		logs.Info.Println("media serve: proxied download", "uid=", uid, "bytes=", written)
 		return
 	}
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"mime"
 	"net/http"
+	"net/url"
 	"path"
 	"sort"
 	"strings"
@@ -55,6 +56,37 @@ type directUploadResponse struct {
 	Parts     []*media.PresignedPart `json:"parts,omitempty"`
 	URL       string                 `json:"url,omitempty"`
 	ExpiresAt time.Time              `json:"expires_at,omitempty"`
+}
+
+// directUploadResultURL 把媒体处理器返回的稳定文件路径转换为客户端可直接保存的绝对地址。
+// 优先使用浏览器 Origin，确保本地联调、移动端局域网访问和生产反向代理都返回调用方可达的地址。
+func directUploadResultURL(req *http.Request, rawURL string) string {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || parsed.String() == "" || parsed.IsAbs() {
+		return rawURL
+	}
+
+	if origin := strings.TrimSpace(req.Header.Get("Origin")); origin != "" {
+		if base, parseErr := url.Parse(origin); parseErr == nil &&
+			(base.Scheme == "http" || base.Scheme == "https") && base.Host != "" {
+			return base.ResolveReference(parsed).String()
+		}
+	}
+
+	scheme := "http"
+	if forwarded := strings.TrimSpace(strings.Split(req.Header.Get("X-Forwarded-Proto"), ",")[0]); forwarded == "http" || forwarded == "https" {
+		scheme = forwarded
+	} else if req.TLS != nil {
+		scheme = "https"
+	}
+	host := strings.TrimSpace(strings.Split(req.Header.Get("X-Forwarded-Host"), ",")[0])
+	if host == "" {
+		host = req.Host
+	}
+	if host == "" {
+		return rawURL
+	}
+	return (&url.URL{Scheme: scheme, Host: host}).ResolveReference(parsed).String()
 }
 
 func saveDirectUpload(state *directUploadState) error {
@@ -334,7 +366,9 @@ func completeDirectUpload(
 ) {
 	now := types.TimeNow()
 	if state.ResultURL != "" {
-		_ = json.NewEncoder(wrt).Encode(directUploadResponse{ID: state.ID, URL: state.ResultURL})
+		_ = json.NewEncoder(wrt).Encode(directUploadResponse{
+			ID: state.ID, URL: directUploadResultURL(req, state.ResultURL),
+		})
 		return
 	}
 	var input directUploadCompleteRequest
@@ -378,7 +412,9 @@ func completeDirectUpload(
 		logs.Warn.Printf("direct upload completion state save failed, id=%s: %v", state.ID, err)
 	}
 	queueFileProcessing(completed, rawURL)
-	_ = json.NewEncoder(wrt).Encode(directUploadResponse{ID: state.ID, URL: rawURL})
+	_ = json.NewEncoder(wrt).Encode(directUploadResponse{
+		ID: state.ID, URL: directUploadResultURL(req, rawURL),
+	})
 }
 
 func resolveDirectUploadParts(

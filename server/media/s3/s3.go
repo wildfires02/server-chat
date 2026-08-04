@@ -253,6 +253,10 @@ func (ah *awshandler) Headers(method string, url *url.URL, headers http.Header, 
 
 	ctx := context.Background()
 	var redirURL string
+	objectKey := strings.TrimLeft(fdef.Location, "/")
+	if objectKey == "" {
+		objectKey = fid.String32()
+	}
 	if ah.conf.CDNBaseURL != "" {
 		redirURL = ah.cdnURL(fdef.Location)
 	}
@@ -269,7 +273,7 @@ func (ah *awshandler) Headers(method string, url *url.URL, headers http.Header, 
 		}
 		presigned, err := ah.presign.PresignGetObject(ctx, &s3.GetObjectInput{
 			Bucket:                     aws.String(ah.conf.BucketName),
-			Key:                        aws.String(fid.String32()),
+			Key:                        aws.String(objectKey),
 			ResponseCacheControl:       aws.String(ah.conf.CacheControl),
 			ResponseContentType:        aws.String(fdef.MimeType),
 			ResponseContentDisposition: contentDisposition,
@@ -286,7 +290,7 @@ func (ah *awshandler) Headers(method string, url *url.URL, headers http.Header, 
 		}
 		presigned, err := ah.presign.PresignHeadObject(ctx, &s3.HeadObjectInput{
 			Bucket: aws.String(ah.conf.BucketName),
-			Key:    aws.String(fid.String32()),
+			Key:    aws.String(objectKey),
 		}, func(opts *s3.PresignOptions) {
 			opts.Expires = time.Second * time.Duration(ah.conf.PresignTTL)
 		})
