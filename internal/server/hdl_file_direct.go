@@ -28,6 +28,7 @@ const (
 type directUploadState struct {
 	ID          string     `json:"id"`
 	Owner       string     `json:"owner"`
+	Name        string     `json:"name,omitempty"`
 	MimeType    string     `json:"mime"`
 	Length      int64      `json:"length"`
 	PartSize    int64      `json:"part_size"`
@@ -50,12 +51,19 @@ type directUploadCompleteRequest struct {
 	Parts []media.MultipartPart `json:"parts"`
 }
 
-type directUploadResponse struct {
+type directUploadCreateResponse struct {
 	ID        string                 `json:"id"`
 	PartSize  int64                  `json:"part_size"`
-	Parts     []*media.PresignedPart `json:"parts,omitempty"`
-	URL       string                 `json:"url,omitempty"`
-	ExpiresAt time.Time              `json:"expires_at,omitempty"`
+	Parts     []*media.PresignedPart `json:"parts"`
+	ExpiresAt time.Time              `json:"expires_at"`
+}
+
+type directUploadCompleteResponse struct {
+	URL  string `json:"url"`
+	Name string `json:"name"`
+	Key  string `json:"key"`
+	Ext  string `json:"ext,omitempty"`
+	Size int64  `json:"size"`
 }
 
 // directUploadResultURL 把媒体处理器返回的稳定文件路径转换为客户端可直接保存的绝对地址。
@@ -311,7 +319,8 @@ func createDirectUpload(
 		ObjHeader: types.ObjHeader{Id: store.Store.GetUidString()},
 		User:      uid.String(), MimeType: normalizeDirectUploadMIME(input.MimeType),
 	}
-	definition.Location = directUploadObjectKey(definition.Id, input.Name, definition.MimeType)
+	name := sanitizeDirectUploadName(input.Name, definition.MimeType)
+	definition.Location = directUploadObjectKey(definition.Id, name, definition.MimeType)
 	definition.InitTimes()
 	if err := store.Files.StartUpload(definition); err != nil {
 		writeResumableError(wrt, decodeStoreError(err, "", now, nil))
@@ -324,7 +333,7 @@ func createDirectUpload(
 		return
 	}
 	state := &directUploadState{
-		ID: definition.Id, Owner: definition.User, MimeType: definition.MimeType,
+		ID: definition.Id, Owner: definition.User, Name: name, MimeType: definition.MimeType,
 		Length: input.Size, PartSize: directUploadPartSize, PartCount: partCount,
 		UploadID: uploadID, Location: definition.Location, CreatedAt: now,
 	}
@@ -345,9 +354,36 @@ func createDirectUpload(
 		parts = append(parts, part)
 	}
 	wrt.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(wrt).Encode(directUploadResponse{
+	_ = json.NewEncoder(wrt).Encode(directUploadCreateResponse{
 		ID: state.ID, PartSize: state.PartSize, Parts: parts, ExpiresAt: now.Add(24 * time.Hour),
 	})
+}
+
+func directUploadCompletedResponse(req *http.Request, state *directUploadState, rawURL string) directUploadCompleteResponse {
+	name := strings.TrimSpace(state.Name)
+	if name == "" {
+		name = path.Base(state.Location)
+	}
+	return directUploadCompleteResponse{
+		URL:  directUploadResultURL(req, rawURL),
+		Name: name,
+		Key:  state.Location,
+		Ext:  strings.TrimPrefix(strings.ToLower(path.Ext(name)), "."),
+		Size: state.Length,
+	}
+}
+
+func directUploadPublicResultURL(
+	handler media.MultipartHandler,
+	definition *types.FileDef,
+	fallback string,
+) string {
+	if publicHandler, ok := handler.(media.PublicURLHandler); ok {
+		if publicURL := strings.TrimSpace(publicHandler.PublicURL(definition)); publicURL != "" {
+			return publicURL
+		}
+	}
+	return fallback
 }
 
 func directUploadDefinition(state *directUploadState) *types.FileDef {
@@ -366,9 +402,10 @@ func completeDirectUpload(
 ) {
 	now := types.TimeNow()
 	if state.ResultURL != "" {
-		_ = json.NewEncoder(wrt).Encode(directUploadResponse{
-			ID: state.ID, URL: directUploadResultURL(req, state.ResultURL),
-		})
+		resultURL := directUploadPublicResultURL(
+			handler, directUploadDefinition(state), state.ResultURL,
+		)
+		_ = json.NewEncoder(wrt).Encode(directUploadCompletedResponse(req, state, resultURL))
 		return
 	}
 	var input directUploadCompleteRequest
@@ -407,14 +444,13 @@ func completeDirectUpload(
 		completed = definition
 	}
 	completedAt := now
-	state.ResultURL, state.CompletedAt = rawURL, &completedAt
+	resultURL := directUploadPublicResultURL(handler, completed, rawURL)
+	state.ResultURL, state.CompletedAt = resultURL, &completedAt
 	if err = saveDirectUpload(state); err != nil {
 		logs.Warn.Printf("direct upload completion state save failed, id=%s: %v", state.ID, err)
 	}
 	queueFileProcessing(completed, rawURL)
-	_ = json.NewEncoder(wrt).Encode(directUploadResponse{
-		ID: state.ID, URL: directUploadResultURL(req, rawURL),
-	})
+	_ = json.NewEncoder(wrt).Encode(directUploadCompletedResponse(req, state, resultURL))
 }
 
 func resolveDirectUploadParts(

@@ -350,6 +350,16 @@ func (ah *awshandler) cdnURL(key string) string {
 	return result + "?" + values.Encode()
 }
 
+// PublicURL 使用配置的 R2 自定义域名生成完整文件地址。
+func (ah *awshandler) PublicURL(fdef *types.FileDef) string {
+	// 带时效签名的 CDN 地址不能持久化到聊天消息；这种配置继续返回受保护文件地址。
+	if fdef == nil || ah.conf.CDNBaseURL == "" || ah.conf.CDNHMACSecret != "" ||
+		strings.TrimSpace(fdef.Location) == "" {
+		return ""
+	}
+	return ah.cdnURL(fdef.Location)
+}
+
 // CreateMultipartUpload 创建由浏览器直接写入的 S3 Multipart 会话。
 func (ah *awshandler) CreateMultipartUpload(
 	ctx context.Context,
@@ -645,9 +655,31 @@ func isAPIError(err error, codes ...string) bool {
 	return false
 }
 
-// GetIdFromUrl 从附件 URL 中解析并提取文件 UID。
-func (ah *awshandler) GetIdFromUrl(url string) types.Uid {
-	return media.GetIdFromUrl(url, ah.conf.ServeURL)
+// GetIdFromUrl 从受保护文件地址或 R2 自定义域名地址中解析文件 UID。
+func (ah *awshandler) GetIdFromUrl(rawURL string) types.Uid {
+	if id := media.GetIdFromUrl(rawURL, ah.conf.ServeURL); !id.IsZero() {
+		return id
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return types.ZeroUid
+	}
+	if ah.conf.CDNBaseURL != "" {
+		base, baseErr := url.Parse(ah.conf.CDNBaseURL)
+		if baseErr != nil || (parsed.Host != "" && !strings.EqualFold(parsed.Host, base.Host)) {
+			return types.ZeroUid
+		}
+	}
+	segments := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+	for index := 0; index+2 < len(segments); index++ {
+		if segments[index] != "chat" {
+			continue
+		}
+		if id := types.ParseUid(segments[index+2]); !id.IsZero() {
+			return id
+		}
+	}
+	return types.ZeroUid
 }
 
 // getFileRecord 根据文件 UID 从数据库读取对应的文件元数据记录。

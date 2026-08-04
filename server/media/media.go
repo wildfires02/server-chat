@@ -88,6 +88,12 @@ type DirectUploadCapability interface {
 	DirectUploadEnabled() bool
 }
 
+// PublicURLHandler 根据文件记录生成上传完成后可长期保存的公开访问地址。
+// 对象存储处理器可使用自定义域名；没有公开域名的处理器不需要实现。
+type PublicURLHandler interface {
+	PublicURL(*types.FileDef) string
+}
+
 // QuarantineHandler 是媒体后端可选的物理隔离能力。
 // 检出恶意文件后必须把对象移出正常下载位置；只有受审计的管理操作才能释放或删除。
 type QuarantineHandler interface {

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -24,6 +25,30 @@ func TestDirectUploadResultURLPreservesAbsoluteURL(t *testing.T) {
 	const rawURL = "https://media.example.com/chat/files/file.xlsx"
 	if got := directUploadResultURL(request, rawURL); got != rawURL {
 		t.Fatalf("absolute URL changed: %q", got)
+	}
+}
+
+func TestDirectUploadCompletedResponseOmitsSessionFields(t *testing.T) {
+	request := httptest.NewRequest("POST", "http://127.0.0.1:6060/v0/file/direct/id/complete", nil)
+	request.Header.Set("Origin", "https://shop.example.com")
+	response := directUploadCompletedResponse(request, &directUploadState{
+		ID:       "file123",
+		Name:     "report.xlsx",
+		Location: "chat/files/file123/report.xlsx",
+		Length:   1024,
+	}, "/v0/file/s/file123.xlsx")
+	raw, err := json.Marshal(response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded := string(raw)
+	if strings.Contains(encoded, "\"id\"") || strings.Contains(encoded, "part_size") ||
+		strings.Contains(encoded, "expires_at") {
+		t.Fatalf("completion response leaked session fields: %s", encoded)
+	}
+	if response.URL != "https://shop.example.com/v0/file/s/file123.xlsx" ||
+		response.Key != "chat/files/file123/report.xlsx" || response.Ext != "xlsx" || response.Size != 1024 {
+		t.Fatalf("unexpected completion response: %#v", response)
 	}
 }
 
