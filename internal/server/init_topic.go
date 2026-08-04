@@ -10,6 +10,7 @@
 package server
 
 import (
+	"errors"
 	"strings"
 
 	"chat/server/auth"
@@ -66,7 +67,11 @@ func topicInit(t *Topic, join *ClientComMessage, h *Hub) {
 		// 从缓存中移除 Topic 以防止 hub 向其转发更多消息。
 		h.topicDel(join.RcptTo)
 
-		logs.Err.Println("init_topic: failed to load or create topic:", join.RcptTo, err)
+		if errors.Is(err, types.ErrPermissionDenied) || errors.Is(err, types.ErrPolicy) {
+			logs.Warn.Println("init_topic: topic access denied:", join.RcptTo)
+		} else {
+			logs.Err.Println("init_topic: failed to load or create topic:", join.RcptTo, err)
+		}
 		if join.sess != nil {
 			join.sess.queueOut(decodeStoreErrorExplicitTs(err, join.Id, t.xoriginal, timestamp, join.Timestamp, nil))
 		}
