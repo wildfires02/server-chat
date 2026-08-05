@@ -28,6 +28,15 @@ type accountGcConfig struct {
 	GcMinAccountAge int `json:"gc_min_account_age"`
 }
 
+// messageRetentionConfig 控制聊天主库的最长保留时间。
+// 合规审计仍由 business_policy.audit_endpoint 单独保存纯文字副本。
+type messageRetentionConfig struct {
+	Enabled    bool `json:"enabled"`
+	Days       int  `json:"days"`
+	ScanPeriod int  `json:"scan_period"`
+	BatchSize  int  `json:"batch_size"`
+}
+
 // 大文件处理配置。
 type mediaConfig struct {
 	// 用于文件上传的处理器名称
@@ -177,6 +186,8 @@ type configType struct {
 	Validator map[string]*validatorConfig `json:"acc_validation"`
 	// AccountGC 保存AccountGC。
 	AccountGC *accountGcConfig `json:"acc_gc_config"`
+	// MessageRetention 限制聊天主库及其附件引用的最长保留时间。
+	MessageRetention *messageRetentionConfig `json:"message_retention,omitempty"`
 	// Media 保存媒体。
 	Media *mediaConfig `json:"media"`
 	// Calls 保存 Agora 音视频通话配置。

@@ -139,6 +139,10 @@ func (a *adapter) CreateDb(reset bool) error {
 		}, rdb.IndexCreateOpts{Multi: true}).RunWrite(a.conn); err != nil {
 		return err
 	}
+	// 90 天消息保留任务按创建时间分批扫描。
+	if _, err := rdb.DB(a.dbName).Table("messages").IndexCreate("CreatedAt").RunWrite(a.conn); err != nil {
+		return err
+	}
 
 	// scheduledmessages 保存尚未分配 Topic SeqId 的定时消息快照。
 	// RethinkDB 不支持表/字段 COMMENT，表用途记录在建表代码和 Go 模型注释中。
@@ -438,6 +442,40 @@ func (a *adapter) UpgradeDb() error {
 
 	if a.version == 121 {
 		if err := bumpVersion(a, 122); err != nil {
+			return err
+		}
+	}
+
+	if a.version == 122 {
+		// 数据库 122→123：为按保留期分批清理消息增加创建时间索引。
+		indexCursor, err := rdb.DB(a.dbName).Table("messages").IndexList().Run(a.conn)
+		if err != nil {
+			return err
+		}
+		var indexes []string
+		if err = indexCursor.All(&indexes); err != nil {
+			indexCursor.Close()
+			return err
+		}
+		indexCursor.Close()
+		indexExists := false
+		for _, index := range indexes {
+			if index == "CreatedAt" {
+				indexExists = true
+				break
+			}
+		}
+		if !indexExists {
+			if _, err = rdb.DB(a.dbName).Table("messages").IndexCreate("CreatedAt").RunWrite(a.conn); err != nil {
+				return err
+			}
+		}
+		cursor, err := rdb.DB(a.dbName).Table("messages").IndexWait("CreatedAt").Run(a.conn)
+		if err != nil {
+			return err
+		}
+		cursor.Close()
+		if err := bumpVersion(a, 123); err != nil {
 			return err
 		}
 	}

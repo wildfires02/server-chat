@@ -720,3 +720,62 @@ func (a *adapter) MessageDeleteList(topic string, toDel *t.DelMessage) (err erro
 
 	return tx.Commit(ctx)
 }
+
+// MessageRetireExpired 分批清除超过保留期的消息正文和附件关联。
+func (a *adapter) MessageRetireExpired(cutoff time.Time, limit int) (messageIDs []t.Uid, err error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+	ctx, cancel := a.getContextForTx()
+	if cancel != nil {
+		defer cancel()
+	}
+	tx, err := a.db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+	rows, err := tx.Query(ctx,
+		`SELECT id FROM messages WHERE createdat<$1 AND deletedat IS NULL
+		 ORDER BY createdat,id LIMIT $2 FOR UPDATE SKIP LOCKED`, cutoff, limit)
+	if err != nil {
+		return nil, err
+	}
+	var rawIDs []int32
+	for rows.Next() {
+		var id int32
+		if err = rows.Scan(&id); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		rawIDs = append(rawIDs, id)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	if len(rawIDs) == 0 {
+		return nil, tx.Commit(ctx)
+	}
+	if _, err = tx.Exec(ctx, "DELETE FROM filemsglinks WHERE msgid=ANY($1)", rawIDs); err != nil {
+		return nil, err
+	}
+	if _, err = tx.Exec(ctx,
+		`UPDATE messages SET deletedat=$1,delid=-1,"from"=0,clientid=NULL,clientkey=NULL,
+		 head=NULL,content=NULL,searchtext=NULL WHERE id=ANY($2)`, t.TimeNow(), rawIDs); err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	messageIDs = make([]t.Uid, 0, len(rawIDs))
+	for _, id := range rawIDs {
+		messageIDs = append(messageIDs, t.Uid(id))
+	}
+	return messageIDs, nil
+}

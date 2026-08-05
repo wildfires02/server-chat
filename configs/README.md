@@ -103,6 +103,28 @@ calls:
 `call_establishment_timeout`、`token_ttl`、`channel_prefix` 或
 `max_participants`。
 
+### 消息与附件保留期
+
+聊天主库与管理审计库使用不同的保存目的：聊天主库为用户提供正常的多端历史记录，
+管理审计库只保存可倒查的纯文字副本。当前配置把聊天主库也限制为最多 90 天：
+
+```yaml
+message_retention:
+  enabled: true
+  days: 90
+  scan_period: 300
+  batch_size: 1000
+```
+
+- `days`：正文、发送者、搜索文本及附件引用的最长保留天数。
+- `scan_period`：后台扫描间隔，单位为秒。
+- `batch_size`：单个事务最多清理的消息数；每轮最多连续执行 10 个事务，既能追赶积压，
+  也避免长时间占用数据库。
+- 到期消息保留不含个人内容的 SeqId 墓碑，Topic 同步游标不会回退。
+- 附件引用解除后，由 `media.gc_period` 对 R2 中不再被引用的对象执行垃圾回收。
+- `business_policy.audit_endpoint` 对应的管理审计仍只写入文字，图片、语音、视频和文件
+  不进入审计库；商城审计接口继续按 90 天过滤并清除过期记录。
+
 ## 独立管理后台
 
 管理 API 不再挂载到聊天进程。两个程序使用不同入口和配置：

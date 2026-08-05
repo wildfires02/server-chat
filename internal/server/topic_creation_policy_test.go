@@ -43,3 +43,16 @@ func TestTopicCreationAllowedByTrusted(t *testing.T) {
 		})
 	}
 }
+
+func TestTopicCreationRequestIncludesGroupsAndChannels(t *testing.T) {
+	for _, topic := range []string{"new", "new123", "nch", "nch123"} {
+		if !isTopicCreationRequest(topic) {
+			t.Fatalf("%q 应被识别为 Topic 创建请求", topic)
+		}
+	}
+	for _, topic := range []string{"grpExisting", "chnExisting", "usrExisting"} {
+		if isTopicCreationRequest(topic) {
+			t.Fatalf("%q 不应被识别为 Topic 创建请求", topic)
+		}
+	}
+}

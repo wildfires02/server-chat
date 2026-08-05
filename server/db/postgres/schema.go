@@ -310,6 +310,7 @@ func (a *adapter) CreateDb(reset bool) error {
 		CREATE UNIQUE INDEX messages_topic_seqid ON messages(topic, seqid);
 		CREATE UNIQUE INDEX messages_topic_clientkey ON messages(topic, clientkey);
 		CREATE INDEX messages_topic_updatedat_seqid ON messages(topic,updatedat,seqid);
+		CREATE INDEX messages_retention_createdat ON messages(createdat,id) WHERE deletedat IS NULL;
 		COMMENT ON TABLE messages IS '已进入Topic序列的持久化消息';
 		COMMENT ON COLUMN messages.id IS '消息内部记录ID';
 		COMMENT ON COLUMN messages.createdat IS '消息创建时间';
@@ -728,6 +729,17 @@ func (a *adapter) UpgradeDb() error {
 			return err
 		}
 		if err := bumpVersion(a, 122); err != nil {
+			return err
+		}
+	}
+
+	if a.version == 122 {
+		// 数据库 122→123：只索引尚未清理的消息，支持按创建时间稳定分批清理。
+		if _, err := a.db.Exec(ctx,
+			"CREATE INDEX IF NOT EXISTS messages_retention_createdat ON messages(createdat,id) WHERE deletedat IS NULL"); err != nil {
+			return err
+		}
+		if err := bumpVersion(a, 123); err != nil {
 			return err
 		}
 	}

@@ -567,6 +567,50 @@ func (a *adapter) MessageDeleteList(topic string, toDel *t.DelMessage) error {
 	return nil
 }
 
+// MessageRetireExpired 分批清除超过保留期的消息正文和附件引用。
+func (a *adapter) MessageRetireExpired(cutoff time.Time, limit int) ([]t.Uid, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+	query := rdb.DB(a.dbName).Table("messages").
+		Between(rdb.MinVal, cutoff, rdb.BetweenOpts{Index: "CreatedAt", RightBound: "open"}).
+		Filter(rdb.Row.HasFields("DelId").Not()).
+		OrderBy(rdb.OrderByOpts{Index: "CreatedAt"}).Limit(limit)
+	cursor, err := query.Pluck("Id").Run(a.conn)
+	if err != nil {
+		return nil, err
+	}
+	var rows []struct {
+		ID string `gorethink:"Id"`
+	}
+	if err = cursor.All(&rows); err != nil {
+		cursor.Close()
+		return nil, err
+	}
+	cursor.Close()
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	ids := make([]any, 0, len(rows))
+	messageIDs := make([]t.Uid, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.ID)
+		messageIDs = append(messageIDs, t.ParseUid(row.ID))
+	}
+	selected := rdb.DB(a.dbName).Table("messages").GetAll(ids...)
+	if err = a.decFileUseCounter(selected); err != nil {
+		return nil, err
+	}
+	if _, err = selected.Update(map[string]any{
+		"DeletedAt": t.TimeNow(), "DelId": -1, "From": "", "ClientId": nil,
+		"ClientKey": nil, "Head": nil, "Content": nil, "SearchText": nil,
+		"Attachments": nil,
+	}).RunWrite(a.conn); err != nil {
+		return nil, err
+	}
+	return messageIDs, nil
+}
+
 // deviceHasher 完成设备Hasher所需的内部处理。
 func deviceHasher(deviceID string) string {
 	// 生成自定义密钥作为 [64 位设备 ID 哈希] 以确保密钥长度可预测

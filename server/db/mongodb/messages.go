@@ -520,6 +520,52 @@ func (a *adapter) MessageDeleteList(topic string, toDel *t.DelMessage) error {
 	return nil
 }
 
+// MessageRetireExpired 分批清除超过保留期的消息正文和附件引用。
+func (a *adapter) MessageRetireExpired(cutoff time.Time, limit int) ([]t.Uid, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+	filter := b.M{"createdat": b.M{"$lt": cutoff}, "delid": b.M{"$exists": false}}
+	cursor, err := a.db.Collection("messages").Find(a.ctx, filter,
+		mdbopts.Find().SetProjection(b.M{"_id": 1}).SetSort(b.D{{Key: "createdat", Value: 1}}).
+			SetLimit(int64(limit)))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(a.ctx)
+	var ids []string
+	for cursor.Next(a.ctx) {
+		var row struct {
+			ID string `bson:"_id"`
+		}
+		if err = cursor.Decode(&row); err != nil {
+			return nil, err
+		}
+		ids = append(ids, row.ID)
+	}
+	if err = cursor.Err(); err != nil || len(ids) == 0 {
+		return nil, err
+	}
+	selected := b.M{"_id": b.M{"$in": ids}}
+	if err = a.decFileUseCounter(a.ctx, "messages", selected); err != nil {
+		return nil, err
+	}
+	if _, err = a.db.Collection("messages").UpdateMany(a.ctx, selected, b.M{
+		"$set": b.M{
+			"deletedat": t.TimeNow(), "delid": -1, "from": "", "head": nil,
+			"content": nil, "searchtext": "", "attachments": nil,
+		},
+		"$unset": b.M{"clientid": "", "clientkey": ""},
+	}); err != nil {
+		return nil, err
+	}
+	messageIDs := make([]t.Uid, 0, len(ids))
+	for _, id := range ids {
+		messageIDs = append(messageIDs, t.ParseUid(id))
+	}
+	return messageIDs, nil
+}
+
 // MessageGetDeleted returns a list of deleted 消息 Ids.
 func (a *adapter) MessageGetDeleted(topic string, forUser t.Uid, opts *t.QueryOpt) ([]t.DelMessage, error) {
 	var limit = a.maxResults

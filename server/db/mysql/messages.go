@@ -712,3 +712,57 @@ func (a *adapter) MessageDeleteList(topic string, toDel *t.DelMessage) (err erro
 
 	return tx.Commit()
 }
+
+// MessageRetireExpired 分批清除超过保留期的消息正文和附件关联。
+func (a *adapter) MessageRetireExpired(cutoff time.Time, limit int) (messageIDs []t.Uid, err error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+	ctx, cancel := a.getContextForTx()
+	if cancel != nil {
+		defer cancel()
+	}
+	tx, err := a.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var rawIDs []int64
+	if err = tx.SelectContext(ctx, &rawIDs,
+		"SELECT id FROM messages WHERE createdat<? AND deletedat IS NULL ORDER BY createdat,id LIMIT ? FOR UPDATE",
+		cutoff, limit); err != nil || len(rawIDs) == 0 {
+		if err == nil {
+			err = tx.Commit()
+		}
+		return nil, err
+	}
+	deleteQuery, deleteArgs, err := sqlx.In("DELETE FROM filemsglinks WHERE msgid IN (?)", rawIDs)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = tx.ExecContext(ctx, tx.Rebind(deleteQuery), deleteArgs...); err != nil {
+		return nil, err
+	}
+	updateQuery, updateArgs, err := sqlx.In(
+		"UPDATE messages SET deletedat=?,delid=-1,`from`=0,clientid=NULL,clientkey=NULL,head=NULL,content=NULL,searchtext=NULL WHERE id IN (?)",
+		t.TimeNow(), rawIDs)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = tx.ExecContext(ctx, tx.Rebind(updateQuery), updateArgs...); err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+	messageIDs = make([]t.Uid, 0, len(rawIDs))
+	for _, id := range rawIDs {
+		messageIDs = append(messageIDs, t.Uid(id))
+	}
+	return messageIDs, nil
+}

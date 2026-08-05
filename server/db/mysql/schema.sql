@@ -23,7 +23,7 @@ CREATE TABLE kvmeta(
 	INDEX kvmeta_createdat_key(createdat, `key`)
 ) COMMENT='数据库版本及全局键值元数据';
 
-INSERT INTO kvmeta(`key`, `value`) VALUES("version", "122");
+INSERT INTO kvmeta(`key`, `value`) VALUES("version", "123");
 
 CREATE TABLE users(
 	id 			BIGINT NOT NULL COMMENT '用户唯一ID',
@@ -171,7 +171,8 @@ CREATE TABLE messages(
 	FOREIGN KEY(topic) REFERENCES topics(name),
 	UNIQUE INDEX messages_topic_seqid (topic, seqid),
 	UNIQUE INDEX messages_topic_clientkey (topic, clientkey),
-	INDEX messages_topic_updatedat_seqid(topic, updatedat, seqid)
+	INDEX messages_topic_updatedat_seqid(topic, updatedat, seqid),
+	INDEX messages_retention_deletedat_createdat(deletedat, createdat, id)
 ) COMMENT='已进入Topic序列的持久化消息';
 
 # 定时消息在真正投递时才获取 Topic seqid。

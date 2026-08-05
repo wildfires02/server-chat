@@ -224,7 +224,8 @@ func (a *adapter) CreateDb(reset bool) error {
 			FOREIGN KEY(topic) REFERENCES topics(name),
 			UNIQUE INDEX messages_topic_seqid(topic, seqid),
 			UNIQUE INDEX messages_topic_clientkey(topic, clientkey),
-			INDEX messages_topic_updatedat_seqid(topic,updatedat,seqid)
+			INDEX messages_topic_updatedat_seqid(topic,updatedat,seqid),
+			INDEX messages_retention_deletedat_createdat(deletedat,createdat,id)
 		) COMMENT='已进入Topic序列的持久化消息'`); err != nil {
 		return err
 	}
@@ -706,6 +707,24 @@ func (a *adapter) UpgradeDb() error {
 			return err
 		}
 		if err := bumpVersion(a, 122); err != nil {
+			return err
+		}
+	}
+
+	if a.version == 122 {
+		// 数据库 122→123：为按保留期分批清理消息增加覆盖筛选与排序的索引。
+		var indexCount int
+		if err := a.db.Get(&indexCount, `SELECT COUNT(*) FROM information_schema.statistics
+			WHERE table_schema=DATABASE() AND table_name='messages'
+			AND index_name='messages_retention_deletedat_createdat'`); err != nil {
+			return err
+		}
+		if indexCount == 0 {
+			if _, err := a.db.Exec("CREATE INDEX messages_retention_deletedat_createdat ON messages(deletedat,createdat,id)"); err != nil {
+				return err
+			}
+		}
+		if err := bumpVersion(a, 123); err != nil {
 			return err
 		}
 	}

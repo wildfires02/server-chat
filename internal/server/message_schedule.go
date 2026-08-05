@@ -31,6 +31,11 @@ func (t *Topic) scheduleMessage(
 		return types.ErrPermissionDenied
 	}
 	scope := businessPolicyAction(head, content, attachments)
+	// 定时发送必须与即时发送执行相同的 P2P 关系、群文档和群通话能力校验，
+	// 防止通过排队路径绕过业务权限。
+	if err := t.authorizeBusinessAction(asUid, scope); err != nil {
+		return types.ErrPolicy
+	}
 	if err := t.checkOfficialPublish(asUid, scope, msg.Timestamp); err != nil {
 		return err
 	}

@@ -128,8 +128,12 @@ func TestExampleYAMLConfig(t *testing.T) {
 	if config.Firebase.CredentialFile != "./firebase-adminsdk.json" {
 		t.Fatalf("Firebase Admin 凭据路径不正确：%q", config.Firebase.CredentialFile)
 	}
-	if config.Firebase.Enabled || config.Firebase.TimeToLive != 3600 {
+	if !config.Firebase.Enabled || config.Firebase.TimeToLive != 3600 {
 		t.Fatalf("Firebase 推送配置不正确：%+v", config.Firebase)
+	}
+	if config.MessageRetention == nil || !config.MessageRetention.Enabled ||
+		config.MessageRetention.Days != 90 {
+		t.Fatalf("消息保留期配置不正确：%+v", config.MessageRetention)
 	}
 	if !config.Calls.Enabled || config.Calls.AppID == "" || config.Calls.AppCertificate == "" {
 		t.Fatalf("Agora 通话配置不正确：%+v", config.Calls)

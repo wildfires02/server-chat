@@ -243,7 +243,7 @@ func (s *Session) dispatch(msg *ClientComMessage) {
 
 // subscribe 处理订阅 Topic 请求。
 func (s *Session) subscribe(msg *ClientComMessage) {
-	isTopicCreation := strings.HasPrefix(msg.Original, "new") || strings.HasPrefix(msg.Original, "nch")
+	isTopicCreation := isTopicCreationRequest(msg.Original)
 	if isTopicCreation && s.authLvl != auth.LevelRoot {
 		allowed, err := canCreateManagedTopic(s.uid)
 		if err != nil {
@@ -283,6 +283,10 @@ func (s *Session) subscribe(msg *ClientComMessage) {
 			logs.Err.Println("s.subscribe: hub.join 队列已满, topic ", msg.RcptTo, s.sid)
 		}
 	}
+}
+
+func isTopicCreationRequest(topic string) bool {
+	return strings.HasPrefix(topic, "new") || strings.HasPrefix(topic, "nch")
 }
 
 // leave 处理离开/退订 Topic 请求。

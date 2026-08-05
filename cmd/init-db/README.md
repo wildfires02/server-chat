@@ -52,7 +52,7 @@ go build -tags rethinkdb -o bin/init-db ./cmd/init-db
 如果 `im-server` 报错：
 
 ```text
-Invalid database version 121. Expected 122
+Invalid database version 122. Expected 123
 ```
 
 应使用目标版本代码执行 `--upgrade=true`。禁止只修改 `kvmeta` 版本值，因为

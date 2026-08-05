@@ -1073,6 +1073,21 @@ func (mr *MockMessagesPersistenceInterfaceMockRecorder) DeleteList(topic, delID,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteList", reflect.TypeOf((*MockMessagesPersistenceInterface)(nil).DeleteList), topic, delID, forUser, msgDelAge, ranges)
 }
 
+// RetireExpired 模拟基础方法。
+func (m *MockMessagesPersistenceInterface) RetireExpired(cutoff time.Time, limit int) ([]types.Uid, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RetireExpired", cutoff, limit)
+	ret0, _ := ret[0].([]types.Uid)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RetireExpired 表示预期调用。
+func (mr *MockMessagesPersistenceInterfaceMockRecorder) RetireExpired(cutoff, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RetireExpired", reflect.TypeOf((*MockMessagesPersistenceInterface)(nil).RetireExpired), cutoff, limit)
+}
+
 // 获取所有模拟基础方法。
 func (m *MockMessagesPersistenceInterface) GetAll(topic string, forUser types.Uid, opt *types.QueryOpt) ([]types.Message, error) {
 	m.ctrl.T.Helper()

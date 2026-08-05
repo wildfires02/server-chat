@@ -279,6 +279,29 @@ func (client *businessPolicyClient) authorizeUIDs(actor, target types.Uid, actio
 	return nil
 }
 
+// authorizeActor 校验不依赖具体接收者的发送者能力。
+// 商城策略会先执行 document/call 等动作级限制，再处理 self 放行。
+func (client *businessPolicyClient) authorizeActor(actor types.Uid, action, topic string) error {
+	return client.authorizeUIDs(actor, actor, action, topic)
+}
+
+// authorizeBusinessAction 对所有消息入口执行一致的商城动作权限校验。
+// 群普通消息和媒体仍由 Topic ACL 控制，群文档与群通话还要求发送者具备对应能力。
+func (t *Topic) authorizeBusinessAction(actor types.Uid, action string) error {
+	if globals.businessPolicy == nil {
+		return nil
+	}
+	switch t.cat {
+	case types.TopicCatP2P:
+		return globals.businessPolicy.authorizeUIDs(actor, t.p2pOtherUser(actor), action, t.name)
+	case types.TopicCatGrp:
+		if action == "document" || action == "call" {
+			return globals.businessPolicy.authorizeActor(actor, action, t.name)
+		}
+	}
+	return nil
+}
+
 func (client *businessPolicyClient) evaluate(ctx context.Context,
 	request businessPolicyRequest) (businessPolicyDecision, error) {
 	key := request.Provider + "\x00" + request.ActorExternalID + "\x00" +

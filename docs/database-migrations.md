@@ -1,13 +1,32 @@
 # 数据库版本、迁移记录与固定操作流程
 
 > 文档类型：运维与开发规范  
-> 当前数据库版本：`122`  
+> 当前数据库版本：`123`
+>
 > 版本含义：服务端持久化结构修订号，不是产品版本或协议版本
 
 本文档必须记录每一次数据库版本变化的原因、结构差异、升级方式、验证方法和回滚
 影响。以后新增数据库版本时，代码和本页必须在同一个变更中更新。
 
-## 1. 为什么会从 `121` 升级到 `122`
+## 1. 为什么会从 `122` 升级到 `123`
+
+聊天记录现在执行统一的 90 天保留策略。清理任务会持续查找“尚未清理且创建时间
+早于截止时间”的消息，并按创建时间、消息 ID 分批处理。如果没有专用索引，消息量
+增长后每轮清理都可能扫描并排序整张消息表，影响在线收发消息。
+
+版本 `123` 因此只增加清理索引，不修改消息协议：
+
+| 适配器 | 新结构 |
+| --- | --- |
+| MySQL | `messages_retention_deletedat_createdat(deletedat, createdat, id)` |
+| PostgreSQL | `messages_retention_createdat(createdat, id) WHERE deletedat IS NULL` |
+| MongoDB | `messages.createdat` 索引 |
+| RethinkDB | `messages.CreatedAt` 二级索引 |
+
+迁移不删除历史消息；服务启动后才由 `message_retention` 后台任务按配置分批清理。
+因此升级本身可安全执行，但回滚旧二进制仍受严格版本检查限制。
+
+### 历史说明：为什么会从 `121` 升级到 `122`
 
 群消息 Seen by 需要回答两个不同问题：
 
@@ -68,6 +87,7 @@
 | `119 → 120` | 集群 Topic Owner 隔离栅栏 | 为 Topic 增加 `clusterowner` 与 `clusterepoch`。 |
 | `120 → 121` | 官方大群成员游标分页 | MongoDB、RethinkDB 增加 Topic + User 复合索引；MySQL、PostgreSQL 复用已有唯一索引并同步版本。 |
 | `121 → 122` | 群消息 Seen by 阅读时间 | 为订阅增加滚动 `readhistory` 阅读检查点。 |
+| `122 → 123` | 90 天聊天记录保留 | 为四种数据库增加消息保留任务使用的时间索引，避免定时全表扫描。 |
 
 新增 `123` 或更高版本时，必须在此表追加一行，不能只在迁移代码中留注释。
 
@@ -174,22 +194,22 @@ go test -tags rethinkdb ./server/db/rethinkdb
 
 ## 5. 部署者每次升级怎么做
 
-以下是所有版本升级的固定流程，不限于 `121 → 122`。
+以下是所有版本升级的固定流程，不限于某一次具体迁移。
 
 ### 5.1 确认目标
 
 先从启动日志确认：
 
 ```text
-DB adapter mysql 122
-Invalid database version 121. Expected 122
+DB adapter mysql 123
+Invalid database version 122. Expected 123
 ```
 
 含义是：
 
-- 当前二进制要求 `122`。
-- 当前数据库仍是 `121`。
-- 必须执行 `121 → 122` 迁移。
+- 当前二进制要求 `123`。
+- 当前数据库仍是 `122`。
+- 必须执行 `122 → 123` 迁移。
 
 如果数据库版本大于二进制要求，禁止降级运行旧二进制。
 
@@ -234,14 +254,21 @@ PostgreSQL、MongoDB、RethinkDB 分别替换对应 build tag。
 Database successfully upgraded.
 ```
 
-然后检查版本及本次新增结构。以 `121 → 122` 的 MySQL 为例：
+然后检查版本及本次新增结构。历史 `121 → 122` 的 MySQL 检查方式为：
 
 ```sql
 SELECT `value` FROM kvmeta WHERE `key` = 'version';
 SHOW COLUMNS FROM subscriptions LIKE 'readhistory';
 ```
 
-版本应为 `122`，并且 `readhistory` 存在。
+对于当前 `122 → 123` 迁移，MySQL 应验证：
+
+```sql
+SELECT `value` FROM kvmeta WHERE `key` = 'version';
+SHOW INDEX FROM messages WHERE Key_name = 'messages_retention_deletedat_createdat';
+```
+
+版本应为 `123`，并且消息保留索引存在。
 
 ### 5.5 启动目标服务并验证
 
@@ -288,7 +315,7 @@ curl --fail http://127.0.0.1:6060/readyz
 2. 执行经过测试的反向迁移。
 3. 恢复升级前数据库备份。
 
-当前 `121 → 122` 是新增可空字段，但旧二进制仍会因严格版本校验拒绝启动。
+当前 `122 → 123` 只新增索引，但旧二进制仍会因严格版本校验拒绝启动。
 因此即使 DDL 本身向后兼容，也需要兼容二进制或备份恢复方案。
 
 ## 8. 禁止事项

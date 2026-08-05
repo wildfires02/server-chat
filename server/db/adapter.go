@@ -184,6 +184,8 @@ type Adapter interface {
 	// MessageDeleteList 将消息标记为已删除。
 	// 软删除或硬删除由 forUser 值决定：forUser.IsZero == true 为硬删除。
 	MessageDeleteList(topic string, toDel *t.DelMessage) error
+	// MessageRetireExpired 清除过期消息正文并解除附件引用。
+	MessageRetireExpired(cutoff time.Time, limit int) ([]t.Uid, error)
 	// MessageGetDeleted 返回已删除的消息 ID 列表。
 	MessageGetDeleted(topic string, forUser t.Uid, opts *t.QueryOpt) ([]t.DelMessage, error)
 	// MessageSearch 在单个 Topic 中按正文、发送者、类型、日期和游标搜索消息。

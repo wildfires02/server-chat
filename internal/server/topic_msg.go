@@ -68,17 +68,17 @@ func (t *Topic) saveAndBroadcastMessage(msg *ClientComMessage, asUid types.Uid, 
 		}
 	}
 	scope := businessPolicyAction(head, content, attachments)
-	if t.cat == types.TopicCatP2P && globals.businessPolicy != nil {
-		if err := globals.businessPolicy.authorizeUIDs(asUid, t.p2pOtherUser(asUid), scope, t.name); err != nil {
+	if globals.businessPolicy != nil {
+		if policyErr := t.authorizeBusinessAction(asUid, scope); policyErr != nil {
 			if msg.sess != nil {
-				if errors.Is(err, errBusinessPolicyUnavailable) || errors.Is(err, errBusinessPolicyRateLimited) {
+				if errors.Is(policyErr, errBusinessPolicyUnavailable) || errors.Is(policyErr, errBusinessPolicyRateLimited) {
 					msg.sess.queueOut(ErrServiceUnavailableExplicitTs(
 						msg.Id, t.original(asUid), msg.Timestamp, msg.Timestamp))
 				} else {
 					msg.sess.queueOut(ErrPermissionDenied(msg.Id, t.original(asUid), msg.Timestamp))
 				}
 			}
-			return err
+			return policyErr
 		}
 	}
 	if err := t.checkOfficialPublish(asUid, scope, types.TimeNow()); err != nil {

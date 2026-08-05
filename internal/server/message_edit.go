@@ -56,13 +56,11 @@ func (t *Topic) editMessage(msg *ClientComMessage, asUid types.Uid) error {
 		head[key] = value
 	}
 	head[headMessageKind] = info.Kind
-	if t.cat == types.TopicCatP2P && globals.businessPolicy != nil {
-		if err = globals.businessPolicy.authorizeUIDs(
-			asUid, t.p2pOtherUser(asUid),
-			businessPolicyAction(head, pub.Content, attachments), t.name,
-		); err != nil {
-			return types.ErrPolicy
-		}
+	// 编辑后的消息类型重新执行权限校验，不能把普通文本改成无权发送的文档。
+	if err = t.authorizeBusinessAction(
+		asUid, businessPolicyAction(head, pub.Content, attachments),
+	); err != nil {
+		return types.ErrPolicy
 	}
 	now := types.TimeNow()
 	head[headEditedAt] = now.Format(time.RFC3339Nano)

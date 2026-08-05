@@ -133,6 +133,11 @@ func (a *adapter) CreateDb(reset bool) error {
 			Collection: "messages",
 			IndexOpts:  mdb.IndexModel{Keys: b.D{{Key: "topic", Value: 1}, {Key: "updatedat", Value: 1}, {Key: "seqid", Value: 1}}},
 		},
+		// 90 天消息保留任务按创建时间分批扫描。
+		{
+			Collection: "messages",
+			IndexOpts:  mdb.IndexModel{Keys: b.D{{Key: "createdat", Value: 1}}},
+		},
 		// scheduledmessages 保存尚未分配 Topic SeqId 的定时消息快照。
 		// MongoDB 没有关系型数据库的表/字段 COMMENT，集合用途记录在此处。
 		// 唯一索引保证同一发送者的 cid 重试不会创建第二条队列记录。
@@ -388,6 +393,18 @@ func (a *adapter) UpgradeDb() error {
 
 	if a.version == 121 {
 		if err := bumpVersion(a, 122); err != nil {
+			return err
+		}
+	}
+
+	if a.version == 122 {
+		// 数据库 122→123：为按保留期分批清理消息增加创建时间索引。
+		if _, err := a.db.Collection("messages").Indexes().CreateOne(a.ctx, mdb.IndexModel{
+			Keys: b.D{{Key: "createdat", Value: 1}},
+		}); err != nil {
+			return err
+		}
+		if err := bumpVersion(a, 123); err != nil {
 			return err
 		}
 	}

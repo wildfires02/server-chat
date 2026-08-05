@@ -30,6 +30,8 @@ type MessagesPersistenceInterface interface {
 	DeleteScheduled(id, topic string, from types.Uid) error
 	// DeleteList 删除或清理List。
 	DeleteList(topic string, delID int, forUser types.Uid, msgDelAge time.Duration, ranges []types.Range) error
+	// RetireExpired 清除过期消息正文并解除附件引用，返回被清理的消息 ID。
+	RetireExpired(cutoff time.Time, limit int) ([]types.Uid, error)
 	// GetAll 查询并返回All。
 	GetAll(topic string, forUser types.Uid, opt *types.QueryOpt) ([]types.Message, error)
 	// GetLatest 批量查询每个 Topic 对当前用户可见的最后一条消息。
@@ -152,6 +154,21 @@ func (messagesMapper) DeleteList(topic string, delID int, forUser types.Uid, msg
 		}
 	}
 	return nil
+}
+
+// RetireExpired 清除超过保留期的持久化消息内容。
+// Topic 的 SeqId 不会回退；旧消息保留墓碑以维持同步游标连续性。
+func (messagesMapper) RetireExpired(cutoff time.Time, limit int) ([]types.Uid, error) {
+	messageIDs, err := adp.MessageRetireExpired(cutoff, limit)
+	if err != nil {
+		return nil, err
+	}
+	for _, messageID := range messageIDs {
+		if err := RevokeFileMessageAccess(messageID); err != nil {
+			logs.Warn.Printf("failed to revoke file ACL for expired message %s: %v", messageID, err)
+		}
+	}
+	return messageIDs, nil
 }
 
 // GetAll 返回多条消息。

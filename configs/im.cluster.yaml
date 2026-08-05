@@ -24,6 +24,13 @@ max_message_size: 4194304
 max_subscriber_count: 10000
 max_tag_count: 32
 p2p_delete_enabled: true
+
+# 聊天主库最多保留 90 天；到期媒体解除引用后由对象存储垃圾回收删除。
+message_retention:
+  enabled: true
+  days: 90
+  scan_period: 300
+  batch_size: 5000
 alias_tag: alias
 
 # 商城是客户归属、私聊和通话权限的事实源。

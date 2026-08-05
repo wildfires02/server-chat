@@ -19,6 +19,13 @@ max_message_size: 4194304
 max_subscriber_count: 1000
 max_tag_count: 32
 p2p_delete_enabled: true
+
+# 聊天主库最多保留 90 天；数据库事务保证多个节点不会重复清理同一批消息。
+message_retention:
+  enabled: true
+  days: 90
+  scan_period: 300
+  batch_size: 1000
 alias_tag: alias
 
 # 本地集群与单机配置使用同一个 Cloudflare R2 桶，避免节点本地文件不一致。

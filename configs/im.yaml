@@ -22,6 +22,14 @@ max_message_size: 131072
 max_subscriber_count: 128
 # 是否允许删除点对点会话中的消息。
 p2p_delete_enabled: true
+
+# 聊天主库最多保留 90 天；到期后正文、发送者和附件引用会被清除。
+# 管理后台倒查使用独立的纯文字审计库，不会保存图片、语音、视频或文件正文。
+message_retention:
+  enabled: true
+  days: 90
+  scan_period: 300
+  batch_size: 1000
 # 用户和 Topic 别名使用的标签命名空间。
 alias_tag: alias
 

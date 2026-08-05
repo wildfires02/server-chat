@@ -60,6 +60,7 @@ func Run() {
 
 	defer startServerMedia(&config)()
 	defer startAccountGarbageCollector(config.AccountGC)()
+	defer startMessageRetention(config.MessageRetention)()
 	defer startServerPush(config.Firebase, config.PushAlerts)()
 
 	if err := initVideoCalls(config.Calls); err != nil {

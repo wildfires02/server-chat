@@ -7,6 +7,7 @@
 package server
 
 import (
+	"errors"
 	"strconv"
 	"time"
 
@@ -203,12 +204,31 @@ func (t *Topic) handleCallEvent(msg *ClientComMessage) {
 		}
 		return
 	}
-	// P2P 接听、加入和 Token 续期都重新检查业务关系。
-	// 挂断始终允许，避免客户转移或账号停用后残留无法结束的通话。
-	if t.cat == types.TopicCatP2P && msg.Note.Event != constCallEventHangUp && globals.businessPolicy != nil {
-		if err := globals.businessPolicy.authorizeUIDs(asUid, t.p2pOtherUser(asUid), "call", t.name); err != nil {
+	// 接听、加入和 Token 续期都重新检查业务关系。
+	// 群通话邀请已经限制为内部账号发起；成员加入时继续校验其与发起人的业务关系。
+	// 离开和挂断始终允许，避免客户转移或账号停用后残留无法结束的通话。
+	if msg.Note.Event != constCallEventHangUp && msg.Note.Event != constCallEventLeave &&
+		globals.businessPolicy != nil {
+		var policyErr error
+		switch t.cat {
+		case types.TopicCatP2P:
+			policyErr = globals.businessPolicy.authorizeUIDs(asUid, t.p2pOtherUser(asUid), "call", t.name)
+		case types.TopicCatGrp:
+			originator, _ := t.getCallOriginator()
+			if originator.IsZero() {
+				policyErr = types.ErrPolicy
+			} else {
+				policyErr = globals.businessPolicy.authorizeUIDs(asUid, originator, "call", t.name)
+			}
+		}
+		if policyErr != nil {
 			if msg.sess != nil {
-				msg.sess.queueOut(ErrPermissionDeniedReply(msg, types.TimeNow()))
+				if errors.Is(policyErr, errBusinessPolicyUnavailable) ||
+					errors.Is(policyErr, errBusinessPolicyRateLimited) {
+					msg.sess.queueOut(ErrServiceUnavailableReply(msg, types.TimeNow()))
+				} else {
+					msg.sess.queueOut(ErrPermissionDeniedReply(msg, types.TimeNow()))
+				}
 			}
 			return
 		}
